@@ -153,6 +153,31 @@
 </style>
 </head>
 <body>
+<script>
+/* Capteur d'erreurs visible : si un script échoue (notamment sur mobile),
+   le message s'affiche en haut de l'écran au lieu d'un échec silencieux. */
+(function () {
+  function montrer(msg) {
+    try {
+      var b = document.getElementById("err-bandeau");
+      if (!b) { b = document.createElement("div"); b.id = "err-bandeau";
+        b.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:9999;background:#9a2828;color:#fff;font:12px/1.4 system-ui,sans-serif;padding:8px 12px;white-space:pre-wrap;max-height:40vh;overflow:auto";
+        b.onclick = function () { b.style.display = "none"; };
+        (document.body || document.documentElement).appendChild(b);
+      }
+      b.style.display = "block";
+      b.textContent = "\u26a0 " + msg + "  (toucher pour fermer)";
+    } catch (e) {}
+  }
+  window.addEventListener("error", function (e) {
+    montrer((e && e.message ? e.message : "erreur") + (e && e.filename && e.lineno ? " \u2014 ligne " + e.lineno : ""));
+  });
+  window.addEventListener("unhandledrejection", function (e) {
+    montrer("promesse rejetee : " + (e && e.reason && e.reason.message ? e.reason.message : e.reason));
+  });
+})();
+</script>
+
 
 <!-- ===================== MODE CONSOLE ===================== -->
 <div id="mode-console">
@@ -180,8 +205,8 @@
       </div>
       <span class="annee-wrap">Année <input id="champ-annee" type="text" value="2026-2027"></span>
       <div class="pousse">
-        <button id="btn-apercu" class="btn ghost sm">Aperçu signataire ↗</button>
-        <button id="btn-conv-complete" class="btn ghost sm">Convention complète (test) ↗</button>
+        <button id="btn-apercu" class="btn ghost sm" onclick="window.__apercuSignataire && window.__apercuSignataire()">Aperçu signataire ↗</button>
+        <button id="btn-conv-complete" class="btn ghost sm" onclick="window.__conventionComplete && window.__conventionComplete()">Convention complète (test) ↗</button>
         <button id="btn-autosave" class="btn ghost sm">💾 Auto-sauvegarde : ON</button>
         <button id="btn-export-json" class="btn ghost sm">Exporter (.json)</button>
         <span class="btn ghost sm file-btn">Reprendre…<input id="file-import-json" type="file" accept=".json"></span>
@@ -4196,7 +4221,7 @@ window.DEPOUILLEMENT = (function () {
     f.addEventListener("change", function () { if (f.files[0]) importerExcel(f.files[0]); });
 
     // Tuteurs (liste interactive)
-    bindTuteurs();
+    try { bindTuteurs(); } catch (e) { if (window.console) console.error("bindTuteurs:", e); }
     document.querySelectorAll("[data-attrib]").forEach(function (b) {
       b.addEventListener("click", function () {
         var mode = b.getAttribute("data-attrib");
@@ -4214,19 +4239,7 @@ window.DEPOUILLEMENT = (function () {
     });
     $("btn-autosave").addEventListener("click", basculerAutoSave);
 
-    // Aperçu signataire : bascule dans le même onglet (pas d'ouverture de fichier)
-    $("btn-apercu").addEventListener("click", function () {
-      $("mode-console").hidden = true;
-      $("mode-signataire").hidden = false;
-      $("apercu-banner").hidden = false;
-      window.SIGNATAIRE.init("APERCU-01", { e: "Aperçu Élève", n: "01/01/2012", t: "Mme Bernard",
-        p: { n: "MARTIN Sophie", t: "06 12 34 56 78", m: "sophie.martin@example.fr", a: "5 place de l'Église, 49700 Doué-en-Anjou" } },
-        STATE.annee, LIEN_DEPOT_NUAGE);
-      window.scrollTo(0, 0);
-    });
-    $("btn-conv-complete").addEventListener("click", function () {
-      if (window.SIGNATAIRE) window.SIGNATAIRE.apercuConventionComplete();
-    });
+    // Aperçu signataire & convention complète : câblés en onclick inline (robuste)
 
     // Dépouillement
     var fz = $("file-zip");
@@ -4806,6 +4819,20 @@ window.DEPOUILLEMENT = (function () {
   // expose pour bouton "appliquer mapping" + fermeture modale + retour aperçu
   window.__appliquerImport = appliquerImport;
   window.__injecterTest = injecterTest;
+  window.__apercuSignataire = function () {
+    if (!window.SIGNATAIRE) { alert("Le module de signature n'a pas pu se charger. Rechargez la page (rechargement forcé)."); return; }
+    $("mode-console").hidden = true;
+    $("mode-signataire").hidden = false;
+    $("apercu-banner").hidden = false;
+    window.SIGNATAIRE.init("APERCU-01", { e: "Aperçu Élève", n: "01/01/2012", t: "Mme Bernard",
+      p: { n: "MARTIN Sophie", t: "06 12 34 56 78", m: "sophie.martin@example.fr", a: "5 place de l'Église, 49700 Doué-en-Anjou" } },
+      STATE.annee, LIEN_DEPOT_NUAGE);
+    window.scrollTo(0, 0);
+  };
+  window.__conventionComplete = function () {
+    if (!window.SIGNATAIRE) { alert("Le module de signature n'a pas pu se charger. Rechargez la page (rechargement forcé)."); return; }
+    window.SIGNATAIRE.apercuConventionComplete();
+  };
   window.__fermerModal = function () { $("modal").hidden = true; };
   window.__retourConsole = function () {
     $("mode-signataire").hidden = true;
