@@ -51,6 +51,19 @@
   label.fld{display:block;font-size:13px;color:var(--mut);margin-bottom:6px}
   textarea,select,input[type=text]{font:inherit;border:1px solid var(--ligne);border-radius:8px;padding:8px 10px;background:#fcfdfe;color:var(--encre)}
   textarea{width:100%;min-height:110px;resize:vertical}
+  /* Liste tuteurs */
+  #tuteurs-liste{display:flex;flex-direction:column;gap:8px}
+  .tut-ligne{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px;border:1px solid var(--ligne);border-radius:10px;background:#fcfdfe}
+  .tut-ligne .tut-nom{flex:1 1 160px;min-width:140px;font-weight:600}
+  .tut-ligne .tut-tel{flex:0 1 150px;min-width:120px}
+  .tut-ligne .tut-quot{flex:0 0 64px;width:64px;text-align:center;color:var(--bordeaux);font-weight:600}
+  .tut-cap{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--ligne);border-radius:8px;padding:3px 8px}
+  .tut-step{width:26px;height:26px;border-radius:6px;border:1px solid var(--nuit);background:#fff;color:var(--nuit);font-size:17px;line-height:1;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center}
+  .tut-step:hover{background:var(--nuit);color:#fff}
+  .tut-cap-val{min-width:22px;text-align:center;font-weight:700;color:var(--encre)}
+  .tut-cap-lbl{font-size:12px;color:var(--mut)}
+  .tut-del{margin-left:auto;width:28px;height:28px;border-radius:6px;border:1px solid var(--ligne);background:#fff;color:var(--bordeaux);font-size:18px;line-height:1;cursor:pointer;padding:0}
+  .tut-del:hover{background:var(--bordeaux);color:#fff;border-color:var(--bordeaux)}
   .hint{font-size:12.5px;color:var(--mut);margin:8px 0 0}
 
   .maprow{display:grid;grid-template-columns:160px 1fr;gap:10px;align-items:center;padding:5px 0;font-size:14px}
@@ -172,8 +185,9 @@
     <!-- 2 · Tuteurs -->
     <section class="carte">
       <h2><span class="num">2</span> Enseignants tuteurs &amp; attribution</h2>
-      <label class="fld" for="tuteurs-textarea">Un tuteur par ligne — format <b>Nom ; téléphone ; max</b> (téléphone et nombre max d'élèves optionnels)</label>
-      <textarea id="tuteurs-textarea" placeholder="Mme Martin ; 06 11 22 33 44&#10;M. Dupont ; 06 55 66 77 88 ; 3&#10;Mme Bernard ;  ; 3"></textarea>
+      <label class="fld">Liste des enseignants tuteurs. Règle d'un clic le nombre d'élèves que chacun peut suivre — un collègue à 80&nbsp;% en prend moins, laisse <b>∞</b> pour aucune limite.</label>
+      <div id="tuteurs-liste"></div>
+      <button class="btn ghost sm" id="btn-ajout-tuteur" type="button" style="margin-top:8px">+ Ajouter un tuteur</button>
       <p class="hint" style="margin-top:6px">Le <b>max</b> limite le nombre d'élèves attribués automatiquement (utile pour un enseignant à 80 %, sur deux établissements ou avec une seule classe).</p>
       <p class="hint" style="margin-bottom:10px">Attribution des tuteurs aux élèves :</p>
       <div class="seg">
@@ -3832,8 +3846,8 @@ window.DEPOUILLEMENT = (function () {
     annee: "2026-2027",
     niveauActif: "4e",
     niveaux: {
-      "4e": { eleves: [], tuteurs: [], tuteursTel: {}, tuteursMax: {}, modeAttribution: "manuel" },
-      "3e": { eleves: [], tuteurs: [], tuteursTel: {}, tuteursMax: {}, modeAttribution: "manuel" }
+      "4e": { eleves: [], tuteurs: [], tuteursTel: {}, tuteursMax: {}, tuteursQuotite: {}, modeAttribution: "manuel" },
+      "3e": { eleves: [], tuteurs: [], tuteursTel: {}, tuteursMax: {}, tuteursQuotite: {}, modeAttribution: "manuel" }
     }
   };
   var IMPORT = { headers: [], rows: [], mapping: {} };
@@ -3966,20 +3980,8 @@ window.DEPOUILLEMENT = (function () {
     var f = $("file-eleves");
     f.addEventListener("change", function () { if (f.files[0]) importerExcel(f.files[0]); });
 
-    // Tuteurs
-    $("tuteurs-textarea").addEventListener("input", function () {
-      var lignes = $("tuteurs-textarea").value.split("\n").map(function (s) { return s.trim(); }).filter(Boolean);
-      var noms = [], tels = {}, maxs = {};
-      lignes.forEach(function (l) {
-        var parts = l.split(/\s*[;|\t]\s*/);
-        var nom = (parts[0] || "").trim();
-        var tel = parts.length > 1 ? (parts[1] || "").trim() : "";
-        var mx = parts.length > 2 ? parseInt(parts[2], 10) : NaN;
-        if (nom) { noms.push(nom); if (tel) tels[nom] = tel; if (!isNaN(mx) && mx > 0) maxs[nom] = mx; }
-      });
-      nv().tuteurs = noms; nv().tuteursTel = tels; nv().tuteursMax = maxs;
-      sauverState("tuteurs");
-    });
+    // Tuteurs (liste interactive)
+    bindTuteurs();
     document.querySelectorAll("[data-attrib]").forEach(function (b) {
       b.addEventListener("click", function () {
         var mode = b.getAttribute("data-attrib");
@@ -4029,13 +4031,7 @@ window.DEPOUILLEMENT = (function () {
     document.querySelectorAll("[data-niveau]").forEach(function (b) {
       b.classList.toggle("actif", b.getAttribute("data-niveau") === STATE.niveauActif);
     });
-    $("tuteurs-textarea").value = nv().tuteurs.map(function (nom) {
-      var t = (nv().tuteursTel || {})[nom], m = (nv().tuteursMax || {})[nom];
-      var s = nom;
-      if (t || m) s += " ; " + (t || "");
-      if (m) s += " ; " + m;
-      return s;
-    }).join("\n");
+    renderTuteurs();
     majModeAttribution();
   }
   function majModeAttribution() {
@@ -4209,6 +4205,97 @@ window.DEPOUILLEMENT = (function () {
     toast(eleves.length + " élève(s) importé(s).");
   }
 
+  // ---- Liste interactive des tuteurs --------------------------------
+  function renderTuteurs() {
+    var cont = $("tuteurs-liste"); if (!cont) return;
+    var noms = nv().tuteurs || [], tel = nv().tuteursTel || {}, max = nv().tuteursMax || {}, quot = nv().tuteursQuotite || {};
+    if (!noms.length) {
+      cont.innerHTML = '<p class="hint" style="margin:4px 0 0">Aucun tuteur pour le moment. Ajoute-les avec le bouton ci-dessous.</p>';
+      return;
+    }
+    cont.innerHTML = noms.map(function (nom, i) {
+      var cap = max[nom] && max[nom] > 0 ? max[nom] : 0;
+      return '<div class="tut-ligne" data-i="' + i + '">'
+        + '<input class="tut-nom" type="text" placeholder="Nom du tuteur" value="' + esc(nom) + '">'
+        + '<input class="tut-tel" type="text" placeholder="Téléphone" value="' + esc(tel[nom] || "") + '">'
+        + '<div class="tut-cap" title="Nombre maximum d\'élèves suivis">'
+        + '<button class="tut-step" data-step="-1" type="button" aria-label="moins">−</button>'
+        + '<span class="tut-cap-val">' + (cap ? cap : "∞") + '</span>'
+        + '<button class="tut-step" data-step="1" type="button" aria-label="plus">+</button>'
+        + '<span class="tut-cap-lbl">élèves max</span></div>'
+        + '<input class="tut-quot" type="text" placeholder="100 %" value="' + esc(quot[nom] || "") + '" title="Quotité (facultatif) — ex. 80 %">'
+        + '<button class="tut-del" type="button" title="Retirer ce tuteur">×</button>'
+        + '</div>';
+    }).join("");
+  }
+
+  function renommerTuteur(i, ancien, neo) {
+    nv().tuteurs[i] = neo;
+    ["tuteursTel", "tuteursMax", "tuteursQuotite"].forEach(function (k) {
+      var map = nv()[k]; if (map && map[ancien] != null) { map[neo] = map[ancien]; delete map[ancien]; }
+    });
+    (nv().eleves || []).forEach(function (el) { if (el.tuteur === ancien) el.tuteur = neo; });
+    renderTuteurs(); renderEleves(); sauverState("tuteurs");
+  }
+
+  function retirerTuteur(i, nom) {
+    nv().tuteurs.splice(i, 1);
+    ["tuteursTel", "tuteursMax", "tuteursQuotite"].forEach(function (k) { var map = nv()[k]; if (map) delete map[nom]; });
+    (nv().eleves || []).forEach(function (el) { if (el.tuteur === nom) el.tuteur = ""; });
+    renderTuteurs(); renderEleves(); sauverState("tuteurs");
+  }
+
+  function bindTuteurs() {
+    var cont = $("tuteurs-liste"); if (!cont) return;
+    cont.addEventListener("input", function (e) {
+      var ligne = e.target.closest(".tut-ligne"); if (!ligne) return;
+      var i = +ligne.getAttribute("data-i"); var nom = nv().tuteurs[i]; if (nom == null) return;
+      if (e.target.classList.contains("tut-tel")) {
+        var v = e.target.value.trim(); nv().tuteursTel = nv().tuteursTel || {};
+        if (v) nv().tuteursTel[nom] = v; else delete nv().tuteursTel[nom];
+        sauverState("tuteurs");
+      } else if (e.target.classList.contains("tut-quot")) {
+        var q = e.target.value.trim(); nv().tuteursQuotite = nv().tuteursQuotite || {};
+        if (q) nv().tuteursQuotite[nom] = q; else delete nv().tuteursQuotite[nom];
+        sauverState("tuteurs");
+      }
+    });
+    cont.addEventListener("change", function (e) {
+      if (!e.target.classList.contains("tut-nom")) return;
+      var ligne = e.target.closest(".tut-ligne"); var i = +ligne.getAttribute("data-i");
+      var ancien = nv().tuteurs[i]; var neo = e.target.value.trim();
+      if (!neo) { e.target.value = ancien; return; }
+      if (neo === ancien) return;
+      if (nv().tuteurs.indexOf(neo) >= 0) { toast("Ce tuteur existe déjà.", true); e.target.value = ancien; return; }
+      renommerTuteur(i, ancien, neo);
+    });
+    cont.addEventListener("click", function (e) {
+      var ligne = e.target.closest(".tut-ligne"); if (!ligne) return;
+      var i = +ligne.getAttribute("data-i"); var nom = nv().tuteurs[i];
+      if (e.target.classList.contains("tut-step")) {
+        var d = +e.target.getAttribute("data-step");
+        nv().tuteursMax = nv().tuteursMax || {};
+        var cur = nv().tuteursMax[nom] || 0, neo = cur + d;
+        if (neo < 1) { delete nv().tuteursMax[nom]; neo = 0; } else nv().tuteursMax[nom] = neo;
+        ligne.querySelector(".tut-cap-val").textContent = neo ? neo : "∞";
+        if (nv().modeAttribution === "auto") { attribuerAuto(); renderEleves(); }
+        sauverState("tuteurs");
+      } else if (e.target.classList.contains("tut-del")) {
+        retirerTuteur(i, nom);
+      }
+    });
+    var btn = $("btn-ajout-tuteur");
+    if (btn) btn.addEventListener("click", function () {
+      nv().tuteurs = nv().tuteurs || [];
+      var base = "Nouveau tuteur", nom = base, k = 2;
+      while (nv().tuteurs.indexOf(nom) >= 0) nom = base + " " + (k++);
+      nv().tuteurs.push(nom);
+      renderTuteurs(); sauverState("tuteurs");
+      var inputs = cont.querySelectorAll(".tut-nom"), last = inputs[inputs.length - 1];
+      if (last) { last.focus(); last.select(); }
+    });
+  }
+
   // ---- Attribution tuteurs ------------------------------------------
   function attribuerAuto() {
     var t = nv().tuteurs;
@@ -4283,7 +4370,6 @@ window.DEPOUILLEMENT = (function () {
     });
     renderDocsButtons();
   }
-  function renderTuteurs() { /* la textarea est gérée par majAnneeNiveau */ }
 
   function renderDocsButtons() {
     var z = $("docs-distribution"); if (!z) return;
@@ -4447,9 +4533,9 @@ window.DEPOUILLEMENT = (function () {
     ];
     var tuteurs = [
       { nom: "Mme Martin", tel: "06 11 22 33 44" },
-      { nom: "M. Dupont", tel: "06 55 66 77 88", max: 3 },
+      { nom: "M. Dupont", tel: "06 55 66 77 88", max: 3, quot: "80 %" },
       { nom: "Mme Bernard", tel: "06 99 00 11 22" },
-      { nom: "M. Leroy", tel: "06 33 44 55 66", max: 3 },
+      { nom: "M. Leroy", tel: "06 33 44 55 66", max: 3, quot: "80 %" },
       { nom: "Mme Petit", tel: "06 77 88 99 00" }
     ];
 
@@ -4470,8 +4556,8 @@ window.DEPOUILLEMENT = (function () {
     STATE.niveauActif = "4e";
     nv().eleves = eleves;
     nv().tuteurs = tuteurs.map(function (t) { return t.nom; });
-    nv().tuteursTel = {}; nv().tuteursMax = {};
-    tuteurs.forEach(function (t) { if (t.tel) nv().tuteursTel[t.nom] = t.tel; if (t.max) nv().tuteursMax[t.nom] = t.max; });
+    nv().tuteursTel = {}; nv().tuteursMax = {}; nv().tuteursQuotite = {};
+    tuteurs.forEach(function (t) { if (t.tel) nv().tuteursTel[t.nom] = t.tel; if (t.max) nv().tuteursMax[t.nom] = t.max; if (t.quot) nv().tuteursQuotite[t.nom] = t.quot; });
     attribuerAuto();
     majAnneeNiveau(); renderEleves(); sauverState("test");
 
