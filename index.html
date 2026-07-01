@@ -85,6 +85,10 @@
   .hint{font-size:12.5px;color:var(--mut);margin:8px 0 0}
   .journal-item{padding:7px 0;border-bottom:1px solid var(--ligne);font-size:13.5px;line-height:1.5}
   .journal-when{color:var(--mut);font-variant-numeric:tabular-nums;font-size:12px;margin-right:6px}
+  #btn-valider-collab{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:40;background:var(--bordeaux);color:#fff;border:none;border-radius:24px;padding:11px 22px;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(122,46,58,.35)}
+  .notif-collab{margin:0 0 16px;padding:12px 15px;background:#fbf6e9;border:1px solid var(--or-clair);border-radius:12px}
+  .notif-collab-titre{font-weight:600;color:var(--nuit);margin-bottom:6px}
+  .notif-l{font-size:13px;padding:3px 0;line-height:1.45}
 
   .maprow{display:grid;grid-template-columns:160px 1fr;gap:10px;align-items:center;padding:5px 0;font-size:14px}
   .maprow select{width:100%}
@@ -257,6 +261,15 @@
   </header>
 
   <main>
+    <div id="notif-collab" class="notif-collab" hidden>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+        <div style="flex:1">
+          <div class="notif-collab-titre">📋 Depuis votre dernier passage</div>
+          <div id="notif-collab-corps"></div>
+        </div>
+        <button class="btn ghost sm" type="button" onclick="window.__vuNotif && window.__vuNotif()">Vu</button>
+      </div>
+    </div>
     <div class="barre">
       <div class="niveaux">
         <button data-niveau="4e" title="Travailler sur les conventions des classes de 4e">Quatrième</button>
@@ -265,8 +278,8 @@
       </div>
       <span class="annee-wrap">Année <input id="champ-annee" type="text" value="2026-2027" title="Année scolaire portée sur les conventions"></span>
       <div class="pousse">
-        <button id="btn-autosave" class="btn ghost sm" title="Active ou coupe le téléchargement automatique de ta sauvegarde de travail">💾 Auto-sauvegarde : ON</button>
-        <button id="btn-export-json" class="btn ghost sm" title="Télécharger une sauvegarde complète de ton travail (élèves, tuteurs, réglages)">Exporter (.json)</button>
+        <button id="btn-autosave" class="btn ghost sm" title="Active ou coupe le téléchargement automatique de la sauvegarde de travail">💾 Auto-sauvegarde : ON</button>
+        <button id="btn-export-json" class="btn ghost sm" title="Télécharger une sauvegarde complète des données (élèves, tuteurs, réglages)">Exporter (.json)</button>
         <span class="btn ghost sm file-btn" title="Recharger une sauvegarde .json enregistrée précédemment">Reprendre…<input id="file-import-json" type="file" accept=".json"></span>
       </div>
     </div>
@@ -277,7 +290,7 @@
       <p class="mut" style="margin:0 0 6px">Espace <b>isolé et branché sur Firebase</b> : tout ce que vous faites ici emprunte la <b>vraie chaîne chiffrée</b> (liens, envoi, réception temps réel), mais dans un espace de test séparé. Vos classes réelles ne sont jamais touchées, et les conventions de test n'apparaissent pas dans les vraies.</p>
       <ol class="hint" style="margin:0 0 12px 18px;padding:0">
         <li>Chargez des élèves de test, puis générez un lien ou un QR (carte Élèves ci-dessous).</li>
-        <li>Ouvrez ce lien / scannez le QR sur un autre appareil, remplissez et envoyez.</li>
+        <li>Ce lien (ou le QR code), ouvert sur un autre appareil, permet de remplir et d'envoyer la convention.</li>
         <li>La convention de test apparaît dans « Conventions reçues », en temps réel.</li>
       </ol>
       <div class="demo-actions">
@@ -292,10 +305,10 @@
     <section class="carte">
       <h2><span class="num">1</span> Importer la liste des élèves</h2>
       <span class="btn bord file-btn" title="Importer la liste des élèves depuis un export École Directe ou un tableur (.xlsx, .csv, .ods)">Choisir un fichier Excel…<input id="file-eleves" type="file" accept=".xlsx,.xls,.csv,.ods"></span>
-      <p class="hint">Ton export (École Directe, tableur…). Les codes élèves manquants sont générés automatiquement. Rien ne quitte ton ordinateur.</p>
+      <p class="hint">Export École Directe ou tableur. Les codes élèves manquants sont générés automatiquement. Rien ne quitte l'appareil.</p>
 
       <div id="zone-mapping" hidden style="margin-top:18px;border-top:1px dashed var(--ligne);padding-top:16px">
-        <p class="hint" style="margin-top:0">Vérifie l'association des colonnes, puis applique :</p>
+        <p class="hint" style="margin-top:0">Association des colonnes à vérifier avant application :</p>
         <div id="map-fields"></div>
         <button class="btn sm" style="margin-top:12px" onclick="window.__appliquerImport()" title="Valider la correspondance des colonnes et importer les élèves">Appliquer l'association</button>
       </div>
@@ -315,7 +328,7 @@
       <button class="btn ghost sm" id="btn-ajout-tuteur" type="button" style="margin-top:8px" title="Ajouter un enseignant tuteur à la liste">+ Ajouter un tuteur</button>
       <details class="import-perso" id="import-perso" style="margin-top:12px">
         <summary title="Importer automatiquement les professeurs depuis la liste du personnel">Importer depuis la liste du personnel ↓</summary>
-        <p class="mut" style="font-size:13px;margin:8px 0">Ouvrez le PDF « Liste du personnel », sélectionnez tout (Ctrl+A) puis copiez (Ctrl+C), et collez ci-dessous. Seuls les <b>professeurs</b> sont importés (ni AESH ni personnels OGEC). Quand deux numéros sont présents, le portable est retenu.</p>
+        <p class="mut" style="font-size:13px;margin:8px 0">Le contenu du PDF « Liste du personnel » peut être sélectionné (Ctrl+A), copié (Ctrl+C), puis collé ci-dessous. Seuls les <b>professeurs</b> sont importés (ni AESH ni personnels OGEC). Quand deux numéros sont présents, le portable est retenu.</p>
         <textarea id="tut-import-texte" rows="5" placeholder="Coller ici la liste copiée depuis le PDF…" style="width:100%;box-sizing:border-box;font:13px/1.4 ui-monospace,monospace;padding:8px;border:1px solid var(--ligne);border-radius:8px"></textarea>
         <button class="btn sm" id="btn-tut-import" type="button" style="margin-top:8px" title="Analyser le texte collé et ajouter les professeurs comme tuteurs">Analyser et ajouter les tuteurs</button>
       </details>
@@ -325,7 +338,7 @@
         <button data-attrib="auto" title="Répartir les élèves entre les tuteurs automatiquement, par ordre alphabétique et selon les plafonds">Automatique (A→Z)</button>
         <button data-attrib="manuel" title="Choisir soi-même le tuteur de chaque élève dans le tableau">Manuelle</button>
       </div>
-      <p class="hint">Automatique : répartition équitable par ordre alphabétique. Manuelle : tu choisis dans le tableau ci-dessous.</p>
+      <p class="hint">Automatique : répartition équitable par ordre alphabétique. Manuelle : le choix se fait dans le tableau ci-dessous.</p>
     </section>
 
     <!-- 3 · Élèves -->
@@ -374,7 +387,7 @@
       <h2><span class="num">4</span> Conventions reçues</h2>
       <p class="hint" id="dep-info-direct" style="margin-top:0">Les conventions transmises par les familles s'affichent ici automatiquement, regroupées par élève.</p>
       <div id="bloc-nuage" hidden>
-        <p class="hint" style="margin-top:0">Sur le Nuage, sélectionne le dossier <b>Conventions-4e</b> → « Télécharger » (Nextcloud fournit un ZIP), puis dépose ce ZIP ici. Tout reste sur ton ordinateur.</p>
+        <p class="hint" style="margin-top:0">Sur le Nuage, le dossier <b>Conventions-4e</b> peut être téléchargé (Nextcloud fournit un ZIP), puis déposé ici. Tout reste sur l'appareil.</p>
         <span class="btn bord file-btn" title="Importer l'archive ZIP des conventions déposées, téléchargée depuis le Nuage">Importer le ZIP du Nuage…<input id="file-zip" type="file" accept=".zip"></span>
       </div>
       <div id="depouille-resultats" style="margin-top:18px"></div>
@@ -398,7 +411,7 @@
           <p><b>Chiffrement de bout en bout.</b> Chaque convention est chiffrée sur l'appareil de la famille (norme AES-256) avant d'être transmise. Le serveur ne stocke que des données illisibles ; seules les personnes disposant de la clé de chiffrement — vous — peuvent les déchiffrer. La clé de chiffrement elle-même n'est déposée sur le serveur que sous forme <b>verrouillée</b> par un secret que le serveur ne connaît pas : même l'hébergeur ne peut donc pas lire les conventions.</p>
           <p><b>Saisie unique.</b> Le mot de passe et la clé de chiffrement ne sont demandés qu'une seule fois par appareil. Ils sont ensuite mémorisés localement, de façon sécurisée, pour ne plus avoir à les ressaisir. Le bouton « Se déconnecter » les efface de l'appareil.</p>
           <p><b>Hébergement en Europe.</b> Les données chiffrées sont hébergées sur des serveurs situés dans l'Union européenne (Belgique), conformément au RGPD.</p>
-          <p style="color:var(--bordeaux)"><b>Important.</b> La clé de chiffrement ne peut pas être récupérée si elle est perdue par tous les gestionnaires : c'est la garantie que personne d'autre ne peut lire les conventions. Conservez-la en lieu sûr (gestionnaire de mots de passe, ou coffre de l'établissement).</p>
+          <p style="color:var(--bordeaux)"><b>Important.</b> La clé de chiffrement ne peut pas être récupérée si elle est perdue par tous les gestionnaires : c'est la garantie que personne d'autre ne peut lire les conventions. Elle est à conserver en lieu sûr (gestionnaire de mots de passe, ou coffre de l'établissement).</p>
         </div>
       </details>
     </section>
@@ -440,7 +453,8 @@
 </div>
 
 <div id="toast" class="toast" hidden></div>
-<div class="app-version">v2026.07.01·collab-socle</div>
+<button id="btn-valider-collab" hidden onclick="window.__ouvrirValidation && window.__ouvrirValidation()">✓ Valider mes modifications (0)</button>
+<div class="app-version">v2026.07.01·collab-complet</div>
 
 <script>
 /* ===== Configuration : système de transmission ====================
@@ -577,6 +591,9 @@ window.FB = (function () {
       return Promise.all(ids.slice(0, ids.length - gardN).map(function (id) { return db.ref("journal/" + id).remove(); }));
     });
   }
+  // État commun partagé (élèves, tuteurs, signature) — chiffré, versionné pour le 3-way merge.
+  function lireEtat() { if (!dispo) return Promise.resolve(null); return db.ref("etat").once("value").then(function (s) { return s.val(); }); }
+  function ecrireEtat(o) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("etat").set(o); }
   function connecter(email, mdp) {
     if (!dispo) return Promise.reject(new Error("Firebase indisponible"));
     return auth.signInWithEmailAndPassword(email, mdp);
@@ -584,7 +601,7 @@ window.FB = (function () {
   function deconnecter() { if (dispo) try { auth.signOut(); } catch (e) {} }
   function onAuth(cb) { if (dispo) auth.onAuthStateChanged(cb); else cb(null); }
   function utilisateur() { return (dispo && auth && auth.currentUser) || null; }
-  return { dispo: dispo, ecrireConvention: ecrireConvention, ecouter: ecouter, supprimer: supprimer, viderEspace: viderEspace, lireSel: lireSel, ecrireSel: ecrireSel, lireCleAnnee: lireCleAnnee, ecrireCleAnnee: ecrireCleAnnee, lireCanari: lireCanari, ecrireCanari: ecrireCanari, ecouterCollab: ecouterCollab, ecrireCollab: ecrireCollab, journalPush: journalPush, journalEcouter: journalEcouter, journalPurger: journalPurger, connecter: connecter, deconnecter: deconnecter, onAuth: onAuth, utilisateur: utilisateur };
+  return { dispo: dispo, ecrireConvention: ecrireConvention, ecouter: ecouter, supprimer: supprimer, viderEspace: viderEspace, lireSel: lireSel, ecrireSel: ecrireSel, lireCleAnnee: lireCleAnnee, ecrireCleAnnee: ecrireCleAnnee, lireCanari: lireCanari, ecrireCanari: ecrireCanari, ecouterCollab: ecouterCollab, ecrireCollab: ecrireCollab, journalPush: journalPush, journalEcouter: journalEcouter, journalPurger: journalPurger, lireEtat: lireEtat, ecrireEtat: ecrireEtat, connecter: connecter, deconnecter: deconnecter, onAuth: onAuth, utilisateur: utilisateur };
 })();
 </script>
 <script>
@@ -4737,6 +4754,8 @@ window.DEPOUILLEMENT = (function () {
     window.addEventListener("beforeunload", function () {
       if (isAutoSaveOn()) autoTelechargerJSON("fermeture");
     });
+    document.addEventListener("visibilitychange", function () { if (!document.hidden && _collab) notifierNouveautes(); });
+    window.addEventListener("focus", function () { if (_collab) notifierNouveautes(); });
   }
 
   function majAnneeNiveau() {
@@ -4990,7 +5009,7 @@ window.DEPOUILLEMENT = (function () {
   function importerTuteursTexte() {
     var ta = $("tut-import-texte"); if (!ta) return;
     var liste = parsePersonnel(ta.value);
-    if (!liste.length) { toast("Aucun professeur détecté. Vérifiez le texte collé.", true); return; }
+    if (!liste.length) { toast("Aucun professeur détecté dans le texte collé.", true); return; }
     nv().tuteurs = nv().tuteurs || []; nv().tuteursTel = nv().tuteursTel || {};
     var ajout = 0, maj = 0;
     liste.forEach(function (p) {
@@ -5064,8 +5083,8 @@ window.DEPOUILLEMENT = (function () {
       var email = ($("login-email").value || "").trim(), mdp = $("login-mdp").value || "", secret = $("login-secret").value || "", err = $("login-err");
       if (err) err.textContent = "";
       if (!window.FB || !window.FB.dispo) { if (err) err.textContent = "Service indisponible — vérifiez votre connexion Internet, puis rechargez."; return; }
-      if (!email || !mdp) { if (err) err.textContent = "Renseignez votre e-mail et votre mot de passe."; return; }
-      if (!secret) { if (err) err.textContent = "Renseignez la clé de chiffrement de l'équipe."; return; }
+      if (!email || !mdp) { if (err) err.textContent = "E-mail et mot de passe requis."; return; }
+      if (!secret) { if (err) err.textContent = "Clé de chiffrement de l'équipe requise."; return; }
       bl.disabled = true; bl.textContent = "Connexion…";
       window.FB.connecter(email, mdp).then(function () {
         return initSecret(secret);
@@ -5075,7 +5094,7 @@ window.DEPOUILLEMENT = (function () {
         else if (res === "secret") { if (err) err.textContent = "Clé de chiffrement incorrecte."; }
         else { if (err) err.textContent = "Impossible d'établir la clé de chiffrement. Réessayez."; }
       }).catch(function () {
-        bl.disabled = false; bl.textContent = "Se connecter"; if (err) err.textContent = "Connexion refusée. Vérifiez vos identifiants.";
+        bl.disabled = false; bl.textContent = "Se connecter"; if (err) err.textContent = "Connexion refusée : identifiants incorrects.";
       });
     });
     ["login-mdp", "login-secret"].forEach(function (id) {
@@ -5136,7 +5155,7 @@ window.DEPOUILLEMENT = (function () {
   // ---- Attribution tuteurs ------------------------------------------
   function attribuerAuto() {
     var t = nv().tuteurs;
-    if (!t.length) { toast("Renseigne d'abord les tuteurs.", true); return; }
+    if (!t.length) { toast("Les tuteurs doivent être renseignés au préalable.", true); return; }
     var caps = nv().tuteursMax || {};
     var charge = {}; t.forEach(function (n) { charge[n] = 0; });
     var tries = nv().eleves.slice().sort(function (a, b) {
@@ -5277,9 +5296,9 @@ window.DEPOUILLEMENT = (function () {
         _collabEcoute = true;
         window.FB.ecouterCollab(function (v) {
           var avant = _collab; _collab = v; majCollabUI();
-          if (v && !avant && _maitre) demarrerJournal();
+          if (v && !avant && _maitre) { demarrerJournal(); chargerEtatPartage(); }
         });
-      } else if (_collab && _maitre) { demarrerJournal(); }
+      } else if (_collab && _maitre) { demarrerJournal(); chargerEtatPartage(); }
       return true;
     }).catch(function (e) {
       return (e && e.message === "secret") ? "secret" : false;
@@ -5401,8 +5420,12 @@ window.DEPOUILLEMENT = (function () {
   // Les clés déchiffrées ne sont JAMAIS écrites sur le disque : elles vivent en mémoire et, chiffrées, sur Firebase.
   function stateAExporter() { var c = {}; for (var k in STATE) { if (STATE.hasOwnProperty(k) && k !== "cles") c[k] = STATE[k]; } return c; }
   function signature() { return JSON.stringify(stateAExporter()); }
-  function sauverState() {
+  function sauverState(motif) {
     lsSet(LS_STATE, signature());
+    if (_collab && _etatBase) {
+      if (motif === "import") commitDirectEtat("a importé des élèves");
+      else majBoutonValider();
+    }
     if (isAutoSaveOn() && signature() !== _lastSig) { /* auto-dl géré périodiquement/fermeture */ }
   }
   function chargerState() {
@@ -5478,7 +5501,7 @@ window.DEPOUILLEMENT = (function () {
     STATE.niveauActif = "demo";
     attribuerAuto();
     majAnneeNiveau(); majPanneauDemo(); majDepouillement(); renderTuteurs(); renderEleves(); sauverState("demo");
-    toast(demo.eleves.length + " élèves de test chargés. Générez un lien ou un QR, puis testez l'envoi.");
+    toast(demo.eleves.length + " élèves de test chargés. Un lien ou un QR peut être généré pour tester l'envoi.");
   }
   function quitterDemo() {
     STATE.niveauActif = "4e";
@@ -5495,7 +5518,8 @@ window.DEPOUILLEMENT = (function () {
   function espaceAnnee() { return STATE.niveauActif === "demo" ? "demo" : STATE.annee; }
   var _unsubEcoute = null, _demoResultats = null, _maitre = null;
   var LS_SECRET = "conv_stage_secret_v1";
-  var _collab = false, _journalItems = [], _collabEcoute = false;
+  var LS_VU = "conv_journal_vu_v1";
+  var _collab = false, _journalItems = [], _collabEcoute = false, _notifInit = false;
   var CODE_COLLAB = "COLLAB-2027"; // code d'activation du mode collaboratif (modifiable, non sensible)
   function estCollab() { return _collab; }
   function auteurCourant() {
@@ -5521,6 +5545,7 @@ window.DEPOUILLEMENT = (function () {
       })).then(function (items) {
         _journalItems = items.filter(Boolean).sort(function (a, b) { return b.ts - a.ts; });
         renderJournal();
+        if (!_notifInit) { _notifInit = true; notifierNouveautes(); }
       });
     });
   }
@@ -5533,8 +5558,179 @@ window.DEPOUILLEMENT = (function () {
       return '<div class="journal-item"><span class="journal-when">' + q + '</span> <b>' + esc(it.auteur) + '</b> ' + esc(it.desc) + '</div>';
     }).join("");
   }
-  function majCollabUI() { var cj = $("carte-journal"); if (cj) cj.hidden = !_collab; }
+  function majCollabUI() { var cj = $("carte-journal"); if (cj) cj.hidden = !_collab; majBoutonValider(); }
   window.__journal = journal;
+  // Notification « depuis votre dernier passage » : les actions des autres depuis la dernière consultation.
+  function notifierNouveautes() {
+    var box = $("notif-collab"); if (!box) return;
+    if (!_collab) { box.hidden = true; return; }
+    var vu = +(lsGet(LS_VU) || 0), moi = auteurCourant();
+    var nouv = _journalItems.filter(function (it) { return it.ts > vu && it.auteur !== moi; });
+    if (!nouv.length) { box.hidden = true; return; }
+    var corps = $("notif-collab-corps");
+    var h = nouv.slice(0, 8).map(function (it) {
+      var d = new Date(it.ts), q = ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2);
+      return '<div class="notif-l"><b>' + esc(it.auteur) + '</b> ' + esc(it.desc) + ' <span class="mut">(' + q + ')</span></div>';
+    }).join("");
+    if (nouv.length > 8) h += '<div class="mut" style="margin-top:4px">…et ' + (nouv.length - 8) + ' autre(s).</div>';
+    if (corps) corps.innerHTML = h;
+    box.hidden = false;
+  }
+  window.__vuNotif = function () { lsSet(LS_VU, String(Date.now())); var b = $("notif-collab"); if (b) b.hidden = true; };
+
+  // ===== Moteur de fusion collaborative (3-way merge) =====
+  function nomEl(el) { return ((el.prenom || "") + " " + (el.nom || "")).trim() || "(élève)"; }
+  function cleEleve(el) { return norm(el.prenom) + "|" + norm(el.nom) + "|" + norm(el.classe || ""); }
+  function indexEleves(niv) { var m = {}; (niv.eleves || []).forEach(function (el) { m[cleEleve(el)] = el; }); return m; }
+  function snapEtat() { return JSON.parse(JSON.stringify({ niveaux: STATE.niveaux, etab: STATE.etab || {} })); }
+  function vide(nk) { return { eleves: [], tuteurs: [], tuteursTel: {}, tuteursMax: {}, tuteursQuotite: {}, modeAttribution: nk === "demo" ? "auto" : "manuel" }; }
+
+  // Liste les différences base -> cur (chaque modif porte une "cible" stable pour détecter les collisions).
+  function diffEtat(base, cur) {
+    var mods = [];
+    ["4e", "3e"].forEach(function (nk) {
+      var b = (base.niveaux && base.niveaux[nk]) || vide(nk), c = (cur.niveaux && cur.niveaux[nk]) || vide(nk);
+      var bi = indexEleves(b), ci = indexEleves(c);
+      Object.keys(bi).forEach(function (k) {
+        var be = bi[k], ce = ci[k];
+        if (!ce) { mods.push({ kind: "el-", niveau: nk, cle: k, label: "Élève " + nomEl(be) + " (" + nk + ")", avantTxt: "présent", apresTxt: "supprimé", cible: "el:" + nk + ":" + k }); return; }
+        if ((be.tuteur || "") !== (ce.tuteur || "")) mods.push({ kind: "att", niveau: nk, cle: k, apres: ce.tuteur || "", label: "Tuteur de " + nomEl(ce) + " (" + nk + ")", avantTxt: be.tuteur || "—", apresTxt: ce.tuteur || "—", cible: "att:" + nk + ":" + k });
+      });
+      Object.keys(ci).forEach(function (k) { if (!bi[k]) { var ce = ci[k]; mods.push({ kind: "el+", niveau: nk, cle: k, elObj: ce, label: "Élève " + nomEl(ce) + " (" + nk + ")", avantTxt: "absent", apresTxt: "ajouté", cible: "el:" + nk + ":" + k }); } });
+      [["tuteursTel", "tél"], ["tuteursMax", "quota"], ["tuteursQuotite", "quotité"]].forEach(function (p) {
+        var map = p[0], bm = b[map] || {}, cm = c[map] || {}, noms = {};
+        Object.keys(bm).forEach(function (n) { noms[n] = 1; }); Object.keys(cm).forEach(function (n) { noms[n] = 1; });
+        Object.keys(noms).forEach(function (nom) {
+          var av = bm[nom], ap = cm[nom];
+          if (String(av == null ? "" : av) !== String(ap == null ? "" : ap))
+            mods.push({ kind: "tut", niveau: nk, map: map, tuteur: nom, apres: (ap == null ? "" : ap), label: nom + " — " + p[1] + " (" + nk + ")", avantTxt: (av == null ? "—" : String(av)), apresTxt: (ap == null ? "—" : String(ap)), cible: "tut:" + nk + ":" + map + ":" + norm(nom) });
+        });
+      });
+    });
+    var bs = (base.etab && base.etab.signature) || "", cs = (cur.etab && cur.etab.signature) || "";
+    if (bs !== cs) mods.push({ kind: "etab", apresRaw: cs, label: "Signature de l'établissement", avantTxt: bs ? "définie" : "absente", apresTxt: cs ? "définie" : "retirée", cible: "etab:signature" });
+    return mods;
+  }
+
+  // Applique une modif à un état cible (utilisé pour reconstruire l'état fusionné).
+  function appliquerModif(etat, m) {
+    if (m.kind === "etab") { etat.etab = etat.etab || {}; etat.etab.signature = m.apresRaw || ""; return; }
+    etat.niveaux = etat.niveaux || {}; var niv = etat.niveaux[m.niveau] || (etat.niveaux[m.niveau] = vide(m.niveau));
+    if (m.kind === "att") { (niv.eleves || []).forEach(function (el) { if (cleEleve(el) === m.cle) el.tuteur = m.apres; }); }
+    else if (m.kind === "el-") { niv.eleves = (niv.eleves || []).filter(function (el) { return cleEleve(el) !== m.cle; }); }
+    else if (m.kind === "el+") { niv.eleves = niv.eleves || []; if (!niv.eleves.some(function (el) { return cleEleve(el) === m.cle; })) niv.eleves.push(JSON.parse(JSON.stringify(m.elObj))); }
+    else if (m.kind === "tut") { niv[m.map] = niv[m.map] || {}; if (m.apres === "" || m.apres == null) delete niv[m.map][m.tuteur]; else niv[m.map][m.tuteur] = m.apres; }
+  }
+
+  // Cibles modifiées à la fois par moi et par les autres depuis la base commune.
+  function collisions(mesMods, leursMods) {
+    var leurs = {}; leursMods.forEach(function (m) { leurs[m.cible] = m; });
+    return mesMods.filter(function (m) { return leurs[m.cible]; }).map(function (m) { return { mien: m, leur: leurs[m.cible] }; });
+  }
+
+  // Reconstruit l'état à écrire : on part de l'état distant (le plus récent) et on applique mes modifs retenues.
+  function fusionner(etatDistant, mesMods, choix) {
+    var fin = JSON.parse(JSON.stringify(etatDistant || { niveaux: {}, etab: {} }));
+    mesMods.forEach(function (m) { if (choix && choix[m.cible] === "eux") return; appliquerModif(fin, m); });
+    return fin;
+  }
+  window.__collab = { diffEtat: diffEtat, appliquerModif: appliquerModif, collisions: collisions, fusionner: fusionner, cleEleve: cleEleve };
+
+  var _etatBase = null, _etatVersion = 0, _valCtx = null;
+  // Charge l'état commun depuis Firebase (ou l'initialise à partir du local) quand le mode collaboratif s'active.
+  function chargerEtatPartage() {
+    if (!_collab || !_maitre || !window.FB || !window.FB.lireEtat) return Promise.resolve();
+    return window.FB.lireEtat().then(function (rec) {
+      if (rec && rec.ct) {
+        return window.CRYPTO.deballerCle(_maitre, rec).then(function (txt) {
+          try { var o = JSON.parse(txt); if (o.niveaux) STATE.niveaux = o.niveaux; if (o.etab) STATE.etab = o.etab; } catch (e) {}
+          _etatVersion = rec.v || 0; _etatBase = snapEtat();
+          majAnneeNiveau(); renderTuteurs(); renderEleves(); majEtabStatut(); majBoutonValider();
+        });
+      }
+      _etatBase = snapEtat(); _etatVersion = 0; majBoutonValider();
+    }).catch(function () {});
+  }
+  function majBoutonValider() {
+    var b = $("btn-valider-collab"); if (!b) return;
+    if (!_collab || !_etatBase) { b.hidden = true; return; }
+    var n = diffEtat(_etatBase, snapEtat()).length;
+    b.hidden = (n === 0); b.textContent = "✓ Valider mes modifications (" + n + ")";
+  }
+  function ouvrirValidation() {
+    if (!_collab || !_maitre) return;
+    var mesMods = diffEtat(_etatBase, snapEtat());
+    if (!mesMods.length) { toast("Aucune modification à valider."); return; }
+    window.FB.lireEtat().then(function (rec) {
+      if (rec && rec.ct) {
+        return window.CRYPTO.deballerCle(_maitre, rec).then(function (txt) {
+          var etatDistant; try { etatDistant = JSON.parse(txt); } catch (e) { etatDistant = JSON.parse(JSON.stringify(_etatBase)); }
+          afficherModalValidation(mesMods, diffEtat(_etatBase, etatDistant), etatDistant, rec.v || 0);
+        });
+      }
+      afficherModalValidation(mesMods, [], JSON.parse(JSON.stringify(_etatBase)), 0);
+    });
+  }
+  function afficherModalValidation(mesMods, leursMods, etatDistant, vDistant) {
+    _valCtx = { mesMods: mesMods, etatDistant: etatDistant, vDistant: vDistant };
+    var cols = {}; collisions(mesMods, leursMods).forEach(function (c) { cols[c.mien.cible] = c.leur; });
+    var recent = leursMods.slice().reverse();
+    var h = '<div style="display:flex;gap:18px;flex-wrap:wrap">';
+    h += '<div style="flex:1;min-width:260px"><h4 style="margin:0 0 8px">Mes modifications (' + mesMods.length + ')</h4>';
+    h += mesMods.map(function (m, i) {
+      var conflit = cols[m.cible];
+      var ligne = '<label style="display:block;padding:8px;border:1px solid ' + (conflit ? 'var(--bordeaux)' : 'var(--ligne)') + ';border-radius:8px;margin-bottom:6px;' + (conflit ? 'background:#fdf2f4' : '') + '">'
+        + '<input type="checkbox" data-idx="' + i + '" checked> <b>' + esc(m.label) + '</b><br><span class="mut" style="font-size:12.5px">' + esc(m.avantTxt) + ' → ' + esc(m.apresTxt) + '</span>';
+      if (conflit) {
+        ligne += '<div style="margin-top:6px;font-size:12.5px;color:var(--bordeaux)">⚠ Aussi modifié par un collègue (' + esc(conflit.apresTxt) + '). Que garder ?<br>'
+          + '<label style="margin-right:12px"><input type="radio" name="col-' + i + '" value="moi" checked> la mienne (' + esc(m.apresTxt) + ')</label>'
+          + '<label><input type="radio" name="col-' + i + '" value="eux"> la sienne (' + esc(conflit.apresTxt) + ')</label></div>';
+      }
+      return ligne + '</label>';
+    }).join("") + '</div>';
+    h += '<div style="flex:1;min-width:240px"><h4 style="margin:0 0 8px">Modifications récentes des autres</h4>';
+    h += recent.length ? recent.map(function (m) { return '<div style="padding:7px 0;border-bottom:1px solid var(--ligne);font-size:13px"><b>' + esc(m.label) + '</b><br><span class="mut">' + esc(m.avantTxt) + ' → ' + esc(m.apresTxt) + '</span></div>'; }).join("") : '<p class="mut">Aucune depuis votre dernier chargement.</p>';
+    h += '</div></div>';
+    h += '<div style="margin-top:16px;text-align:right"><button class="btn ghost" onclick="window.__fermerModal()">Annuler</button> <button class="btn bord" onclick="window.__commettreValidation()">Valider les modifications cochées</button></div>';
+    $("modal-titre").textContent = "Valider mes modifications";
+    $("modal-corps").innerHTML = h; $("modal").hidden = false;
+  }
+  function commettreValidation() {
+    var ctx = _valCtx; if (!ctx) return;
+    var retenues = [], nonRetenues = [], choix = {};
+    ctx.mesMods.forEach(function (m, i) {
+      var cb = document.querySelector('[data-idx="' + i + '"]');
+      if (cb && !cb.checked) { nonRetenues.push(m); return; }
+      retenues.push(m);
+      var r = document.querySelector('input[name="col-' + i + '"]:checked');
+      if (r) choix[m.cible] = r.value;
+    });
+    if (!retenues.length) { $("modal").hidden = true; toast("Aucune modification cochée."); return; }
+    var fin = fusionner(ctx.etatDistant, retenues, choix);
+    window.CRYPTO.emballerCle(_maitre, JSON.stringify({ niveaux: fin.niveaux, etab: fin.etab })).then(function (p) {
+      return window.FB.ecrireEtat({ iv: p.iv, ct: p.ct, v: ctx.vDistant + 1, ts: Date.now() });
+    }).then(function () {
+      retenues.forEach(function (m) { journal(m.kind, m.label + " : " + m.avantTxt + " → " + m.apresTxt); });
+      _etatBase = JSON.parse(JSON.stringify({ niveaux: fin.niveaux, etab: fin.etab }));
+      _etatVersion = ctx.vDistant + 1;
+      var wrap = { niveaux: fin.niveaux, etab: fin.etab };
+      nonRetenues.forEach(function (m) { appliquerModif(wrap, m); });
+      STATE.niveaux = wrap.niveaux; STATE.etab = wrap.etab;
+      lsSet(LS_STATE, signature());
+      majAnneeNiveau(); renderTuteurs(); renderEleves(); majEtabStatut(); majBoutonValider();
+      $("modal").hidden = true; toast("Modifications validées et partagées.");
+    }).catch(function () { toast("Échec de la validation. Réessayez.", true); });
+  }
+  window.__ouvrirValidation = ouvrirValidation;
+  window.__commettreValidation = commettreValidation;
+  // Les imports sont partagés directement, sans passer par la validation (seules les modifs APRÈS import y sont soumises).
+  function commitDirectEtat(desc) {
+    if (!_collab || !_maitre || !window.FB || !window.FB.ecrireEtat) return;
+    var snapshot = snapEtat();
+    window.CRYPTO.emballerCle(_maitre, JSON.stringify(snapshot)).then(function (p) {
+      return window.FB.ecrireEtat({ iv: p.iv, ct: p.ct, v: _etatVersion + 1, ts: Date.now() });
+    }).then(function () { _etatVersion += 1; _etatBase = snapshot; if (desc) journal("import", desc); majBoutonValider(); }).catch(function () {});
+  }
   function show(id, on) { var e = $(id); if (e) e.hidden = !on; }
 
   function surSnapshot(val) {
