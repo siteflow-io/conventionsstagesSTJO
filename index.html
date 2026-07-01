@@ -305,6 +305,18 @@
     <section class="carte">
       <h2><span class="num">4</span> Conventions reçues</h2>
       <p class="hint" id="dep-info-direct" style="margin-top:0">Les conventions transmises par les familles s'affichent ici automatiquement, regroupées par élève.</p>
+      <div id="dep-connexion" hidden>
+        <p class="hint" style="margin-top:0">Connectez-vous avec votre compte établissement pour consulter les conventions reçues.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+          <input id="dep-email" type="email" placeholder="Adresse e-mail" autocomplete="username" style="padding:8px 10px;border:1px solid var(--ligne);border-radius:8px;min-width:200px">
+          <input id="dep-mdp" type="password" placeholder="Mot de passe" autocomplete="current-password" style="padding:8px 10px;border:1px solid var(--ligne);border-radius:8px;min-width:160px">
+          <button class="btn sm" id="btn-connexion" type="button" title="Se connecter pour lire les conventions reçues">Se connecter</button>
+        </div>
+        <p class="hint" id="dep-erreur" style="color:var(--bordeaux)"></p>
+      </div>
+      <div id="dep-connecte" hidden>
+        <p class="hint" style="margin-top:0">Connecté : <b id="dep-user"></b> · <button class="mini" id="btn-deconnexion" type="button" title="Se déconnecter de la consultation">Se déconnecter</button></p>
+      </div>
       <div id="bloc-nuage" hidden>
         <p class="hint" style="margin-top:0">Sur le Nuage, sélectionne le dossier <b>Conventions-4e</b> → « Télécharger » (Nextcloud fournit un ZIP), puis dépose ce ZIP ici. Tout reste sur ton ordinateur.</p>
         <span class="btn bord file-btn" title="Importer l'archive ZIP des conventions déposées, téléchargée depuis le Nuage">Importer le ZIP du Nuage…<input id="file-zip" type="file" accept=".zip"></span>
@@ -392,6 +404,60 @@ window.CRYPTO = (function () {
     }).then(function (buf) { return JSON.parse(TD.decode(buf)); });
   }
   return { genererCle: genererCle, chiffrer: chiffrer, dechiffrer: dechiffrer, dispo: !!subtle };
+})();
+</script>
+<!-- SDK Firebase (compat) — chargé depuis le CDN officiel Google -->
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script>
+/* ===== Transport Firebase (Realtime Database europe-west1) =========
+   Écriture ouverte mais bornée (structure imposée par les règles),
+   lecture réservée aux comptes de l'établissement. Le contenu est
+   toujours chiffré : le serveur ne voit que {iv, ct}. */
+window.FB = (function () {
+  var CONFIG = {
+    apiKey: "AIzaSyCApoycSDGdCih2d5yQh62SxcIlDWlWl6o",
+    authDomain: "conventions-stjoseph.firebaseapp.com",
+    databaseURL: "https://conventions-stjoseph-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "conventions-stjoseph",
+    storageBucket: "conventions-stjoseph.firebasestorage.app",
+    messagingSenderId: "237567584974",
+    appId: "1:237567584974:web:3d5bf07ee2de47eda4be9f"
+  };
+  var db = null, auth = null, dispo = false;
+  try {
+    if (window.firebase && window.firebase.initializeApp) {
+      window.firebase.initializeApp(CONFIG);
+      db = window.firebase.database();
+      auth = window.firebase.auth();
+      dispo = true;
+    }
+  } catch (e) { dispo = false; }
+  function encodeCle(s) { return String(s).replace(/[.#$\[\]\/]/g, "_"); } // caractères interdits en clé RTDB
+  function ecrireConvention(annee, code, role, paquet) {
+    if (!dispo) return Promise.reject(new Error("Firebase indisponible"));
+    var ref = db.ref("conventions/" + encodeCle(annee) + "/" + encodeCle(code) + "/" + encodeCle(role));
+    return ref.set({ iv: paquet.iv, ct: paquet.ct, v: paquet.v || 1, ts: window.firebase.database.ServerValue.TIMESTAMP });
+  }
+  function ecouter(annee, cb) {
+    if (!dispo) return function () {};
+    var ref = db.ref("conventions/" + encodeCle(annee));
+    var h = ref.on("value", function (snap) { cb(snap.val() || {}); }, function () { cb({}); });
+    return function () { try { ref.off("value", h); } catch (e) {} };
+  }
+  function supprimer(annee, code) {
+    if (!dispo) return Promise.reject(new Error("Firebase indisponible"));
+    return db.ref("conventions/" + encodeCle(annee) + "/" + encodeCle(code)).remove();
+  }
+  function connecter(email, mdp) {
+    if (!dispo) return Promise.reject(new Error("Firebase indisponible"));
+    return auth.signInWithEmailAndPassword(email, mdp);
+  }
+  function deconnecter() { if (dispo) try { auth.signOut(); } catch (e) {} }
+  function onAuth(cb) { if (dispo) auth.onAuthStateChanged(cb); else cb(null); }
+  function utilisateur() { return (dispo && auth && auth.currentUser) || null; }
+  return { dispo: dispo, ecrireConvention: ecrireConvention, ecouter: ecouter, supprimer: supprimer, connecter: connecter, deconnecter: deconnecter, onAuth: onAuth, utilisateur: utilisateur };
 })();
 </script>
 <script>
@@ -3687,10 +3753,23 @@ window.SIGNATAIRE = (function () {
     var donnees = JSON.stringify({ code: CTX.code, role: CTX.role, eleve: CTX.nomEleve, champs: CTX.champs });
     empreinte(donnees).then(function (hash) {
       CTX.hash = hash;
-      // TODO Firebase : chiffrer {champs, signature, hash} avec la clé du lien, puis écrire sous /conventions/<annee>/<code>/<role>.
-      // Pour l'instant (avant branchement Firebase), on confirme simplement la fin du parcours.
-      if (!CTX.apercu) effacerProgress();
-      allerFin();
+      // Aperçu / démonstration : aucune transmission réelle
+      if (CTX.apercu) { allerFin(); return; }
+      // Vrai envoi chiffré de bout en bout
+      if (!CTX.cle || !window.CRYPTO || !window.CRYPTO.dispo) {
+        toast("Envoi impossible : clé de sécurité absente. Ouvrez bien le lien complet fourni par l'établissement.", true); return;
+      }
+      if (!window.FB || !window.FB.dispo) { toast("Service d'envoi momentanément indisponible. Réessayez dans un instant.", true); return; }
+      var btn = document.querySelector('#sig-step [onclick*="finaliser"]');
+      if (btn) { btn.disabled = true; btn.textContent = "Envoi en cours…"; }
+      var objet = { code: CTX.code, role: CTX.role, eleve: CTX.nomEleve, naissance: CTX.naissance, champs: CTX.champs, signature: CTX.sig, hash: hash, tsClient: CTX.ts };
+      window.CRYPTO.chiffrer(CTX.cle, objet)
+        .then(function (paquet) { return window.FB.ecrireConvention(CTX.annee, CTX.code, CTX.role, paquet); })
+        .then(function () { effacerProgress(); allerFin(); })
+        .catch(function (e) {
+          if (btn) { btn.disabled = false; btn.textContent = "Envoyer ma convention"; }
+          toast("L'envoi a échoué : " + (e && e.message ? e.message : "vérifiez votre connexion et réessayez"), true);
+        });
     });
   }
   function genererPDF() {
@@ -4457,7 +4536,7 @@ window.DEPOUILLEMENT = (function () {
     document.querySelectorAll("[data-niveau]").forEach(function (b) {
       b.addEventListener("click", function () {
         STATE.niveauActif = b.getAttribute("data-niveau");
-        majAnneeNiveau(); majPanneauDemo(); renderTuteurs(); renderEleves(); sauverState("niveau");
+        majAnneeNiveau(); majPanneauDemo(); majDepouillement(); renderTuteurs(); renderEleves(); sauverState("niveau");
       });
     });
     $("champ-annee").addEventListener("input", function () {
@@ -4821,6 +4900,19 @@ window.DEPOUILLEMENT = (function () {
     document.querySelectorAll(".pli").forEach(function (b) {
       b.addEventListener("click", function () { var c = b.closest(".carte"); if (c) c.classList.toggle("replie"); });
     });
+    // Connexion / déconnexion (consultation des conventions)
+    var bc = $("btn-connexion");
+    if (bc) bc.addEventListener("click", function () {
+      var email = ($("dep-email").value || "").trim(), mdp = $("dep-mdp").value || "", err = $("dep-erreur");
+      if (err) err.textContent = "";
+      if (!email || !mdp) { if (err) err.textContent = "Renseignez votre e-mail et votre mot de passe."; return; }
+      bc.disabled = true; bc.textContent = "Connexion…";
+      window.FB.connecter(email, mdp).then(function () { bc.disabled = false; bc.textContent = "Se connecter"; $("dep-mdp").value = ""; })
+        .catch(function () { bc.disabled = false; bc.textContent = "Se connecter"; if (err) err.textContent = "Connexion refusée. Vérifiez vos identifiants."; });
+    });
+    var bd = $("btn-deconnexion");
+    if (bd) bd.addEventListener("click", function () { if (window.FB) window.FB.deconnecter(); });
+    if (window.FB) window.FB.onAuth(function () { majDepouillement(); });
   }
 
   // ---- Attribution tuteurs ------------------------------------------
@@ -5078,7 +5170,7 @@ window.DEPOUILLEMENT = (function () {
     D.tuteurs.forEach(function (t) { if (t.tel) demo.tuteursTel[t.nom] = t.tel; if (t.max) demo.tuteursMax[t.nom] = t.max; if (t.quot) demo.tuteursQuotite[t.nom] = t.quot; });
     STATE.niveauActif = "demo";
     attribuerAuto();
-    majAnneeNiveau(); majPanneauDemo(); renderTuteurs(); renderEleves(); sauverState("demo");
+    majAnneeNiveau(); majPanneauDemo(); majDepouillement(); renderTuteurs(); renderEleves(); sauverState("demo");
     var resultats = [];
     demo.eleves.forEach(function (el, i) {
       var v = window.demoVolets(el, el.tuteur);
@@ -5090,23 +5182,61 @@ window.DEPOUILLEMENT = (function () {
       resultats.push({ nom: "CONV_" + el.code + "_PARENTS.pdf", date: d2, data: Object.assign({ role: "PARENTS", hash: "par" + i + "e5f6a7b8", ts: d2.toISOString(), champs: v.PARENTS }, base) });
       resultats.push({ nom: "CONV_" + el.code + "_ETABLISSEMENT.pdf", date: d3, data: Object.assign({ role: "ETABLISSEMENT", hash: "eta" + i + "97f8a1b2", ts: d3.toISOString(), champs: v.ETABLISSEMENT }, base) });
     });
+    _demoResultats = resultats;
     if (window.DEPOUILLEMENT && window.DEPOUILLEMENT.injecterTest) window.DEPOUILLEMENT.injecterTest(resultats);
     toast(demo.eleves.length + " élèves et leurs conventions de démonstration sont prêts.");
   }
   function quitterDemo() {
     STATE.niveauActif = "4e";
-    majAnneeNiveau(); majPanneauDemo(); renderTuteurs(); renderEleves(); sauverState("quit-demo");
+    majAnneeNiveau(); majPanneauDemo(); majDepouillement(); renderTuteurs(); renderEleves(); sauverState("quit-demo");
     if (window.DEPOUILLEMENT && window.DEPOUILLEMENT.injecterTest) window.DEPOUILLEMENT.injecterTest([]);
   }
   function majPanneauDemo() {
     var p = $("panneau-demo"); if (p) p.hidden = (STATE.niveauActif !== "demo");
   }
   function estFirebase() { return ((window.CONFIG && window.CONFIG.transport) || "nuage") === "firebase"; }
-  function majTransport() {
-    var fb = estFirebase();
-    var bn = $("bloc-nuage"); if (bn) bn.hidden = fb;
-    var di = $("dep-info-direct"); if (di) di.hidden = !fb;
+  var _unsubEcoute = null, _demoResultats = null;
+  function show(id, on) { var e = $(id); if (e) e.hidden = !on; }
+
+  function surSnapshot(val) {
+    var cle = STATE.cles[STATE.annee];
+    if (!window.CRYPTO || !window.CRYPTO.dispo || !cle) { if (window.DEPOUILLEMENT) DEPOUILLEMENT.injecterTest([]); return; }
+    var taches = [];
+    Object.keys(val || {}).forEach(function (codeEnc) {
+      var roles = val[codeEnc] || {};
+      Object.keys(roles).forEach(function (role) {
+        var p = roles[role]; if (!p || !p.ct) return;
+        taches.push(window.CRYPTO.dechiffrer(cle, p).then(function (obj) {
+          var dt = p.ts ? new Date(p.ts) : new Date();
+          return { nom: (obj.code || codeEnc) + "_" + role, date: dt, data: { code: obj.code, role: obj.role || role, eleve: obj.eleve, annee: STATE.annee, champs: obj.champs, hash: obj.hash, ts: dt.toISOString() } };
+        }).catch(function () { return null; }));
+      });
+    });
+    Promise.all(taches).then(function (res) { if (window.DEPOUILLEMENT) DEPOUILLEMENT.injecterTest(res.filter(Boolean)); });
   }
+  function demarrerEcoute() { if (_unsubEcoute) return; if (!window.FB || !window.FB.dispo) return; _unsubEcoute = window.FB.ecouter(STATE.annee, surSnapshot); }
+  function arreterEcoute() { if (_unsubEcoute) { try { _unsubEcoute(); } catch (e) {} _unsubEcoute = null; } }
+
+  function majDepouillement() {
+    var fb = estFirebase(), enDemo = STATE.niveauActif === "demo";
+    var fbDispo = !!(window.FB && window.FB.dispo), connecte = !!(window.FB && window.FB.utilisateur());
+    show("bloc-nuage", !fb && !enDemo);
+    show("dep-connexion", fb && fbDispo && !connecte && !enDemo);
+    show("dep-connecte", fb && connecte && !enDemo);
+    var di = $("dep-info-direct");
+    if (di) {
+      if (enDemo) { di.hidden = false; di.textContent = "Mode démonstration : conventions fictives ci-dessous."; }
+      else if (!fb) { di.hidden = true; }
+      else if (!fbDispo) { di.hidden = false; di.textContent = "Service de réception indisponible — vérifiez la connexion Internet et ouvrez l'application depuis son adresse en ligne."; }
+      else if (!connecte) { di.hidden = true; }
+      else { di.hidden = false; di.textContent = "Les conventions s'affichent en temps réel, regroupées par élève."; }
+    }
+    var u = $("dep-user"); if (u && connecte) u.textContent = window.FB.utilisateur().email || "";
+    if (enDemo) { arreterEcoute(); if (window.DEPOUILLEMENT) DEPOUILLEMENT.injecterTest(_demoResultats || []); return; }
+    if (fb && connecte) { demarrerEcoute(); }
+    else { arreterEcoute(); if (window.DEPOUILLEMENT) DEPOUILLEMENT.injecterTest([]); }
+  }
+  function majTransport() { majDepouillement(); }
 
   // ---- Toast / modal ------------------------------------------------
   function toast(msg, err) {
