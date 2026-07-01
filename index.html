@@ -83,6 +83,8 @@
   .tut-del{margin-left:auto;width:28px;height:28px;border-radius:6px;border:1px solid var(--ligne);background:#fff;color:var(--bordeaux);font-size:18px;line-height:1;cursor:pointer;padding:0}
   .tut-del:hover{background:var(--bordeaux);color:#fff;border-color:var(--bordeaux)}
   .hint{font-size:12.5px;color:var(--mut);margin:8px 0 0}
+  .journal-item{padding:7px 0;border-bottom:1px solid var(--ligne);font-size:13.5px;line-height:1.5}
+  .journal-when{color:var(--mut);font-variant-numeric:tabular-nums;font-size:12px;margin-right:6px}
 
   .maprow{display:grid;grid-template-columns:160px 1fr;gap:10px;align-items:center;padding:5px 0;font-size:14px}
   .maprow select{width:100%}
@@ -378,6 +380,13 @@
       <div id="depouille-resultats" style="margin-top:18px"></div>
     </section>
 
+    <!-- Historique (mode collaboratif) -->
+    <section class="carte" id="carte-journal" hidden>
+      <h2><span class="num">📜</span> Historique</h2>
+      <p class="hint" style="margin-top:0">Journal des actions de l'équipe — les 100 dernières, la plus récente en haut.</p>
+      <div id="journal-liste" style="margin-top:12px"><p class="mut">Aucune action enregistrée pour l'instant.</p></div>
+    </section>
+
     <!-- Règles de confidentialité -->
     <section class="carte" id="carte-confid">
       <h2><span class="num">🔒</span> Règles de confidentialité</h2>
@@ -431,7 +440,7 @@
 </div>
 
 <div id="toast" class="toast" hidden></div>
-<div class="app-version">v2026.07.01·modele-c</div>
+<div class="app-version">v2026.07.01·collab-socle</div>
 
 <script>
 /* ===== Configuration : système de transmission ====================
@@ -550,6 +559,24 @@ window.FB = (function () {
   function ecrireCleAnnee(annee, paquet) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("cles/" + encodeCle(annee)).set(paquet); }
   function lireCanari() { if (!dispo) return Promise.resolve(null); return db.ref("config/canari").once("value").then(function (s) { return s.val(); }); }
   function ecrireCanari(p) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("config/canari").set(p); }
+  // Mode collaboratif : interrupteur global + journal d'activité chiffré (plafonné).
+  function ecouterCollab(cb) { if (!dispo) return; db.ref("config/collab").on("value", function (s) { cb(!!s.val()); }); }
+  function ecrireCollab(v) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("config/collab").set(!!v); }
+  function journalPush(entree) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("journal").push(entree); }
+  function journalEcouter(cb) {
+    if (!dispo) return;
+    db.ref("journal").orderByChild("ts").limitToLast(100).on("value", function (s) {
+      var arr = []; s.forEach(function (ch) { var v = ch.val() || {}; v._id = ch.key; arr.push(v); }); cb(arr);
+    });
+  }
+  function journalPurger(gardN) {
+    if (!dispo) return Promise.resolve();
+    return db.ref("journal").orderByChild("ts").once("value").then(function (s) {
+      var ids = []; s.forEach(function (ch) { ids.push(ch.key); });
+      if (ids.length <= gardN) return;
+      return Promise.all(ids.slice(0, ids.length - gardN).map(function (id) { return db.ref("journal/" + id).remove(); }));
+    });
+  }
   function connecter(email, mdp) {
     if (!dispo) return Promise.reject(new Error("Firebase indisponible"));
     return auth.signInWithEmailAndPassword(email, mdp);
@@ -557,7 +584,7 @@ window.FB = (function () {
   function deconnecter() { if (dispo) try { auth.signOut(); } catch (e) {} }
   function onAuth(cb) { if (dispo) auth.onAuthStateChanged(cb); else cb(null); }
   function utilisateur() { return (dispo && auth && auth.currentUser) || null; }
-  return { dispo: dispo, ecrireConvention: ecrireConvention, ecouter: ecouter, supprimer: supprimer, viderEspace: viderEspace, lireSel: lireSel, ecrireSel: ecrireSel, lireCleAnnee: lireCleAnnee, ecrireCleAnnee: ecrireCleAnnee, lireCanari: lireCanari, ecrireCanari: ecrireCanari, connecter: connecter, deconnecter: deconnecter, onAuth: onAuth, utilisateur: utilisateur };
+  return { dispo: dispo, ecrireConvention: ecrireConvention, ecouter: ecouter, supprimer: supprimer, viderEspace: viderEspace, lireSel: lireSel, ecrireSel: ecrireSel, lireCleAnnee: lireCleAnnee, ecrireCleAnnee: ecrireCleAnnee, lireCanari: lireCanari, ecrireCanari: ecrireCanari, ecouterCollab: ecouterCollab, ecrireCollab: ecrireCollab, journalPush: journalPush, journalEcouter: journalEcouter, journalPurger: journalPurger, connecter: connecter, deconnecter: deconnecter, onAuth: onAuth, utilisateur: utilisateur };
 })();
 </script>
 <script>
@@ -5066,6 +5093,23 @@ window.DEPOUILLEMENT = (function () {
       majAuthConsole(); majDepouillement();
     });
 
+    // Activation du mode collaboratif par code (5 clics sur le marqueur de version)
+    var avv = document.querySelector(".app-version"), _clics = 0, _tmr = null;
+    if (avv) {
+      avv.style.pointerEvents = "auto";
+      avv.addEventListener("click", function () {
+        _clics++; clearTimeout(_tmr); _tmr = setTimeout(function () { _clics = 0; }, 1500);
+        if (_clics >= 5) {
+          _clics = 0;
+          var code = prompt("Code d'activation du mode collaboratif :");
+          if (code === CODE_COLLAB) {
+            if (!window.FB || !window.FB.dispo || !window.FB.utilisateur()) { toast("Connectez-vous d'abord.", true); return; }
+            window.FB.ecrireCollab(!_collab).then(function () { toast(!_collab ? "Mode collaboratif activé." : "Mode collaboratif désactivé."); });
+          } else if (code != null && code !== "") { toast("Code incorrect.", true); }
+        }
+      });
+    }
+
     // Signature de l'établissement (en lot)
     var etabCanvas = $("etab-canvas");
     if (etabCanvas && window.SIGNATAIRE && window.SIGNATAIRE.attacherSignature) {
@@ -5076,7 +5120,7 @@ window.DEPOUILLEMENT = (function () {
         STATE.etab = STATE.etab || {};
         STATE.etab.signature = etabSig.dataURL();
         STATE.etab.faitA = ($("etab-faita").value || "").trim();
-        sauverState("etab-sig"); majEtabStatut(); toast("Signature de l'établissement enregistrée pour toutes les conventions.");
+        sauverState("etab-sig"); majEtabStatut(); journal("signature", "a enregistré la signature de l'établissement"); toast("Signature de l'établissement enregistrée pour toutes les conventions.");
       });
       var bec = $("btn-etab-clear");
       if (bec) bec.addEventListener("click", function () { if (etabSig) etabSig.effacer(); });
@@ -5228,7 +5272,15 @@ window.DEPOUILLEMENT = (function () {
       try { localStorage.setItem(LS_SECRET, secret); } catch (e) {}
       return Promise.all([assurerCle(STATE.annee), assurerCle("demo")]);
     }).then(function () {
-      majAuthConsole(); majDepouillement(); return true;
+      majAuthConsole(); majDepouillement();
+      if (!_collabEcoute && window.FB && window.FB.ecouterCollab) {
+        _collabEcoute = true;
+        window.FB.ecouterCollab(function (v) {
+          var avant = _collab; _collab = v; majCollabUI();
+          if (v && !avant && _maitre) demarrerJournal();
+        });
+      } else if (_collab && _maitre) { demarrerJournal(); }
+      return true;
     }).catch(function (e) {
       return (e && e.message === "secret") ? "secret" : false;
     });
@@ -5443,6 +5495,46 @@ window.DEPOUILLEMENT = (function () {
   function espaceAnnee() { return STATE.niveauActif === "demo" ? "demo" : STATE.annee; }
   var _unsubEcoute = null, _demoResultats = null, _maitre = null;
   var LS_SECRET = "conv_stage_secret_v1";
+  var _collab = false, _journalItems = [], _collabEcoute = false;
+  var CODE_COLLAB = "COLLAB-2027"; // code d'activation du mode collaboratif (modifiable, non sensible)
+  function estCollab() { return _collab; }
+  function auteurCourant() {
+    var u = window.FB && window.FB.utilisateur && window.FB.utilisateur();
+    var av = (((u && u.email) || "").split("@")[0] || "Gestionnaire").split(".")[0];
+    return av ? av.charAt(0).toUpperCase() + av.slice(1) : "Gestionnaire";
+  }
+  // Recense une action dans le journal chiffré (uniquement si le mode collaboratif est actif).
+  function journal(type, desc) {
+    if (!_collab || !_maitre || !window.FB || !window.FB.dispo || !window.CRYPTO) return;
+    var e = { auteur: auteurCourant(), ts: Date.now(), type: type || "", desc: desc || "" };
+    window.CRYPTO.emballerCle(_maitre, JSON.stringify(e)).then(function (p) {
+      return window.FB.journalPush({ iv: p.iv, ct: p.ct, v: p.v, ts: e.ts });
+    }).then(function () { return window.FB.journalPurger(100); }).catch(function () {});
+  }
+  function demarrerJournal() {
+    if (!window.FB || !window.FB.journalEcouter || !_maitre) return;
+    window.FB.journalEcouter(function (arr) {
+      if (!_maitre) return;
+      Promise.all((arr || []).map(function (it) {
+        if (!it.ct) return Promise.resolve(null);
+        return window.CRYPTO.deballerCle(_maitre, it).then(function (txt) { try { var o = JSON.parse(txt); o._id = it._id; return o; } catch (e) { return null; } }, function () { return null; });
+      })).then(function (items) {
+        _journalItems = items.filter(Boolean).sort(function (a, b) { return b.ts - a.ts; });
+        renderJournal();
+      });
+    });
+  }
+  function renderJournal() {
+    var box = $("journal-liste"); if (!box) return;
+    if (!_journalItems.length) { box.innerHTML = '<p class="mut">Aucune action enregistrée pour l\'instant.</p>'; return; }
+    box.innerHTML = _journalItems.map(function (it) {
+      var d = new Date(it.ts);
+      var q = ("0" + d.getDate()).slice(-2) + "/" + ("0" + (d.getMonth() + 1)).slice(-2) + " " + ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2);
+      return '<div class="journal-item"><span class="journal-when">' + q + '</span> <b>' + esc(it.auteur) + '</b> ' + esc(it.desc) + '</div>';
+    }).join("");
+  }
+  function majCollabUI() { var cj = $("carte-journal"); if (cj) cj.hidden = !_collab; }
+  window.__journal = journal;
   function show(id, on) { var e = $(id); if (e) e.hidden = !on; }
 
   function surSnapshot(val) {
@@ -5533,7 +5625,7 @@ window.DEPOUILLEMENT = (function () {
   window.__supprimerConvention = function (code) {
     if (!window.FB || !window.FB.dispo) { toast("Service indisponible.", true); return; }
     if (!confirm("Supprimer la convention de « " + code + " » ?\n\nLes données chiffrées seront définitivement effacées de Firebase.")) return;
-    window.FB.supprimer(espaceAnnee(), code).then(function () { toast("Convention supprimée."); })
+    window.FB.supprimer(espaceAnnee(), code).then(function () { journal("suppression", "a supprimé la convention de " + code); toast("Convention supprimée."); })
       .catch(function (e) { toast("Échec de la suppression : " + (e && e.message ? e.message : "réessayez"), true); });
   };
   window.__viderConventions = function () {
