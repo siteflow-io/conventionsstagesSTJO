@@ -108,6 +108,18 @@
 
   /* Mode signataire */
   .apercu-banner{background:#fbf6ea;border:1px solid var(--or-clair);border-radius:9px;padding:9px 14px;margin-bottom:14px;font-size:13px;color:#6a5320;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  #login-console{display:none;min-height:100vh;align-items:center;justify-content:center;padding:24px}
+  #mode-console.verrouille > header,#mode-console.verrouille > main{display:none}
+  #mode-console.verrouille #login-console{display:flex}
+  .login-carte{background:var(--carte);border:1px solid var(--ligne);border-radius:16px;padding:30px 28px;max-width:360px;width:100%;text-align:center;box-shadow:0 10px 34px rgba(22,36,63,.09)}
+  .login-carte h2{margin:12px 0 2px}
+  .login-carte input{display:block;width:100%;box-sizing:border-box;margin:8px 0;padding:11px 12px;border:1px solid var(--ligne);border-radius:9px;font-size:15px}
+  .login-carte .btn{width:100%;margin-top:8px;justify-content:center}
+  .login-err{color:var(--bordeaux);font-size:13px;min-height:18px;margin:10px 0 0}
+  .top-user{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:12px;color:#d9b96a}
+  .top-user[hidden]{display:none}
+  .top-user .mini{background:rgba(255,255,255,.14);color:#fff;border-color:rgba(255,255,255,.35)}
+  .app-version{position:fixed;bottom:6px;right:9px;font-size:10px;color:var(--mut);opacity:.55;z-index:5;pointer-events:none}
   .ok-pill{background:#e3f4ea;color:#155e35;border-radius:20px;padding:2px 9px;font-size:11.5px;white-space:nowrap}
   .ko-pill{background:#fbe6e6;color:#9a2828;border-radius:20px;padding:2px 9px;font-size:11.5px}
   tr.incomplet td{background:#fdf7f0}
@@ -199,6 +211,20 @@
 
 <!-- ===================== MODE CONSOLE ===================== -->
 <div id="mode-console">
+  <!-- Connexion réservée à l'équipe (gestionnaires) -->
+  <div id="login-console">
+    <div class="login-carte">
+      <span class="ecusson" aria-hidden="true">
+        <svg width="52" height="59" viewBox="0 0 46 52"><path d="M23 1 L45 7 V28 C45 40 35 48 23 51 C11 48 1 40 1 28 V7 Z" fill="#22344f" stroke="#b8923f" stroke-width="2"/><text x="23" y="32" text-anchor="middle" font-family="Georgia,serif" font-size="19" fill="#d9b96a">SJ</text></svg>
+      </span>
+      <h2 class="serif">Conventions de stage</h2>
+      <p class="mut" style="margin:0 0 16px">Espace réservé à l'équipe du Collège Saint-Joseph.</p>
+      <input id="login-email" type="email" placeholder="Adresse e-mail" autocomplete="username">
+      <input id="login-mdp" type="password" placeholder="Mot de passe" autocomplete="current-password">
+      <button class="btn bord" id="btn-login" type="button" title="Accéder à l'espace de gestion">Se connecter</button>
+      <p class="login-err" id="login-err"></p>
+    </div>
+  </div>
   <header class="top">
     <div class="top-in">
       <span class="ecusson" aria-hidden="true">
@@ -211,6 +237,10 @@
       <div>
         <h1>Conventions de stage</h1>
         <p class="sous">Collège Saint-Joseph — Doué-en-Anjou · séquence d'observation en milieu professionnel</p>
+      </div>
+      <div class="top-user">
+        <span id="top-user-mail" class="top-user-mail"></span>
+        <button class="mini" id="btn-deconnexion" type="button" title="Se déconnecter de l'espace de gestion">Se déconnecter</button>
       </div>
     </div>
   </header>
@@ -305,18 +335,6 @@
     <section class="carte">
       <h2><span class="num">4</span> Conventions reçues</h2>
       <p class="hint" id="dep-info-direct" style="margin-top:0">Les conventions transmises par les familles s'affichent ici automatiquement, regroupées par élève.</p>
-      <div id="dep-connexion" hidden>
-        <p class="hint" style="margin-top:0">Connectez-vous avec votre compte établissement pour consulter les conventions reçues.</p>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
-          <input id="dep-email" type="email" placeholder="Adresse e-mail" autocomplete="username" style="padding:8px 10px;border:1px solid var(--ligne);border-radius:8px;min-width:200px">
-          <input id="dep-mdp" type="password" placeholder="Mot de passe" autocomplete="current-password" style="padding:8px 10px;border:1px solid var(--ligne);border-radius:8px;min-width:160px">
-          <button class="btn sm" id="btn-connexion" type="button" title="Se connecter pour lire les conventions reçues">Se connecter</button>
-        </div>
-        <p class="hint" id="dep-erreur" style="color:var(--bordeaux)"></p>
-      </div>
-      <div id="dep-connecte" hidden>
-        <p class="hint" style="margin-top:0">Connecté : <b id="dep-user"></b> · <button class="mini" id="btn-deconnexion" type="button" title="Se déconnecter de la consultation">Se déconnecter</button></p>
-      </div>
       <div id="bloc-nuage" hidden>
         <p class="hint" style="margin-top:0">Sur le Nuage, sélectionne le dossier <b>Conventions-4e</b> → « Télécharger » (Nextcloud fournit un ZIP), puis dépose ce ZIP ici. Tout reste sur ton ordinateur.</p>
         <span class="btn bord file-btn" title="Importer l'archive ZIP des conventions déposées, téléchargée depuis le Nuage">Importer le ZIP du Nuage…<input id="file-zip" type="file" accept=".zip"></span>
@@ -361,6 +379,7 @@
 </div>
 
 <div id="toast" class="toast" hidden></div>
+<div class="app-version">v2026.07.01·auth-globale</div>
 
 <script>
 /* ===== Configuration : système de transmission ====================
@@ -3531,7 +3550,7 @@ window.SIGNATAIRE = (function () {
         + '<li>Vous validez les articles et vous signez.</li>'
         + '<li>Vous envoyez votre convention à l\'établissement — en un appui.</li></ol></div>';
       h += '<p class="mut">⏱ Durée : ' + DUREE[CTX.role] + '. Vos informations sont chiffrées sur votre appareil avant l\'envoi.</p>';
-      h += '<div class="encadre-conseil"><b>Un conseil : remplissez votre convention sur un seul appareil.</b> Votre progression est gardée sur cet appareil jusqu\'au bout ; l\'envoi se fait à la dernière étape, par vous. Gardez le même appareil du début à la fin, sinon il faudra recommencer.</div>';
+      h += '<p class="mut" style="font-size:12px;margin-top:10px">À remplir sur un seul appareil, du début à l\'envoi — votre progression y est conservée.</p>';
     } else {
       h += '<div class="demarche"><div class="demarche-t">Comment ça se passe</div><ol>'
         + '<li>Vous remplissez votre partie, étape par étape.</li>'
@@ -4508,6 +4527,7 @@ window.DEPOUILLEMENT = (function () {
     chargerState();
     bindConsole();
     majAnneeNiveau();
+    majAuthConsole();
     majPanneauDemo();
     majTransport();
     renderTuteurs();
@@ -4900,19 +4920,22 @@ window.DEPOUILLEMENT = (function () {
     document.querySelectorAll(".pli").forEach(function (b) {
       b.addEventListener("click", function () { var c = b.closest(".carte"); if (c) c.classList.toggle("replie"); });
     });
-    // Connexion / déconnexion (consultation des conventions)
-    var bc = $("btn-connexion");
-    if (bc) bc.addEventListener("click", function () {
-      var email = ($("dep-email").value || "").trim(), mdp = $("dep-mdp").value || "", err = $("dep-erreur");
+    // Connexion de l'espace de gestion (authentification globale)
+    var bl = $("btn-login");
+    if (bl) bl.addEventListener("click", function () {
+      var email = ($("login-email").value || "").trim(), mdp = $("login-mdp").value || "", err = $("login-err");
       if (err) err.textContent = "";
+      if (!window.FB || !window.FB.dispo) { if (err) err.textContent = "Service indisponible — vérifiez votre connexion Internet, puis rechargez."; return; }
       if (!email || !mdp) { if (err) err.textContent = "Renseignez votre e-mail et votre mot de passe."; return; }
-      bc.disabled = true; bc.textContent = "Connexion…";
-      window.FB.connecter(email, mdp).then(function () { bc.disabled = false; bc.textContent = "Se connecter"; $("dep-mdp").value = ""; })
-        .catch(function () { bc.disabled = false; bc.textContent = "Se connecter"; if (err) err.textContent = "Connexion refusée. Vérifiez vos identifiants."; });
+      bl.disabled = true; bl.textContent = "Connexion…";
+      window.FB.connecter(email, mdp).then(function () { bl.disabled = false; bl.textContent = "Se connecter"; $("login-mdp").value = ""; })
+        .catch(function () { bl.disabled = false; bl.textContent = "Se connecter"; if (err) err.textContent = "Connexion refusée. Vérifiez vos identifiants."; });
     });
+    var bimdp = $("login-mdp");
+    if (bimdp) bimdp.addEventListener("keydown", function (e) { if (e.key === "Enter" && bl) bl.click(); });
     var bd = $("btn-deconnexion");
     if (bd) bd.addEventListener("click", function () { if (window.FB) window.FB.deconnecter(); });
-    if (window.FB) window.FB.onAuth(function () { majDepouillement(); });
+    if (window.FB) window.FB.onAuth(function () { majAuthConsole(); majDepouillement(); });
   }
 
   // ---- Attribution tuteurs ------------------------------------------
@@ -5217,21 +5240,26 @@ window.DEPOUILLEMENT = (function () {
   function demarrerEcoute() { if (_unsubEcoute) return; if (!window.FB || !window.FB.dispo) return; _unsubEcoute = window.FB.ecouter(STATE.annee, surSnapshot); }
   function arreterEcoute() { if (_unsubEcoute) { try { _unsubEcoute(); } catch (e) {} _unsubEcoute = null; } }
 
+  function majAuthConsole() {
+    var mc = $("mode-console"); if (!mc) return;
+    var fb = estFirebase(), connecte = !!(window.FB && window.FB.utilisateur());
+    if (fb && !connecte) mc.classList.add("verrouille"); else mc.classList.remove("verrouille");
+    var tu = document.querySelector(".top-user"); if (tu) tu.hidden = !connecte;
+    var mail = $("top-user-mail"); if (mail) mail.textContent = connecte ? (window.FB.utilisateur().email || "") : "";
+    var err = $("login-err");
+    if (err && fb && window.FB && !window.FB.dispo) err.textContent = "Service indisponible — vérifiez votre connexion Internet, puis rechargez la page.";
+  }
+
   function majDepouillement() {
     var fb = estFirebase(), enDemo = STATE.niveauActif === "demo";
-    var fbDispo = !!(window.FB && window.FB.dispo), connecte = !!(window.FB && window.FB.utilisateur());
+    var connecte = !!(window.FB && window.FB.utilisateur());
     show("bloc-nuage", !fb && !enDemo);
-    show("dep-connexion", fb && fbDispo && !connecte && !enDemo);
-    show("dep-connecte", fb && connecte && !enDemo);
     var di = $("dep-info-direct");
     if (di) {
       if (enDemo) { di.hidden = false; di.textContent = "Mode démonstration : conventions fictives ci-dessous."; }
       else if (!fb) { di.hidden = true; }
-      else if (!fbDispo) { di.hidden = false; di.textContent = "Service de réception indisponible — vérifiez la connexion Internet et ouvrez l'application depuis son adresse en ligne."; }
-      else if (!connecte) { di.hidden = true; }
       else { di.hidden = false; di.textContent = "Les conventions s'affichent en temps réel, regroupées par élève."; }
     }
-    var u = $("dep-user"); if (u && connecte) u.textContent = window.FB.utilisateur().email || "";
     if (enDemo) { arreterEcoute(); if (window.DEPOUILLEMENT) DEPOUILLEMENT.injecterTest(_demoResultats || []); return; }
     if (fb && connecte) { demarrerEcoute(); }
     else { arreterEcoute(); if (window.DEPOUILLEMENT) DEPOUILLEMENT.injecterTest([]); }
