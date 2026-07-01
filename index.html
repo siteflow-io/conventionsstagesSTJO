@@ -228,6 +228,8 @@
       <p class="mut" style="margin:0 0 16px">Espace réservé à l'équipe du Collège Saint-Joseph.</p>
       <input id="login-email" type="email" placeholder="Adresse e-mail" autocomplete="username">
       <input id="login-mdp" type="password" placeholder="Mot de passe" autocomplete="current-password">
+      <input id="login-secret" type="password" placeholder="Clé de chiffrement (commune à l'équipe)" autocomplete="off">
+      <p class="hint" style="text-align:left;margin:2px 2px 6px;font-size:11.5px">Le mot de passe ouvre la console ; la clé de chiffrement — la même pour vous quatre, différente du mot de passe — permet de lire les conventions. Elle reste sur cet appareil et n'est jamais envoyée à Firebase.</p>
       <button class="btn bord" id="btn-login" type="button" title="Accéder à l'espace de gestion">Se connecter</button>
       <p class="login-err" id="login-err"></p>
     </div>
@@ -342,6 +344,29 @@
       <div id="docs-distribution" style="margin-top:16px"></div>
     </section>
 
+    <!-- Signature de l'établissement (en lot) -->
+    <section class="carte" id="carte-etab">
+      <h2><span class="num">✍</span> Signature de l'établissement</h2>
+      <p class="hint" style="margin-top:0">Mme Chrétien signe <b>une seule fois</b> ici. Cette signature est apposée automatiquement sur le volet « établissement » de <b>toutes</b> les conventions générées — pas besoin d'un lien par élève.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end">
+        <label style="font-size:13px">Fait à<br><input id="etab-faita" type="text" value="Doué-en-Anjou" style="padding:8px 10px;border:1px solid var(--ligne);border-radius:8px;margin-top:4px"></label>
+        <div>
+          <div class="hint" style="margin-bottom:4px">Signez dans le cadre :</div>
+          <canvas id="etab-canvas" style="border:1px solid var(--ligne);border-radius:8px;width:320px;height:120px;max-width:100%;touch-action:none;background:#fff;display:block"></canvas>
+        </div>
+        <div id="etab-apercu-wrap" hidden style="text-align:center">
+          <div class="hint" style="margin-bottom:4px">Signature enregistrée :</div>
+          <img id="etab-apercu" style="border:1px solid var(--ligne);border-radius:8px;height:120px;background:#fff">
+        </div>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="btn bord sm" id="btn-etab-save" type="button" title="Enregistrer cette signature pour toutes les conventions">Enregistrer la signature</button>
+        <button class="btn ghost sm" id="btn-etab-clear" type="button" title="Effacer le tracé du cadre">Effacer le tracé</button>
+        <button class="btn ghost sm danger" id="btn-etab-suppr" type="button" hidden title="Retirer la signature enregistrée">🗑 Retirer la signature</button>
+        <span id="etab-statut" class="hint" style="margin-left:4px"></span>
+      </div>
+    </section>
+
     <!-- 4 · Conventions reçues -->
     <section class="carte">
       <h2><span class="num">4</span> Conventions reçues</h2>
@@ -351,6 +376,22 @@
         <span class="btn bord file-btn" title="Importer l'archive ZIP des conventions déposées, téléchargée depuis le Nuage">Importer le ZIP du Nuage…<input id="file-zip" type="file" accept=".zip"></span>
       </div>
       <div id="depouille-resultats" style="margin-top:18px"></div>
+    </section>
+
+    <!-- Règles de confidentialité -->
+    <section class="carte" id="carte-confid">
+      <h2><span class="num">🔒</span> Règles de confidentialité</h2>
+      <p class="hint" style="margin-top:0">Comment les données des familles et des élèves sont protégées dans cette application.</p>
+      <details style="margin-top:6px">
+        <summary style="cursor:pointer;font-weight:600;color:var(--nuit)">Lire le fonctionnement en détail</summary>
+        <div style="margin-top:10px;font-size:13.5px;line-height:1.55;color:var(--encre)">
+          <p><b>Deux secrets, deux rôles.</b> L'accès repose sur deux éléments distincts. Le <b>mot de passe</b> ouvre la console : il est vérifié par le service d'hébergement (Firebase). La <b>clé de chiffrement</b>, commune à l'équipe et différente du mot de passe, sert à lire le contenu des conventions ; elle n'est <b>jamais envoyée</b> au serveur et reste sur chaque appareil.</p>
+          <p><b>Chiffrement de bout en bout.</b> Chaque convention est chiffrée sur l'appareil de la famille (norme AES-256) avant d'être transmise. Le serveur ne stocke que des données illisibles ; seules les personnes disposant de la clé de chiffrement — vous — peuvent les déchiffrer. La clé de chiffrement elle-même n'est déposée sur le serveur que sous forme <b>verrouillée</b> par un secret que le serveur ne connaît pas : même l'hébergeur ne peut donc pas lire les conventions.</p>
+          <p><b>Saisie unique.</b> Le mot de passe et la clé de chiffrement ne sont demandés qu'une seule fois par appareil. Ils sont ensuite mémorisés localement, de façon sécurisée, pour ne plus avoir à les ressaisir. Le bouton « Se déconnecter » les efface de l'appareil.</p>
+          <p><b>Hébergement en Europe.</b> Les données chiffrées sont hébergées sur des serveurs situés dans l'Union européenne (Belgique), conformément au RGPD.</p>
+          <p style="color:var(--bordeaux)"><b>Important.</b> La clé de chiffrement ne peut pas être récupérée si elle est perdue par tous les gestionnaires : c'est la garantie que personne d'autre ne peut lire les conventions. Conservez-la en lieu sûr (gestionnaire de mots de passe, ou coffre de l'établissement).</p>
+        </div>
+      </details>
     </section>
   </main>
 </div>
@@ -390,7 +431,7 @@
 </div>
 
 <div id="toast" class="toast" hidden></div>
-<div class="app-version">v2026.07.01·auth-globale</div>
+<div class="app-version">v2026.07.01·modele-c</div>
 
 <script>
 /* ===== Configuration : système de transmission ====================
@@ -433,7 +474,25 @@ window.CRYPTO = (function () {
       return subtle.decrypt({ name: "AES-GCM", iv: b64ToBytes(paquet.iv) }, k, b64ToBytes(paquet.ct));
     }).then(function (buf) { return JSON.parse(TD.decode(buf)); });
   }
-  return { genererCle: genererCle, chiffrer: chiffrer, dechiffrer: dechiffrer, dispo: !!subtle };
+  // ---- Modèle C : clé maîtresse dérivée de la « clé de chiffrement » d'équipe ----
+  function genererSel() { return bytesToB64(window.crypto.getRandomValues(new Uint8Array(16)).buffer); }
+  function deriverMaitre(secret, selB64) {
+    return subtle.importKey("raw", TE.encode(secret), "PBKDF2", false, ["deriveKey"]).then(function (base) {
+      return subtle.deriveKey({ name: "PBKDF2", salt: b64ToBytes(selB64), iterations: 150000, hash: "SHA-256" },
+        base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+    });
+  }
+  function emballerCle(maitre, texte) {
+    var iv = window.crypto.getRandomValues(new Uint8Array(12));
+    return subtle.encrypt({ name: "AES-GCM", iv: iv }, maitre, TE.encode(texte))
+      .then(function (ct) { return { iv: bytesToB64(iv.buffer), ct: bytesToB64(ct), v: 1 }; });
+  }
+  function deballerCle(maitre, paquet) {
+    return subtle.decrypt({ name: "AES-GCM", iv: b64ToBytes(paquet.iv) }, maitre, b64ToBytes(paquet.ct))
+      .then(function (buf) { return TD.decode(buf); });
+  }
+  return { genererCle: genererCle, chiffrer: chiffrer, dechiffrer: dechiffrer, dispo: !!subtle,
+           genererSel: genererSel, deriverMaitre: deriverMaitre, emballerCle: emballerCle, deballerCle: deballerCle };
 })();
 </script>
 <!-- SDK Firebase (compat) — chargé depuis le CDN officiel Google -->
@@ -480,6 +539,17 @@ window.FB = (function () {
     if (!dispo) return Promise.reject(new Error("Firebase indisponible"));
     return db.ref("conventions/" + encodeCle(annee) + "/" + encodeCle(code)).remove();
   }
+  function viderEspace(annee) {
+    if (!dispo) return Promise.reject(new Error("Firebase indisponible"));
+    return db.ref("conventions/" + encodeCle(annee)).remove();
+  }
+  // Modèle C : le sel (public) et les clés d'année emballées (chiffrées par la clé maîtresse) vivent sur Firebase, lisibles par les seuls comptes.
+  function lireSel() { if (!dispo) return Promise.resolve(null); return db.ref("config/sel").once("value").then(function (s) { return s.val(); }); }
+  function ecrireSel(sel) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("config/sel").set(sel); }
+  function lireCleAnnee(annee) { if (!dispo) return Promise.resolve(null); return db.ref("cles/" + encodeCle(annee)).once("value").then(function (s) { return s.val(); }); }
+  function ecrireCleAnnee(annee, paquet) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("cles/" + encodeCle(annee)).set(paquet); }
+  function lireCanari() { if (!dispo) return Promise.resolve(null); return db.ref("config/canari").once("value").then(function (s) { return s.val(); }); }
+  function ecrireCanari(p) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("config/canari").set(p); }
   function connecter(email, mdp) {
     if (!dispo) return Promise.reject(new Error("Firebase indisponible"));
     return auth.signInWithEmailAndPassword(email, mdp);
@@ -487,7 +557,7 @@ window.FB = (function () {
   function deconnecter() { if (dispo) try { auth.signOut(); } catch (e) {} }
   function onAuth(cb) { if (dispo) auth.onAuthStateChanged(cb); else cb(null); }
   function utilisateur() { return (dispo && auth && auth.currentUser) || null; }
-  return { dispo: dispo, ecrireConvention: ecrireConvention, ecouter: ecouter, supprimer: supprimer, connecter: connecter, deconnecter: deconnecter, onAuth: onAuth, utilisateur: utilisateur };
+  return { dispo: dispo, ecrireConvention: ecrireConvention, ecouter: ecouter, supprimer: supprimer, viderEspace: viderEspace, lireSel: lireSel, ecrireSel: ecrireSel, lireCleAnnee: lireCleAnnee, ecrireCleAnnee: ecrireCleAnnee, lireCanari: lireCanari, ecrireCanari: ecrireCanari, connecter: connecter, deconnecter: deconnecter, onAuth: onAuth, utilisateur: utilisateur };
 })();
 </script>
 <script>
@@ -3949,7 +4019,7 @@ window.SIGNATAIRE = (function () {
       var donnees = { code: CTX.code, role: CTX.role, eleve: CTX.nomEleve, annee: CTX.annee, champs: CTX.champs, hash: hash, ts: CTX.ts, sig: CTX.sig };
       doc.setProperties({ title: "Convention " + CTX.code + " " + CTX.role, keywords: "CONVDATA:" + b64(JSON.stringify(donnees)) });
     } catch (e) {}
-    CTX.nomFichier = "CONV_" + CTX.code + "_" + CTX.role + "_" + dateJour() + ".pdf";
+    CTX.nomFichier = (CTX.estTest ? "TEST_DEMO_" : "") + "CONV_" + CTX.code + "_" + CTX.role + "_" + dateJour() + ".pdf";
     doc.save(CTX.nomFichier);
     sauverProfilEntreprise();
     effacerProgress();
@@ -4053,9 +4123,21 @@ window.SIGNATAIRE = (function () {
 
   // Génère la convention tissée pour un élève à partir des données compilées (appelée par le dépouillement)
   function genererConventionComplete(o) {
+    o = o || {};
+    // Signature de l'établissement apposée en lot (Mme Chrétien, depuis la console)
+    if (window.__etab) {
+      var e = window.__etab();
+      if (e && e.signature) {
+        o.sigs = o.sigs || {};
+        if (!o.sigs.ETABLISSEMENT) o.sigs.ETABLISSEMENT = e.signature;
+        o.data = o.data || {};
+        o.data.ETABLISSEMENT = Object.assign({ fait_a: e.faitA || "", lu_approuve: "Lu et approuvé" }, o.data.ETABLISSEMENT || {});
+      }
+    }
     var doc = wrapPDF(new window.jspdf.jsPDF({ unit: "mm", format: "a4", compress: true }));
-    rendreConventionTissee(doc, o || {});
-    doc.save("Convention_complete_" + ((o && o.code) || "eleve") + ".pdf");
+    rendreConventionTissee(doc, o);
+    var pref = (o && o.annee === "demo") ? "TEST_DEMO_" : "";
+    doc.save(pref + "Convention_complete_" + (o.code || "eleve") + ".pdf");
   }
 
   // Aperçu de la convention complète : 3 signatures à dessiner puis rendu tissé (données fictives)
@@ -4143,6 +4225,7 @@ window.SIGNATAIRE = (function () {
   // Expose les actions appelées par les boutons du template
   return {
     init: init,
+    attacherSignature: attacherSignature,
     choisirRole: choisirRole,
     suivant: suivant,
     precedent: precedent,
@@ -4277,7 +4360,8 @@ window.DEPOUILLEMENT = (function () {
         + "<td>" + cell("PARENTS") + "</td>"
         + "<td>" + cell("ETABLISSEMENT") + "</td>"
         + '<td><button class="mini" onclick="window.DEPOUILLEMENT.genConvention(\'' + esc(code) + '\')" title="Generer la convention complete assemblee (3 volets + horodatage) pour cet eleve">Convention</button>'
-        + ' <button class="mini" title="Préparer l\'envoi aux 3 parties" onclick="window.DEPOUILLEMENT.envoyer(\'' + esc(code) + '\')">✉</button></td>'
+        + ' <button class="mini" title="Préparer l\'envoi aux 3 parties" onclick="window.DEPOUILLEMENT.envoyer(\'' + esc(code) + '\')">✉</button>'
+        + ' <button class="mini danger" title="Supprimer cette convention (efface les données Firebase)" onclick="window.__supprimerConvention && window.__supprimerConvention(\'' + esc(code) + '\')">🗑</button></td>'
         + "</tr>";
     }).join("");
 
@@ -4294,6 +4378,7 @@ window.DEPOUILLEMENT = (function () {
       + '<button class="btn sm" onclick="window.DEPOUILLEMENT.genFichesTuteurs()" title="Un PDF par tuteur, listant ses eleves et le detail de leurs stages">📋 Fiches tuteurs (PDF)</button>'
       + '<button class="btn ghost sm" onclick="window.DEPOUILLEMENT.exportCSV()" title="Telecharger le tableau recapitulatif au format tableur (.csv)">Exporter le récap (.csv)</button>'
       + '<button class="btn ghost sm" onclick="window.DEPOUILLEMENT.genToutes()" title="Produire en une seule fois toutes les conventions completes assemblees">Générer toutes les conventions complètes</button>'
+      + ' <button class="btn ghost sm danger" onclick="window.__viderConventions && window.__viderConventions()" title="Supprimer toutes les conventions reçues de cet espace (efface les données Firebase)">🗑 Vider les conventions reçues</button>'
       + "</div>";
     afficher(html);
     _dernier = { codes: codes, parCode: parCode };
@@ -4448,6 +4533,7 @@ window.DEPOUILLEMENT = (function () {
     annee: "2026-2027",
     niveauActif: "4e",
     cles: {},
+    etab: { faitA: "Doué-en-Anjou", signature: "" },
     niveaux: {
       "4e": { eleves: [], tuteurs: [], tuteursTel: {}, tuteursMax: {}, tuteursQuotite: {}, modeAttribution: "manuel" },
       "3e": { eleves: [], tuteurs: [], tuteursTel: {}, tuteursMax: {}, tuteursQuotite: {}, modeAttribution: "manuel" },
@@ -4945,22 +5031,62 @@ window.DEPOUILLEMENT = (function () {
     document.querySelectorAll(".pli").forEach(function (b) {
       b.addEventListener("click", function () { var c = b.closest(".carte"); if (c) c.classList.toggle("replie"); });
     });
-    // Connexion de l'espace de gestion (authentification globale)
+    // Connexion de l'espace de gestion (mot de passe + clé de chiffrement d'équipe)
     var bl = $("btn-login");
     if (bl) bl.addEventListener("click", function () {
-      var email = ($("login-email").value || "").trim(), mdp = $("login-mdp").value || "", err = $("login-err");
+      var email = ($("login-email").value || "").trim(), mdp = $("login-mdp").value || "", secret = $("login-secret").value || "", err = $("login-err");
       if (err) err.textContent = "";
       if (!window.FB || !window.FB.dispo) { if (err) err.textContent = "Service indisponible — vérifiez votre connexion Internet, puis rechargez."; return; }
       if (!email || !mdp) { if (err) err.textContent = "Renseignez votre e-mail et votre mot de passe."; return; }
+      if (!secret) { if (err) err.textContent = "Renseignez la clé de chiffrement de l'équipe."; return; }
       bl.disabled = true; bl.textContent = "Connexion…";
-      window.FB.connecter(email, mdp).then(function () { bl.disabled = false; bl.textContent = "Se connecter"; $("login-mdp").value = ""; })
-        .catch(function () { bl.disabled = false; bl.textContent = "Se connecter"; if (err) err.textContent = "Connexion refusée. Vérifiez vos identifiants."; });
+      window.FB.connecter(email, mdp).then(function () {
+        return initSecret(secret);
+      }).then(function (res) {
+        bl.disabled = false; bl.textContent = "Se connecter";
+        if (res === true) { $("login-mdp").value = ""; $("login-secret").value = ""; }
+        else if (res === "secret") { if (err) err.textContent = "Clé de chiffrement incorrecte."; }
+        else { if (err) err.textContent = "Impossible d'établir la clé de chiffrement. Réessayez."; }
+      }).catch(function () {
+        bl.disabled = false; bl.textContent = "Se connecter"; if (err) err.textContent = "Connexion refusée. Vérifiez vos identifiants.";
+      });
     });
-    var bimdp = $("login-mdp");
-    if (bimdp) bimdp.addEventListener("keydown", function (e) { if (e.key === "Enter" && bl) bl.click(); });
+    ["login-mdp", "login-secret"].forEach(function (id) {
+      var el = $(id); if (el) el.addEventListener("keydown", function (e) { if (e.key === "Enter" && bl) bl.click(); });
+    });
     var bd = $("btn-deconnexion");
-    if (bd) bd.addEventListener("click", function () { if (window.FB) window.FB.deconnecter(); });
-    if (window.FB) window.FB.onAuth(function () { majAuthConsole(); majDepouillement(); });
+    if (bd) bd.addEventListener("click", function () { try { localStorage.removeItem(LS_SECRET); } catch (e) {} _maitre = null; STATE.cles = {}; if (window.FB) window.FB.deconnecter(); majAuthConsole(); });
+    // Restauration de session : si déjà connecté et clé de chiffrement mémorisée, tout se rétablit sans rien retaper.
+    if (window.FB) window.FB.onAuth(function () {
+      var connecte = !!(window.FB && window.FB.utilisateur());
+      if (connecte && !_maitre) {
+        var s = ""; try { s = localStorage.getItem(LS_SECRET) || ""; } catch (e) {}
+        if (s) { initSecret(s); return; }
+      }
+      majAuthConsole(); majDepouillement();
+    });
+
+    // Signature de l'établissement (en lot)
+    var etabCanvas = $("etab-canvas");
+    if (etabCanvas && window.SIGNATAIRE && window.SIGNATAIRE.attacherSignature) {
+      var etabSig = window.SIGNATAIRE.attacherSignature(etabCanvas);
+      var bes = $("btn-etab-save");
+      if (bes) bes.addEventListener("click", function () {
+        if (!etabSig || etabSig.estVierge()) { toast("Signez dans le cadre avant d'enregistrer.", true); return; }
+        STATE.etab = STATE.etab || {};
+        STATE.etab.signature = etabSig.dataURL();
+        STATE.etab.faitA = ($("etab-faita").value || "").trim();
+        sauverState("etab-sig"); majEtabStatut(); toast("Signature de l'établissement enregistrée pour toutes les conventions.");
+      });
+      var bec = $("btn-etab-clear");
+      if (bec) bec.addEventListener("click", function () { if (etabSig) etabSig.effacer(); });
+      var bex = $("btn-etab-suppr");
+      if (bex) bex.addEventListener("click", function () {
+        if (!confirm("Retirer la signature enregistrée de l'établissement ?")) return;
+        STATE.etab.signature = ""; if (etabSig) etabSig.effacer(); sauverState("etab-suppr"); majEtabStatut(); toast("Signature retirée.");
+      });
+    }
+    majEtabStatut();
   }
 
   // ---- Attribution tuteurs ------------------------------------------
@@ -5076,12 +5202,50 @@ window.DEPOUILLEMENT = (function () {
     });
   }
 
+  // Établit la clé maîtresse à partir de la « clé de chiffrement » d'équipe, puis précharge les clés d'année.
+  // Renvoie true si tout est bon, "secret" si la clé de chiffrement est erronée, false sinon.
+  function initSecret(secret) {
+    if (!secret || !window.CRYPTO || !window.CRYPTO.dispo || !window.FB || !window.FB.dispo) return Promise.resolve(false);
+    var maitre;
+    return window.FB.lireSel().then(function (sel) {
+      if (sel) return sel;
+      var neuf = window.CRYPTO.genererSel();
+      return window.FB.ecrireSel(neuf).then(function () { return neuf; });
+    }).then(function (sel) {
+      return window.CRYPTO.deriverMaitre(secret, sel);
+    }).then(function (m) {
+      maitre = m;
+      return window.FB.lireCanari();
+    }).then(function (canari) {
+      if (canari && canari.ct) {
+        return window.CRYPTO.deballerCle(maitre, canari).then(function (v) {
+          if (v !== "CONV-OK") throw new Error("secret");
+        }, function () { throw new Error("secret"); });
+      }
+      return window.CRYPTO.emballerCle(maitre, "CONV-OK").then(function (p) { return window.FB.ecrireCanari(p); });
+    }).then(function () {
+      _maitre = maitre;
+      try { localStorage.setItem(LS_SECRET, secret); } catch (e) {}
+      return Promise.all([assurerCle(STATE.annee), assurerCle("demo")]);
+    }).then(function () {
+      majAuthConsole(); majDepouillement(); return true;
+    }).catch(function (e) {
+      return (e && e.message === "secret") ? "secret" : false;
+    });
+  }
+
   function assurerCle(annee) {
     if (STATE.cles[annee]) return Promise.resolve(STATE.cles[annee]);
-    if (!window.CRYPTO || !window.CRYPTO.dispo) return Promise.resolve("");
-    return window.CRYPTO.genererCle().then(function (cle) {
-      STATE.cles[annee] = cle; sauverState("cle"); return cle;
-    });
+    if (!_maitre || !window.CRYPTO || !window.CRYPTO.dispo || !window.FB || !window.FB.dispo) return Promise.resolve("");
+    return window.FB.lireCleAnnee(annee).then(function (paquet) {
+      if (paquet && paquet.ct) return window.CRYPTO.deballerCle(_maitre, paquet);
+      return window.CRYPTO.genererCle().then(function (cle) {
+        return window.CRYPTO.emballerCle(_maitre, cle).then(function (pk) {
+          return window.FB.ecrireCleAnnee(annee, pk).then(function () { return cle; });
+        });
+      });
+    }).then(function (cle) { STATE.cles[annee] = cle; return cle; })
+      .catch(function () { return ""; });
   }
 
   function ouvrirLiens(el) {
@@ -5182,7 +5346,9 @@ window.DEPOUILLEMENT = (function () {
   }
 
   // ---- Sauvegarde (dispositif Dugain) -------------------------------
-  function signature() { return JSON.stringify(STATE); }
+  // Les clés déchiffrées ne sont JAMAIS écrites sur le disque : elles vivent en mémoire et, chiffrées, sur Firebase.
+  function stateAExporter() { var c = {}; for (var k in STATE) { if (STATE.hasOwnProperty(k) && k !== "cles") c[k] = STATE[k]; } return c; }
+  function signature() { return JSON.stringify(stateAExporter()); }
   function sauverState() {
     lsSet(LS_STATE, signature());
     if (isAutoSaveOn() && signature() !== _lastSig) { /* auto-dl géré périodiquement/fermeture */ }
@@ -5193,6 +5359,7 @@ window.DEPOUILLEMENT = (function () {
     // Garantir la présence des espaces (compat anciennes sauvegardes)
     if (!STATE.niveaux) STATE.niveaux = {};
     if (!STATE.cles) STATE.cles = {};
+    if (!STATE.etab) STATE.etab = { faitA: "Doué-en-Anjou", signature: "" };
     ["4e", "3e", "demo"].forEach(function (n) {
       if (!STATE.niveaux[n]) STATE.niveaux[n] = { eleves: [], tuteurs: [], tuteursTel: {}, tuteursMax: {}, tuteursQuotite: {}, modeAttribution: n === "demo" ? "auto" : "manuel" };
     });
@@ -5224,7 +5391,7 @@ window.DEPOUILLEMENT = (function () {
   }
   function exporterJSON() { autoTelechargerJSON("manuel"); }
   function autoTelechargerJSON() {
-    telechargerBlob(nomFichierJSON(), JSON.stringify(STATE, null, 2));
+    telechargerBlob(nomFichierJSON(), JSON.stringify(stateAExporter(), null, 2));
     _lastSig = signature();
   }
   function importerJSON(file) {
@@ -5274,7 +5441,8 @@ window.DEPOUILLEMENT = (function () {
   function estFirebase() { return ((window.CONFIG && window.CONFIG.transport) || "nuage") === "firebase"; }
   // Espace de stockage Firebase : les vraies classes utilisent l'année ; le mode test est isolé sous "demo".
   function espaceAnnee() { return STATE.niveauActif === "demo" ? "demo" : STATE.annee; }
-  var _unsubEcoute = null, _demoResultats = null;
+  var _unsubEcoute = null, _demoResultats = null, _maitre = null;
+  var LS_SECRET = "conv_stage_secret_v1";
   function show(id, on) { var e = $(id); if (e) e.hidden = !on; }
 
   function surSnapshot(val) {
@@ -5299,9 +5467,9 @@ window.DEPOUILLEMENT = (function () {
   function majAuthConsole() {
     var mc = $("mode-console"); if (!mc) return;
     var fb = estFirebase(), connecte = !!(window.FB && window.FB.utilisateur());
-    if (fb && !connecte) mc.classList.add("verrouille"); else mc.classList.remove("verrouille");
-    var tu = document.querySelector(".top-user"); if (tu) tu.hidden = !connecte;
-    var mail = $("top-user-mail"); if (mail) mail.textContent = connecte ? (window.FB.utilisateur().email || "") : "";
+    if (fb && (!connecte || !_maitre)) mc.classList.add("verrouille"); else mc.classList.remove("verrouille");
+    var tu = document.querySelector(".top-user"); if (tu) tu.hidden = !(connecte && _maitre);
+    var mail = $("top-user-mail"); if (mail) mail.textContent = (connecte && _maitre && window.FB.utilisateur()) ? (window.FB.utilisateur().email || "") : "";
     var err = $("login-err");
     if (err && fb && window.FB && !window.FB.dispo) err.textContent = "Service indisponible — vérifiez votre connexion Internet, puis rechargez la page.";
   }
@@ -5352,6 +5520,30 @@ window.DEPOUILLEMENT = (function () {
     window.scrollTo(0, 0);
   };
   window.__fermerModal = function () { $("modal").hidden = true; };
+  window.__etab = function () { return STATE.etab || {}; };
+  function majEtabStatut() {
+    var st = $("etab-statut"), wrap = $("etab-apercu-wrap"), img = $("etab-apercu"), sup = $("btn-etab-suppr");
+    var has = !!(STATE.etab && STATE.etab.signature);
+    if (st) st.textContent = has ? "✓ Signature enregistrée — appliquée à toutes les conventions." : "Aucune signature enregistrée.";
+    if (wrap) wrap.hidden = !has;
+    if (img && has) img.src = STATE.etab.signature;
+    if (sup) sup.hidden = !has;
+    var fa = $("etab-faita"); if (fa && STATE.etab && STATE.etab.faitA) fa.value = STATE.etab.faitA;
+  }
+  window.__supprimerConvention = function (code) {
+    if (!window.FB || !window.FB.dispo) { toast("Service indisponible.", true); return; }
+    if (!confirm("Supprimer la convention de « " + code + " » ?\n\nLes données chiffrées seront définitivement effacées de Firebase.")) return;
+    window.FB.supprimer(espaceAnnee(), code).then(function () { toast("Convention supprimée."); })
+      .catch(function (e) { toast("Échec de la suppression : " + (e && e.message ? e.message : "réessayez"), true); });
+  };
+  window.__viderConventions = function () {
+    if (!window.FB || !window.FB.dispo) { toast("Service indisponible.", true); return; }
+    var esp = espaceAnnee();
+    var libelle = esp === "demo" ? "toutes les conventions de TEST" : "TOUTES les conventions reçues pour l'année " + esp;
+    if (!confirm("Supprimer " + libelle + " ?\n\nCette action efface définitivement les nœuds Firebase correspondants et ne peut pas être annulée.")) return;
+    window.FB.viderEspace(esp).then(function () { toast("Conventions supprimées."); })
+      .catch(function (e) { toast("Échec : " + (e && e.message ? e.message : "réessayez"), true); });
+  };
   window.__retourConsole = function () {
     $("mode-signataire").hidden = true;
     $("mode-signataire").classList.remove("apercu");
