@@ -10,6 +10,7 @@
     --fond:#eef1f5; --carte:#ffffff; --encre:#1f2630; --mut:#6b7480; --ligne:#dde3ea;
   }
   *{box-sizing:border-box}
+  [hidden]{display:none!important}
   html,body{margin:0}
   body{font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--encre);background:var(--fond)}
   h1,h2,h3,.serif{font-family:Georgia,"Times New Roman",serif}
@@ -60,6 +61,8 @@
   .btn.sm{padding:6px 11px;font-size:13px}
   .btn.actif{background:var(--or);border-color:var(--or);color:var(--nuit)}
   button.mini{font:inherit;font-size:12.5px;padding:4px 9px;border:1px solid var(--ligne);background:#fff;border-radius:6px;cursor:pointer;color:var(--nuit)}
+  .mini.danger,.btn.danger{color:var(--bordeaux);border-color:#e6c9ce}
+  .mini.danger:hover,.btn.danger:hover{background:#fbe9e9;border-color:var(--bordeaux)}
   .file-btn{position:relative;overflow:hidden}
   .file-btn input{position:absolute;inset:0;opacity:0;cursor:pointer}
 
@@ -107,7 +110,11 @@
   .modal .x{position:absolute;top:14px;right:18px;cursor:pointer;color:var(--mut);font-size:22px;background:none;border:0}
 
   /* Mode signataire */
-  .apercu-banner{background:#fbf6ea;border:1px solid var(--or-clair);border-radius:9px;padding:9px 14px;margin-bottom:14px;font-size:13px;color:#6a5320;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .apercu-banner{position:sticky;top:0;z-index:20;background:var(--bordeaux);color:#fff;padding:11px 16px;margin:0 0 14px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:12px;flex-wrap:wrap;box-shadow:0 2px 10px rgba(0,0,0,.18)}
+  .apercu-banner .mini{background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.45);margin-left:auto}
+  #mode-signataire.apercu,#mode-console.mode-test{background:repeating-linear-gradient(135deg,#fbf3e0,#fbf3e0 22px,#f4e7c9 22px,#f4e7c9 44px)}
+  #mode-signataire.apercu .sig-card{box-shadow:0 4px 20px rgba(122,46,58,.14)}
+  .tag-test{display:inline-block;background:var(--bordeaux);color:#fff;font-size:10px;font-weight:700;letter-spacing:.4px;padding:2px 7px;border-radius:5px;vertical-align:middle;margin-left:8px}
   #login-console{display:none;min-height:100vh;align-items:center;justify-content:center;padding:24px}
   #mode-console.verrouille > header,#mode-console.verrouille > main{display:none}
   #mode-console.verrouille #login-console{display:flex}
@@ -250,7 +257,7 @@
       <div class="niveaux">
         <button data-niveau="4e" title="Travailler sur les conventions des classes de 4e">Quatrième</button>
         <button data-niveau="3e" title="Travailler sur les conventions des classes de 3e">Troisième</button>
-        <button data-niveau="demo" title="Espace de démonstration isolé — vos classes réelles ne sont pas touchées">🎬 Démo</button>
+        <button data-niveau="demo" title="Espace de test isolé et branché sur Firebase — vos vraies classes ne sont jamais touchées">🧪 Mode test</button>
       </div>
       <span class="annee-wrap">Année <input id="champ-annee" type="text" value="2026-2027" title="Année scolaire portée sur les conventions"></span>
       <div class="pousse">
@@ -262,15 +269,19 @@
 
     <!-- Panneau Mode démonstration (visible uniquement sur le niveau Démo) -->
     <section class="carte panneau-demo" id="panneau-demo" hidden>
-      <h2><span class="num demo-num">▶</span> Mode démonstration</h2>
-      <p class="mut" style="margin:0 0 14px">Espace <b>isolé</b> pour présenter le dispositif à la direction. Vos classes réelles (4e, 3e) ne sont pas modifiées. Déroulez les trois étapes dans l'ordre.</p>
+      <h2><span class="num demo-num">🧪</span> Mode test</h2>
+      <p class="mut" style="margin:0 0 6px">Espace <b>isolé et branché sur Firebase</b> : tout ce que vous faites ici emprunte la <b>vraie chaîne chiffrée</b> (liens, envoi, réception temps réel), mais dans un espace de test séparé. Vos classes réelles ne sont jamais touchées, et les conventions de test n'apparaissent pas dans les vraies.</p>
+      <ol class="hint" style="margin:0 0 12px 18px;padding:0">
+        <li>Chargez des élèves de test, puis générez un lien ou un QR (carte Élèves ci-dessous).</li>
+        <li>Ouvrez ce lien / scannez le QR sur un autre appareil, remplissez et envoyez.</li>
+        <li>La convention de test apparaît dans « Conventions reçues », en temps réel.</li>
+      </ol>
       <div class="demo-actions">
-        <button class="btn bord" onclick="window.__prepererDemo && window.__prepererDemo()" title="Remplir l'espace démo : élèves, tuteurs et conventions déjà reçues">1 · Préparer la démonstration</button>
-        <button class="btn ghost" onclick="window.__apercuSignataire && window.__apercuSignataire()" title="Dérouler le parcours tel que le voit une famille">2 · Voir le parcours d'une famille</button>
-        <button class="btn ghost" onclick="window.__conventionComplete && window.__conventionComplete()" title="Afficher la convention finale assemblée, signable">3 · Voir la convention finale</button>
+        <button class="btn bord" onclick="window.__prepererDemo && window.__prepererDemo()" title="Charger des élèves et tuteurs de test dans cet espace">Charger des élèves de test</button>
+        <button class="btn ghost" onclick="window.__apercuSignataire && window.__apercuSignataire()" title="Dérouler le parcours d'une famille, sans rien envoyer">Aperçu rapide (sans envoi)</button>
+        <button class="btn ghost" onclick="window.__conventionComplete && window.__conventionComplete()" title="Afficher la convention finale assemblée, signable">Voir la convention finale</button>
       </div>
-      <p class="hint" style="margin-top:12px">Étape 1 : la console se remplit (cartes Élèves et Dépouillement). Étape 2 : la simplicité côté famille. Étape 3 : le document final, prêt à imprimer.</p>
-      <button class="btn ghost sm" style="margin-top:8px" onclick="window.__quitterDemo && window.__quitterDemo()" title="Revenir à vos classes réelles">← Quitter la démonstration</button>
+      <button class="btn ghost sm" style="margin-top:10px" onclick="window.__quitterDemo && window.__quitterDemo()" title="Revenir à vos classes réelles">← Quitter le mode test</button>
     </section>
 
     <!-- 1 · Import -->
@@ -355,8 +366,8 @@
 
   <div class="sig-wrap">
     <div id="apercu-banner" class="apercu-banner" hidden>
-      👁 Mode aperçu — rien n'est enregistré ni déposé.
-      <button class="mini" onclick="window.__retourConsole()">← Retour à la console</button>
+      🧪 APERÇU DE TEST — rien n'est réellement envoyé ni enregistré.
+      <button class="mini" onclick="window.__retourConsole()">← Console</button>
     </div>
     <div class="sig-bandeau">Convention de <b id="sig-nom">—</b> <span class="mut">· code <span id="sig-code"></span></span></div>
 
@@ -3420,7 +3431,9 @@ window.SIGNATAIRE = (function () {
     CTX.data = {}; CTX.locked = {}; CTX.prefillIds = {}; CTX.artChecks = {};
     CTX.articlesOK = false; CTX.autorisation = false; CTX.exactitude = false; CTX.sig = null;
     CTX.apercu = !!($("apercu-banner") && !$("apercu-banner").hidden);
+    CTX.estTest = (annee === "demo");
     CTX.persist = !CTX.apercu;
+    var _ms = $("mode-signataire"); if (_ms) _ms.classList.toggle("apercu", CTX.apercu || CTX.estTest);
     $("sig-code").textContent = code;
     $("sig-nom").textContent = CTX.nomEleve || "(à confirmer)";
     if (CTX.roleLock) {
@@ -3536,7 +3549,9 @@ window.SIGNATAIRE = (function () {
   }
 
   function htmlIntro() {
-    var h = '<h3 class="serif">Convention de stage — nouveau dispositif</h3>';
+    var h = '';
+    if (CTX.estTest && !CTX.apercu) h += '<div class="encadre-conseil" style="background:#fbe9e9;border-color:#e6c9ce;color:#7a2e3a"><b>🧪 Lien de TEST.</b> Ce parcours sert à vérifier la chaîne complète. L\'envoi ira dans un espace de test isolé, sans effet sur les vraies conventions.</div>';
+    h += '<h3 class="serif">Convention de stage — nouveau dispositif</h3>';
     h += '<div class="identite-sig">'
       + '<div>Vous remplissez cette convention en tant que <b>' + esc(ROLE_CLAIR[CTX.role] || FORMULAIRES[CTX.role].titre) + '</b>.</div>'
       + '<div class="identite-eleve">Élève concerné : <b>' + esc(CTX.nomEleve || "(à confirmer)") + '</b>'
@@ -3639,15 +3654,22 @@ window.SIGNATAIRE = (function () {
       + '<div class="recap-l"><span>Mention</span><b>' + esc(CTX.data.lu_approuve || '—') + '</b></div></div>';
     h += '</div>';
     h += '<div class="sig-actions"><button class="btn ghost" onclick="SIGNATAIRE.precedent()" title="Revenir à l’étape précédente">← Précédent</button>'
-      + '<button class="btn bord" onclick="SIGNATAIRE.finaliser()" title="' + (estFirebase() ? 'Transmettre votre convention à l’établissement' : 'Produire le PDF de votre partie, à déposer ensuite') + '">' + (estFirebase() ? 'Envoyer ma convention' : 'Générer ma convention') + '</button></div>';
+      + '<button class="btn bord" onclick="SIGNATAIRE.finaliser()" title="' + (CTX.apercu ? 'Aperçu : simuler l’envoi (rien n’est transmis)' : (estFirebase() ? 'Transmettre votre convention à l’établissement' : 'Produire le PDF de votre partie, à déposer ensuite')) + '">' + (CTX.apercu ? '🧪 Simuler l’envoi (test)' : (estFirebase() ? 'Envoyer ma convention' : 'Générer ma convention')) + '</button></div>';
     return h;
   }
 
   function htmlFin() {
+    if (CTX.apercu) {
+      var ha = '<h3 class="serif">Fin de l\'aperçu <span class="tag-test">TEST</span></h3>';
+      ha += '<div class="encadre-conseil"><b>Ceci était un aperçu de test — rien n\'a été envoyé ni enregistré.</b><br>'
+        + 'Vous venez de dérouler le parcours de ' + esc(CTX.nomEleve || 'l\'élève') + ' tel que le verront les familles et les entreprises.</div>';
+      ha += '<p class="mut">Utilisez le bouton « ← Console » en haut pour revenir à la gestion.</p>';
+      return ha;
+    }
     if (estFirebase()) {
-      var h = '<h3 class="serif">Convention transmise ✓</h3>';
+      var h = '<h3 class="serif">Convention transmise ✓' + (CTX.estTest ? ' <span class="tag-test">TEST</span>' : '') + '</h3>';
       h += '<div class="encadre-conseil" style="background:#e9f5ee;border-color:#9fd3b4;color:#1d6a40">'
-        + '<b>Votre convention a bien été transmise à l\'établissement.</b><br>'
+        + '<b>' + (CTX.estTest ? 'Test réussi : la convention a été transmise dans l\'espace de test.' : 'Votre convention a bien été transmise à l\'établissement.') + '</b><br>'
         + 'Élève : ' + esc(CTX.nomEleve || '') + (CTX.code ? ' · réf. ' + esc(CTX.code) : '') + '.</div>';
       h += '<p class="mut">Vos informations ont été chiffrées sur votre appareil avant l\'envoi : seul l\'établissement peut les lire. Vous pouvez fermer cette page.</p>';
       return h;
@@ -4070,6 +4092,7 @@ window.SIGNATAIRE = (function () {
 
   function apercuConventionComplete() {
     CTX.apercu = true;
+    var _ms = $("mode-signataire"); if (_ms) _ms.classList.add("apercu");
     if ($("sig-prog")) $("sig-prog").hidden = true;
     $("sig-nom").textContent = "Convention complète (démonstration)";
     $("sig-code").textContent = "";
@@ -4555,7 +4578,9 @@ window.DEPOUILLEMENT = (function () {
     // Onglets niveau
     document.querySelectorAll("[data-niveau]").forEach(function (b) {
       b.addEventListener("click", function () {
+        var av = STATE.niveauActif;
         STATE.niveauActif = b.getAttribute("data-niveau");
+        if (STATE.niveauActif === "demo" && av !== "demo") toast("🧪 Mode test activé — espace isolé, branché sur Firebase. Rien n'affecte les vraies classes.");
         majAnneeNiveau(); majPanneauDemo(); majDepouillement(); renderTuteurs(); renderEleves(); sauverState("niveau");
       });
     });
@@ -4973,10 +4998,11 @@ window.DEPOUILLEMENT = (function () {
       if (r2.nom || r2.tel) urg.push([r2.nom, r2.tel]);
       if (urg.length) payload.u = urg;
     }
-    var q = "?c=" + encodeURIComponent(el.code) + "&d=" + brouillerNom(JSON.stringify(payload)) + "&a=" + encodeURIComponent(STATE.annee);
+    var esp = espaceAnnee();
+    var q = "?c=" + encodeURIComponent(el.code) + "&d=" + brouillerNom(JSON.stringify(payload)) + "&a=" + encodeURIComponent(esp);
     if (role) q += "&r=" + role;
     var url = base + q;
-    var cle = STATE.cles[STATE.annee];
+    var cle = STATE.cles[esp];
     if (cle) url += "#k=" + cle; // clé E2E dans le fragment : jamais transmise au serveur
     return url;
   }
@@ -5002,11 +5028,19 @@ window.DEPOUILLEMENT = (function () {
       html += "<td><select data-tut=\"" + i + "\"><option value=\"\">—</option>" +
         nv().tuteurs.map(function (t) { return '<option value="' + esc(t) + '"' + (el.tuteur === t ? " selected" : "") + ">" + esc(t) + "</option>"; }).join("") +
         "</select></td>";
-      html += "<td><button class=\"mini\" data-liens=\"" + i + "\" title=\"Afficher les liens et QR codes a envoyer aux familles et a l\'entreprise\">Liens &amp; QR</button></td>";
+      html += "<td><button class=\"mini\" data-liens=\"" + i + "\" title=\"Afficher les liens et QR codes a envoyer aux familles et a l\'entreprise\">Liens &amp; QR</button> <button class=\"mini danger\" data-suppr-el=\"" + i + "\" title=\"Supprimer cet élève\">🗑</button></td>";
       html += "</tr>";
     });
     var body = $("eleves-body");
     body.innerHTML = html;
+    body.querySelectorAll("[data-suppr-el]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var i = +b.getAttribute("data-suppr-el"), el = nv().eleves[i]; if (!el) return;
+        if (confirm("Supprimer définitivement " + ((el.prenom + " " + el.nom).trim() || el.code) + " (" + el.code + ") ?\n\nSes liens deviendront inactifs.")) {
+          nv().eleves.splice(i, 1); sauverState("suppr-eleve"); renderEleves(); toast("Élève supprimé.");
+        }
+      });
+    });
     body.querySelectorAll("[data-tut]").forEach(function (sel) {
       sel.addEventListener("change", function () {
         nv().eleves[+sel.getAttribute("data-tut")].tuteur = sel.value; sauverState("tuteur-manuel");
@@ -5025,9 +5059,20 @@ window.DEPOUILLEMENT = (function () {
     var noms = Object.keys(classes).sort();
     if (!noms.length) { z.innerHTML = ""; return; }
     z.innerHTML = '<span class="hint" style="display:block;margin-bottom:8px">Document de distribution (QR + liens, un PDF par classe à imprimer) :</span>'
-      + noms.map(function (c) { return '<button class="btn sm" data-doc="' + esc(c) + '" title="Generer le PDF recapitulatif des conventions de cette classe">📄 ' + esc(c) + " (" + classes[c] + ")</button>"; }).join(" ");
+      + noms.map(function (c) { return '<button class="btn sm" data-doc="' + esc(c) + '" title="Generer le PDF recapitulatif des conventions de cette classe">📄 ' + esc(c) + " (" + classes[c] + ")</button>"; }).join(" ")
+      + '<span class="hint" style="display:block;margin:12px 0 6px">Supprimer une classe entière du niveau courant :</span>'
+      + noms.map(function (c) { return '<button class="btn ghost sm danger" data-suppr-cl="' + esc(c) + '" title="Supprimer tous les élèves de cette classe">🗑 ' + esc(c) + " (" + classes[c] + ")</button>"; }).join(" ");
     z.querySelectorAll("[data-doc]").forEach(function (b) {
       b.addEventListener("click", function () { genererDocumentClasse(b.getAttribute("data-doc")); });
+    });
+    z.querySelectorAll("[data-suppr-cl]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var c = b.getAttribute("data-suppr-cl"), n = classes[c] || 0;
+        if (confirm("Supprimer la classe « " + c + " » et ses " + n + " élève(s) ?\n\nCette action est définitive et rend leurs liens inactifs.")) {
+          nv().eleves = nv().eleves.filter(function (e) { return (e.classe || "") !== c; });
+          sauverState("suppr-classe"); renderEleves(); toast("Classe « " + c + " » supprimée.");
+        }
+      });
     });
   }
 
@@ -5040,13 +5085,13 @@ window.DEPOUILLEMENT = (function () {
   }
 
   function ouvrirLiens(el) {
-    assurerCle(STATE.annee).then(function () { ouvrirLiensRender(el); });
+    assurerCle(espaceAnnee()).then(function () { ouvrirLiensRender(el); });
   }
   function ouvrirLiensRender(el) {
     var nomComplet = (el.prenom + " " + el.nom).trim();
     $("modal-titre").textContent = nomComplet + " — " + el.code;
     var corps = $("modal-corps"); corps.innerHTML = "";
-    if (estFirebase() && !STATE.cles[STATE.annee]) {
+    if (estFirebase() && !STATE.cles[espaceAnnee()]) {
       var av = document.createElement("div");
       av.style.cssText = "background:#fbe9e9;border:1px solid #d99;border-radius:9px;padding:10px 12px;margin-bottom:12px;color:#7a2e3a;font-size:13px";
       av.innerHTML = "⚠ <b>Clé de sécurité non générée</b> — ces QR ne pourront pas recevoir de convention. "
@@ -5054,7 +5099,7 @@ window.DEPOUILLEMENT = (function () {
             ? "Ouvrez l'application depuis son <b>adresse en ligne (https://…)</b>, et non par un fichier ouvert en local."
             : "Rechargez la page et réessayez.");
       corps.appendChild(av);
-    } else if (estFirebase() && STATE.cles[STATE.annee]) {
+    } else if (estFirebase() && STATE.cles[espaceAnnee()]) {
       var ok = document.createElement("div");
       ok.style.cssText = "color:#1d6a40;font-size:12px;margin-bottom:10px";
       ok.innerHTML = "🔒 Clé de sécurité active — les familles pourront envoyer leur convention.";
@@ -5092,10 +5137,10 @@ window.DEPOUILLEMENT = (function () {
 
   // Document de distribution : un PDF par classe, QR + lien cliquable par rôle
   function genererDocumentClasse(classe) {
-    assurerCle(STATE.annee).then(function () { genererDocumentClasseImpl(classe); });
+    assurerCle(espaceAnnee()).then(function () { genererDocumentClasseImpl(classe); });
   }
   function genererDocumentClasseImpl(classe) {
-    if (estFirebase() && !STATE.cles[STATE.annee]) {
+    if (estFirebase() && !STATE.cles[espaceAnnee()]) {
       toast("Clé de sécurité non générée — ouvrez l'application depuis son adresse en ligne (https). Aucun QR produit.", true); return;
     }
     var els = nv().eleves.filter(function (e) { return (e.classe || "") === classe; });
@@ -5214,20 +5259,7 @@ window.DEPOUILLEMENT = (function () {
     STATE.niveauActif = "demo";
     attribuerAuto();
     majAnneeNiveau(); majPanneauDemo(); majDepouillement(); renderTuteurs(); renderEleves(); sauverState("demo");
-    var resultats = [];
-    demo.eleves.forEach(function (el, i) {
-      var v = window.demoVolets(el, el.tuteur);
-      var d1 = new Date(2026, 5, 18, 9 + (i % 8), (i * 7) % 60);
-      var d2 = new Date(2026, 5, 20, 16, (i * 11) % 60);
-      var d3 = new Date(2026, 5, 22, 8, 30 + (i % 20));
-      var base = { code: el.code, eleve: (el.prenom + " " + el.nom).trim(), annee: STATE.annee };
-      resultats.push({ nom: "CONV_" + el.code + "_ENTREPRISE.pdf", date: d1, data: Object.assign({ role: "ENTREPRISE", hash: "ent" + i + "a1b2c3d4", ts: d1.toISOString(), champs: v.ENTREPRISE }, base) });
-      resultats.push({ nom: "CONV_" + el.code + "_PARENTS.pdf", date: d2, data: Object.assign({ role: "PARENTS", hash: "par" + i + "e5f6a7b8", ts: d2.toISOString(), champs: v.PARENTS }, base) });
-      resultats.push({ nom: "CONV_" + el.code + "_ETABLISSEMENT.pdf", date: d3, data: Object.assign({ role: "ETABLISSEMENT", hash: "eta" + i + "97f8a1b2", ts: d3.toISOString(), champs: v.ETABLISSEMENT }, base) });
-    });
-    _demoResultats = resultats;
-    if (window.DEPOUILLEMENT && window.DEPOUILLEMENT.injecterTest) window.DEPOUILLEMENT.injecterTest(resultats);
-    toast(demo.eleves.length + " élèves et leurs conventions de démonstration sont prêts.");
+    toast(demo.eleves.length + " élèves de test chargés. Générez un lien ou un QR, puis testez l'envoi.");
   }
   function quitterDemo() {
     STATE.niveauActif = "4e";
@@ -5235,14 +5267,18 @@ window.DEPOUILLEMENT = (function () {
     if (window.DEPOUILLEMENT && window.DEPOUILLEMENT.injecterTest) window.DEPOUILLEMENT.injecterTest([]);
   }
   function majPanneauDemo() {
-    var p = $("panneau-demo"); if (p) p.hidden = (STATE.niveauActif !== "demo");
+    var enDemo = STATE.niveauActif === "demo";
+    var p = $("panneau-demo"); if (p) p.hidden = !enDemo;
+    var mc = $("mode-console"); if (mc) mc.classList.toggle("mode-test", enDemo);
   }
   function estFirebase() { return ((window.CONFIG && window.CONFIG.transport) || "nuage") === "firebase"; }
+  // Espace de stockage Firebase : les vraies classes utilisent l'année ; le mode test est isolé sous "demo".
+  function espaceAnnee() { return STATE.niveauActif === "demo" ? "demo" : STATE.annee; }
   var _unsubEcoute = null, _demoResultats = null;
   function show(id, on) { var e = $(id); if (e) e.hidden = !on; }
 
   function surSnapshot(val) {
-    var cle = STATE.cles[STATE.annee];
+    var cle = STATE.cles[espaceAnnee()];
     if (!window.CRYPTO || !window.CRYPTO.dispo || !cle) { if (window.DEPOUILLEMENT) DEPOUILLEMENT.injecterTest([]); return; }
     var taches = [];
     Object.keys(val || {}).forEach(function (codeEnc) {
@@ -5251,13 +5287,13 @@ window.DEPOUILLEMENT = (function () {
         var p = roles[role]; if (!p || !p.ct) return;
         taches.push(window.CRYPTO.dechiffrer(cle, p).then(function (obj) {
           var dt = p.ts ? new Date(p.ts) : new Date();
-          return { nom: (obj.code || codeEnc) + "_" + role, date: dt, data: { code: obj.code, role: obj.role || role, eleve: obj.eleve, annee: STATE.annee, champs: obj.champs, hash: obj.hash, ts: dt.toISOString() } };
+          return { nom: (obj.code || codeEnc) + "_" + role, date: dt, data: { code: obj.code, role: obj.role || role, eleve: obj.eleve, annee: espaceAnnee(), champs: obj.champs, hash: obj.hash, ts: dt.toISOString() } };
         }).catch(function () { return null; }));
       });
     });
     Promise.all(taches).then(function (res) { if (window.DEPOUILLEMENT) DEPOUILLEMENT.injecterTest(res.filter(Boolean)); });
   }
-  function demarrerEcoute() { if (_unsubEcoute) return; if (!window.FB || !window.FB.dispo) return; _unsubEcoute = window.FB.ecouter(STATE.annee, surSnapshot); }
+  function demarrerEcoute() { arreterEcoute(); if (!window.FB || !window.FB.dispo) return; _unsubEcoute = window.FB.ecouter(espaceAnnee(), surSnapshot); }
   function arreterEcoute() { if (_unsubEcoute) { try { _unsubEcoute(); } catch (e) {} _unsubEcoute = null; } }
 
   function majAuthConsole() {
@@ -5276,11 +5312,10 @@ window.DEPOUILLEMENT = (function () {
     show("bloc-nuage", !fb && !enDemo);
     var di = $("dep-info-direct");
     if (di) {
-      if (enDemo) { di.hidden = false; di.textContent = "Mode démonstration : conventions fictives ci-dessous."; }
-      else if (!fb) { di.hidden = true; }
+      if (!fb) { di.hidden = true; }
+      else if (enDemo) { di.hidden = false; di.textContent = "Espace de TEST — les conventions envoyées via les liens de test s'affichent ici en temps réel, isolées des vraies classes."; }
       else { di.hidden = false; di.textContent = "Les conventions s'affichent en temps réel, regroupées par élève."; }
     }
-    if (enDemo) { arreterEcoute(); if (window.DEPOUILLEMENT) DEPOUILLEMENT.injecterTest(_demoResultats || []); return; }
     if (fb && connecte) { demarrerEcoute(); }
     else { arreterEcoute(); if (window.DEPOUILLEMENT) DEPOUILLEMENT.injecterTest([]); }
   }
@@ -5319,6 +5354,7 @@ window.DEPOUILLEMENT = (function () {
   window.__fermerModal = function () { $("modal").hidden = true; };
   window.__retourConsole = function () {
     $("mode-signataire").hidden = true;
+    $("mode-signataire").classList.remove("apercu");
     $("apercu-banner").hidden = true;
     $("mode-console").hidden = false;
     window.scrollTo(0, 0);
