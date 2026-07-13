@@ -50,13 +50,30 @@
   .carte.replie .pli .chev{transform:rotate(-90deg)}
   .carte.replie .pliable{display:none}
   /* Repliage : tout l'en-tête est cliquable (plus de petite flèche à viser) */
-  .carte.repliable > h2{cursor:pointer;user-select:none;border-radius:8px;margin:-4px -6px 10px;padding:4px 6px;transition:background .15s ease}
-  .carte.repliable > h2:hover{background:#f4f6f9}
-  .carte.repliable > h2::after{content:"▾";margin-left:auto;color:var(--mut);font-size:14px;transition:transform .18s ease}
-  .carte.repliable.replie > h2::after{transform:rotate(-90deg)}
-  .carte.repliable.replie{padding-bottom:14px}
+  /* Parcours en accordéon : l'état de chaque étape se lit d'un coup d'œil. */
+  .carte.repliable > h2{cursor:pointer;user-select:none;display:flex;align-items:center;gap:12px;margin:0;padding:2px 0;transition:color .15s ease}
+  .carte.repliable > h2:hover{color:var(--bordeaux)}
+  .carte.repliable.replie{background:#f7f9fb;padding-top:15px;padding-bottom:15px}
   .carte.repliable.replie > h2{margin-bottom:0}
   .carte.repliable.replie > *:not(h2){display:none}
+  .carte.repliable:not(.replie){background:var(--carte);border-color:var(--or-clair)}
+  .carte.repliable > h2 .titre-etape{flex:1;min-width:0}
+  /* Pastille d'avancement */
+  .carte.repliable > h2 .num{width:28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
+    font-size:13.5px;font-weight:700;flex:none;background:#e3e7ec;color:#78838f;transition:background .2s ease,color .2s ease}
+  .carte.etape-faite > h2 .num{background:#2e7d32;color:#fff}
+  .carte.etape-encours > h2 .num{background:var(--bordeaux);color:#fff}
+  .carte.etape-alerte > h2 .num{background:#c0392b;color:#fff}
+  /* Bouton Ouvrir / Fermer : explicite, plus de petite flèche à viser */
+  .pli-btn{flex:none;border:1px solid var(--ligne);background:#fff;border-radius:8px;padding:5px 13px;font-size:12.5px;
+    font-family:inherit;font-weight:600;color:var(--nuit);cursor:pointer;text-transform:none;letter-spacing:0;transition:background .15s ease}
+  .pli-btn:hover{background:#eef1f5;border-color:var(--nuit)}
+  /* Repère chiffré : où en est cette étape */
+  .etape-tag{flex:none;font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:20px;text-transform:none;letter-spacing:0}
+  .tag-ok{background:#eaf4ea;color:#2e7d32}
+  .tag-attente{background:#fbf3e0;color:#8a6d20}
+  .tag-alerte{background:#fdecea;color:#c0392b}
+  .tag-neutre{background:#eef1f5;color:var(--mut)}
   .etape-fait{margin-left:8px;color:#2e7d32;font-size:12px;font-weight:600;text-transform:none;letter-spacing:0}
   /* Lien d'aide sur l'écran de connexion : pulsation discrète pour appeler le clic */
   .aide-lien{display:block;width:100%;margin-top:14px;background:#fbf6e9;border:1px solid var(--or-clair);border-radius:10px;
@@ -80,7 +97,21 @@
   .admin-outils{display:flex;gap:5px;margin-bottom:5px;flex-wrap:wrap}
   .admin-outils button{border:1px solid var(--ligne);background:#fff;border-radius:6px;min-width:30px;height:27px;cursor:pointer;font-size:12.5px;color:var(--encre)}
   .admin-outils button:hover{background:#f4f6f9}
-  .admin-diag{font-size:12.5px;line-height:1.7;color:var(--encre)}
+  .admin-diag{font-size:12.5px;color:var(--encre)}
+  .diag-alerte{background:#fbf3e0;border:1px solid var(--or-clair);border-radius:8px;padding:10px 12px;margin-bottom:12px}
+  .diag-alerte-l{font-size:12.5px;line-height:1.6;color:#8a6d20;padding:3px 0}
+  .diag-ok{background:#eaf4ea;border:1px solid #b9d9b9;border-radius:8px;padding:9px 12px;margin-bottom:12px;color:#245c28;font-weight:600;font-size:12.5px}
+  .diag-grille{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:14px}
+  .diag-case{background:#f7f9fb;border-radius:8px;padding:8px 11px}
+  .diag-lab{font-size:11.5px;color:var(--mut);margin-bottom:2px}
+  .diag-val{font-size:13px;font-weight:600;color:var(--encre)}
+  .diag-val.v-ok{color:#2e7d32}
+  .diag-val.v-ko{color:#c0392b}
+  .diag-titre{font-size:12.5px;font-weight:600;color:var(--nuit);margin:0 0 6px;padding-top:4px;border-top:1px solid var(--ligne)}
+  .diag-poste{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--ligne);font-size:12.5px;flex-wrap:wrap}
+  .diag-pt{width:7px;height:7px;border-radius:50%;background:#39a24a;flex:none}
+  .diag-ou{color:var(--mut);flex:1;min-width:120px}
+  .diag-pied{margin-top:10px;font-size:11.5px;color:var(--mut)}
   .admin-diag b{color:var(--nuit)}
   .login-voir{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--mut);margin:2px 2px 4px;cursor:pointer;user-select:none}
   .login-voir input{cursor:pointer}
@@ -622,7 +653,7 @@
 
 <div id="toast" class="toast" hidden></div>
 <button id="btn-valider-collab" hidden onclick="window.__ouvrirValidation && window.__ouvrirValidation()">✓ Valider mes modifications (0)</button>
-<div class="app-version">v2026.07.13·moderation</div>
+<div class="app-version">v2026.07.13·accordeon2</div>
 
 <script>
 /* ===== Configuration : système de transmission ====================
@@ -4789,7 +4820,8 @@ window.DEPOUILLEMENT = (function () {
 
   function afficher(html) { var z = $("depouille-resultats"); if (z) z.innerHTML = html; }
 
-  return { init: init, importerZip: importerZip, exportCSV: exportCSV, genConvention: genConvention, genToutes: genToutes, envoyer: envoyer, genFichesTuteurs: genFichesTuteurs, injecterTest: injecterTest };
+  function nbRecues() { return (_dernier && _dernier.codes) ? _dernier.codes.length : 0; }
+  return { init: init, importerZip: importerZip, exportCSV: exportCSV, genConvention: genConvention, genToutes: genToutes, envoyer: envoyer, genFichesTuteurs: genFichesTuteurs, injecterTest: injecterTest, nbRecues: nbRecues };
 })();
 </script>
 <script>/* =====================================================================
@@ -5418,18 +5450,35 @@ window.DEPOUILLEMENT = (function () {
       if (window.FB && window.FB.viderEspace) window.FB.viderEspace("demo").then(function () { toast("Espace de test vidé."); });
     });
 
-    // Parcours séquentiel : en-têtes entièrement cliquables, seule la première étape ouverte à l'arrivée
-    var premiereEtape = true;
+    // Parcours en accordéon : TOUT est fermé à l'arrivée ; l'en-tête entier ouvre/ferme.
     document.querySelectorAll("#mode-console main > section.carte").forEach(function (c) {
-      c.classList.add("repliable");
+      if (c.id === "carte-admin") return;   // panneau d'administration : il a déjà son propre interrupteur
+      c.classList.add("repliable", "replie");
       var h = c.querySelector("h2"); if (!h) return;
-      var estEtape = /^[1-9]$/.test((h.querySelector(".num") || {}).textContent || "");
-      if (estEtape && premiereEtape) { premiereEtape = false; } else { c.classList.add("replie"); }
+      var num = h.querySelector(".num");
+      // On préserve les contrôles déjà présents dans le titre (interrupteur admin, badge des remarques…).
+      var gardes = [].slice.call(h.children).filter(function (el) { return el !== num; });
+      var texte = "";
+      [].slice.call(h.childNodes).forEach(function (n) { if (n.nodeType === 3) texte += n.textContent; });
+      h.innerHTML = "";
+      if (num) h.appendChild(num);
+      var t = document.createElement("span"); t.className = "titre-etape"; t.textContent = texte.trim();
+      h.appendChild(t);
+      gardes.forEach(function (el) { h.appendChild(el); });
+      var tag = document.createElement("span"); tag.className = "etape-tag tag-neutre"; tag.hidden = true;
+      h.appendChild(tag);
+      var b = document.createElement("button");
+      b.className = "pli-btn"; b.type = "button"; b.textContent = "Ouvrir";
+      h.appendChild(b);
       h.addEventListener("click", function (e) {
-        if (e.target.closest("button:not(.pli), input, select, a")) return;
+        // Un clic sur un contrôle du titre (interrupteur, champ) ne doit pas plier la carte.
+        if (e.target.closest("input, select, a, textarea, label")) return;
         c.classList.toggle("replie");
+        b.textContent = c.classList.contains("replie") ? "Ouvrir" : "Fermer";
+        if (!c.classList.contains("replie")) majEtapes();
       });
     });
+    majEtapes();
 
     // Repli des listes (tuteurs, élèves)
     document.querySelectorAll(".pli").forEach(function (b) {
@@ -5825,6 +5874,7 @@ window.DEPOUILLEMENT = (function () {
   function signature() { return JSON.stringify(stateAExporter()); }
   function sauverState(motif) {
     lsSet(LS_STATE, signature());
+    try { majEtapes(); } catch (e) {}
     if ((motif === "import" || motif === "demo") && nv().eleves && nv().eleves.length) ouvrirEtape(2);
     if (_etatBase && STATE.niveauActif !== "demo") {
       if (motif === "import") commitDirectEtat("a importé des élèves");
@@ -5989,6 +6039,64 @@ window.DEPOUILLEMENT = (function () {
     box.hidden = false;
   }
   window.__vuNotif = function () { lsSet(LS_VU, String(Date.now())); var b = $("notif-collab"); if (b) b.hidden = true; };
+
+  // Le texte des missions est-il encore le remplissage provisoire (lorem ipsum) ?
+  function missionsProvisoires(txt) {
+    var t = (txt || "").toLowerCase();
+    if (!t.trim()) return true;
+    // Marqueurs latins du faux-texte, absents d'un texte français réel.
+    var latins = ["lorem ipsum", "dolor sit amet", "consectetur", "adipiscing", "eiusmod", "incididunt", "aliqua", "veniam", "laboris", "commodo", "cillum", "pariatur"];
+    for (var i = 0; i < latins.length; i++) if (t.indexOf(latins[i]) !== -1) return true;
+    // Un texte français comporte des mots-outils très fréquents : leur absence totale est suspecte.
+    var fr = [" le ", " la ", " les ", " des ", " une ", " un ", " et ", " de ", " du ", " est ", " qui ", " pour ", " avec ", " son ", " ses "];
+    var trouve = 0;
+    var p = " " + t.replace(/[^\wàâäéèêëîïôöùûüç\s]/g, " ").replace(/\s+/g, " ") + " ";
+    for (var j = 0; j < fr.length; j++) if (p.indexOf(fr[j]) !== -1) trouve++;
+    return trouve < 2;
+  }
+  // Met à jour la pastille et le repère de chaque étape : l'avancement se lit d'un coup d'œil.
+  function majEtapes() {
+    var n = nv() || {};
+    var nbEl = (n.eleves || []).length;
+    var nbTut = (n.tuteurs || []).length;
+    var attribues = (n.eleves || []).filter(function (e) { return e.tuteur; }).length;
+    var sig = !!(STATE.etab && STATE.etab.signature);
+    var miss = (STATE.etab && STATE.etab.missions) || "";
+    var recues = (window.DEPOUILLEMENT && window.DEPOUILLEMENT.nbRecues) ? window.DEPOUILLEMENT.nbRecues() : 0;
+
+    var etats = {
+      "1": nbEl ? { cls: "faite", tag: nbEl + " élève" + (nbEl > 1 ? "s" : ""), t: "ok" } : { cls: "", tag: "à faire", t: "neutre" },
+      "2": !nbEl ? { cls: "", tag: "", t: "neutre" }
+          : (nbTut && attribues === nbEl) ? { cls: "faite", tag: nbTut + " tuteurs · tous attribués", t: "ok" }
+          : nbTut ? { cls: "encours", tag: attribues + " / " + nbEl + " attribués", t: "attente" }
+          : { cls: "encours", tag: "aucun tuteur", t: "attente" },
+      "3": nbEl ? { cls: attribues === nbEl && nbEl ? "faite" : "", tag: nbEl + " liens", t: "ok" } : { cls: "", tag: "", t: "neutre" },
+      "4": sig ? { cls: "faite", tag: "signé", t: "ok" } : { cls: "encours", tag: "en attente de signature", t: "attente" },
+      "5": missionsProvisoires(miss)
+          ? { cls: "alerte", tag: "texte provisoire à remplacer", t: "alerte" }
+          : { cls: "faite", tag: "texte rédigé", t: "ok" },
+      "6": nbEl ? (recues >= nbEl ? { cls: "faite", tag: recues + " / " + nbEl + " reçues", t: "ok" }
+                                  : { cls: recues ? "encours" : "", tag: recues + " / " + nbEl + " reçues", t: recues ? "attente" : "neutre" })
+                : { cls: "", tag: "", t: "neutre" }
+    };
+
+    document.querySelectorAll("#mode-console main > section.carte.repliable").forEach(function (c) {
+      var num = c.querySelector("h2 .num"); if (!num) return;
+      if (!num.dataset.num) num.dataset.num = (num.textContent || "").trim();   // mémorise le numéro d'origine
+      var k = num.dataset.num;
+      var e = etats[k];
+      c.classList.remove("etape-faite", "etape-encours", "etape-alerte");
+      var tag = c.querySelector("h2 .etape-tag"); if (!tag) return;
+      if (!e || !e.tag) { tag.hidden = true; return; }
+      if (e.cls) c.classList.add("etape-" + e.cls);
+      tag.hidden = false;
+      tag.className = "etape-tag tag-" + e.t;
+      tag.textContent = e.tag;
+      // La pastille des étapes faites affiche une coche.
+      num.textContent = (e.cls === "faite") ? "✓" : k;
+      num.title = e.tag || "";
+    });
+  }
 
   // ===== Présence en direct =====
   var _monId = "p" + Math.random().toString(36).slice(2, 10);
@@ -6279,25 +6387,63 @@ window.DEPOUILLEMENT = (function () {
   function majDiag() {
     var d = $("admin-diag"); if (!d) return;
     var u = window.FB && window.FB.utilisateur && window.FB.utilisateur();
-    d.innerHTML =
-      "<div>Connecté : <b>" + esc((u && u.email) || "—") + "</b></div>" +
-      "<div>Clé de chiffrement : <b>" + (_maitre ? "établie sur cet appareil" : "absente") + "</b></div>" +
-      "<div>Liaison au serveur : <b>" + (window.FB && window.FB.dispo ? "active" : "indisponible") + "</b></div>" +
-      "<div>Relecture avant partage : <b>" + (_collab ? "activée" : "désactivée") + "</b></div>" +
-      "<div>État partagé : version <b>" + _etatVersion + "</b> · Textes : version <b>" + _contenusVersion + "</b></div>" +
-      "<div>Historique : <b>" + _journalItems.length + "</b> action(s) enregistrée(s)</div>" +
-      "<div>Code d'activation : <b>" + esc(CODE_COLLAB) + "</b></div>" +
-      "<div style=\"margin-top:8px\"><b>Postes connectés (" + _presences.length + ")</b></div>" +
-      (_presences.length
-        ? _presences.map(function (p) {
-            var d = new Date(p.depuis || Date.now());
-            var hm = ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2);
-            return "<div style=\"padding-left:10px\">• <b>" + esc(p.nom || "—") + "</b> — depuis " + hm
-              + " · " + esc(p.espace === "demo" ? "espace de test" : (p.section || "—"))
-              + " · " + esc(p.version || "?") + " · clé " + (p.cle ? "établie" : "absente") + "</div>";
-          }).join("")
-        : "<div style=\"padding-left:10px\" class=\"mut\">Aucun autre poste.</div>");
+    var liaison = !!(window.FB && window.FB.dispo);
+    var alertes = [];
+
+    // Postes dont la version diffère de la nôtre : cause n°1 des comportements bizarres.
+    var obsoletes = _presences.filter(function (p) { return p._id !== _monId && p.version && p.version !== VERSION_APP; });
+    obsoletes.forEach(function (p) {
+      alertes.push("<b>" + esc(p.nom) + " utilise une version ancienne de l'application.</b><br>Lui demander de recharger la page en maintenant Ctrl et en appuyant sur F5.");
+    });
+    var sansCle = _presences.filter(function (p) { return p._id !== _monId && p.cle === false; });
+    sansCle.forEach(function (p) {
+      alertes.push("<b>" + esc(p.nom) + " n'a pas de clé de chiffrement sur son poste.</b><br>Elle ou il ne peut pas lire les conventions : se déconnecter, puis se reconnecter en saisissant la clé de chiffrement.");
+    });
+    if (!liaison) alertes.push("<b>La liaison au serveur est interrompue.</b><br>Vérifier la connexion Internet, puis recharger la page.");
+    if (!_maitre) alertes.push("<b>La clé de chiffrement n'est pas établie sur ce poste.</b><br>Se déconnecter, puis se reconnecter en la saisissant.");
+
+    var h = "";
+    if (alertes.length) {
+      h += '<div class="diag-alerte">' + alertes.map(function (a) { return '<div class="diag-alerte-l">⚠ ' + a + '</div>'; }).join("") + '</div>';
+    } else {
+      h += '<div class="diag-ok">✓ Tout fonctionne normalement.</div>';
+    }
+
+    function voyant(label, valeur, etat) {
+      return '<div class="diag-case"><div class="diag-lab">' + esc(label) + '</div>'
+        + '<div class="diag-val ' + (etat || "") + '">' + valeur + '</div></div>';
+    }
+    h += '<div class="diag-grille">'
+      + voyant("Liaison au serveur", (liaison ? "● Active" : "● Interrompue"), liaison ? "v-ok" : "v-ko")
+      + voyant("Clé de chiffrement", (_maitre ? "● Établie" : "● Absente"), _maitre ? "v-ok" : "v-ko")
+      + voyant("Relecture avant partage", (_collab ? "Activée" : "Désactivée"), "")
+      + voyant("Données partagées", "Version " + _etatVersion, "")
+      + voyant("Textes de la convention", "Version " + _contenusVersion, "")
+      + voyant("Historique", _journalItems.length + " action(s)", "")
+      + '</div>';
+
+    h += '<div class="diag-titre">Postes connectés (' + _presences.length + ')</div>';
+    if (!_presences.length) {
+      h += '<div class="mut" style="font-size:12.5px">Aucun poste connecté.</div>';
+    } else {
+      h += _presences.map(function (p) {
+        var dt = new Date(p.depuis || Date.now());
+        var hm = ("0" + dt.getHours()).slice(-2) + ":" + ("0" + dt.getMinutes()).slice(-2);
+        var ou = p.espace === "demo" ? "espace de test" : (p.section || "—");
+        var etat, cls;
+        if (p.cle === false) { etat = "clé absente"; cls = "tag-alerte"; }
+        else if (p.version && p.version !== VERSION_APP) { etat = "version ancienne"; cls = "tag-attente"; }
+        else { etat = "à jour"; cls = "tag-ok"; }
+        return '<div class="diag-poste"><span class="diag-pt"></span>'
+          + '<b>' + esc(p.nom || "—") + (p._id === _monId ? " (vous)" : "") + '</b>'
+          + '<span class="diag-ou">' + esc(ou) + ' · depuis ' + hm + '</span>'
+          + '<span class="etape-tag ' + cls + '">' + etat + '</span></div>';
+      }).join("");
+    }
+    h += '<div class="diag-pied">Version de cet appareil : <b>' + esc(VERSION_APP) + '</b> · Code d\'activation : <b>' + esc(CODE_COLLAB) + '</b></div>';
+    d.innerHTML = h;
   }
+
   function majAdmin() {
     var c = $("carte-admin"); if (!c) return;
     var ok = estAdmin() && !!_maitre;
@@ -6552,6 +6698,7 @@ window.DEPOUILLEMENT = (function () {
   }
 
   function majDepouillement() {
+    setTimeout(function () { try { majEtapes(); } catch (e) {} }, 300);
     var fb = estFirebase(), enDemo = STATE.niveauActif === "demo";
     var connecte = !!(window.FB && window.FB.utilisateur());
     show("bloc-nuage", !fb && !enDemo);
