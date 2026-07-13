@@ -560,6 +560,12 @@
         </div>
 
         <div class="admin-bloc">
+          <h4>Compte autorisé à signer</h4>
+          <p class="hint" style="margin-top:0">Seul ce compte peut apposer ou retirer la signature de l'établissement. La signature reste visible de tous. Votre compte d'administrateur conserve la main en cas de besoin.</p>
+          <input class="admin-in" type="email" id="admin-chef-email" placeholder="prenom.nom@ac-nantes.fr">
+        </div>
+
+        <div class="admin-bloc">
           <h4>Identité de l'établissement</h4>
           <p class="hint" style="margin-top:0">Ces informations figurent sur toutes les conventions et fiches produites.</p>
           <div id="admin-etab"></div>
@@ -667,7 +673,7 @@
 
 <div id="toast" class="toast" hidden></div>
 <button id="btn-valider-collab" hidden onclick="window.__ouvrirValidation && window.__ouvrirValidation()">✓ Valider mes modifications (0)</button>
-<div class="app-version">v2026.07.13·journal-detail2</div>
+<div class="app-version">v2026.07.13·signature-chef</div>
 
 <script>
 /* ===== Configuration : système de transmission ====================
@@ -805,6 +811,14 @@ window.FB = (function () {
     });
   }
   // État commun partagé (élèves, tuteurs, signature) — chiffré, versionné pour le 3-way merge.
+  // La signature vit dans son propre nœud : c'est ce qui permet au serveur d'en réserver l'écriture.
+  function lireSignature() { if (!dispo) return Promise.resolve(null); return db.ref("signature").once("value").then(function (s) { return s.val(); }); }
+  function ecrireSignature(o) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("signature").set(o); }
+  function ecouterSignature(cb) { if (!dispo) return; db.ref("signature").on("value", function (s) { cb(s.val()); }); }
+  // E-mail du compte autorisé à signer : en clair, car les règles du serveur doivent pouvoir le lire.
+  function lireChefEmail() { if (!dispo) return Promise.resolve(null); return db.ref("config/chefEmail").once("value").then(function (s) { return s.val(); }); }
+  function ecrireChefEmail(v) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("config/chefEmail").set(v); }
+  function ecouterChefEmail(cb) { if (!dispo) return; db.ref("config/chefEmail").on("value", function (s) { cb(s.val() || ""); }); }
   function lireContenus() { if (!dispo) return Promise.resolve(null); return db.ref("contenus").once("value").then(function (s) { return s.val(); }); }
   function ecrireContenus(o) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("contenus").set(o); }
   // Remarques d'amélioration : chaque entrée est chiffrée ; le statut et la réponse restent modifiables.
@@ -842,7 +856,7 @@ window.FB = (function () {
   function deconnecter() { if (dispo) try { auth.signOut(); } catch (e) {} }
   function onAuth(cb) { if (dispo) auth.onAuthStateChanged(cb); else cb(null); }
   function utilisateur() { return (dispo && auth && auth.currentUser) || null; }
-  return { dispo: dispo, ecrireConvention: ecrireConvention, ecouter: ecouter, supprimer: supprimer, viderEspace: viderEspace, lireSel: lireSel, ecrireSel: ecrireSel, lireCleAnnee: lireCleAnnee, ecrireCleAnnee: ecrireCleAnnee, lireCanari: lireCanari, ecrireCanari: ecrireCanari, ecouterCollab: ecouterCollab, ecrireCollab: ecrireCollab, journalPush: journalPush, journalEcouter: journalEcouter, journalPurger: journalPurger, lireEtat: lireEtat, ecrireEtat: ecrireEtat, presenceAnnoncer: presenceAnnoncer, presenceMaj: presenceMaj, presencePartir: presencePartir, presenceEcouter: presenceEcouter, lireContenus: lireContenus, ecrireContenus: ecrireContenus, remarquePush: remarquePush, remarqueMaj: remarqueMaj, remarqueSupprimer: remarqueSupprimer, remarquesEcouter: remarquesEcouter, connecter: connecter, deconnecter: deconnecter, onAuth: onAuth, utilisateur: utilisateur };
+  return { dispo: dispo, ecrireConvention: ecrireConvention, ecouter: ecouter, supprimer: supprimer, viderEspace: viderEspace, lireSel: lireSel, ecrireSel: ecrireSel, lireCleAnnee: lireCleAnnee, ecrireCleAnnee: ecrireCleAnnee, lireCanari: lireCanari, ecrireCanari: ecrireCanari, ecouterCollab: ecouterCollab, ecrireCollab: ecrireCollab, journalPush: journalPush, journalEcouter: journalEcouter, journalPurger: journalPurger, lireEtat: lireEtat, ecrireEtat: ecrireEtat, presenceAnnoncer: presenceAnnoncer, presenceMaj: presenceMaj, presencePartir: presencePartir, presenceEcouter: presenceEcouter, lireContenus: lireContenus, ecrireContenus: ecrireContenus, lireSignature: lireSignature, ecrireSignature: ecrireSignature, ecouterSignature: ecouterSignature, lireChefEmail: lireChefEmail, ecrireChefEmail: ecrireChefEmail, ecouterChefEmail: ecouterChefEmail, remarquePush: remarquePush, remarqueMaj: remarqueMaj, remarqueSupprimer: remarqueSupprimer, remarquesEcouter: remarquesEcouter, connecter: connecter, deconnecter: deconnecter, onAuth: onAuth, utilisateur: utilisateur };
 })();
 </script>
 <script>
@@ -5417,6 +5431,15 @@ window.DEPOUILLEMENT = (function () {
       var c = $("admin-corps"); if (c) c.hidden = !atg.checked;
       if (atg.checked) { renderAdminChamps(); majDiag(); }
     });
+    var ace = $("admin-chef-email");
+    if (ace) ace.addEventListener("blur", function () {
+      var v = (ace.value || "").trim().toLowerCase();
+      if (v === (_chefEmail || "").toLowerCase()) return;
+      window.FB.ecrireChefEmail(v).then(function () {
+        journal("admin", "a désigné le compte autorisé à signer : " + (v || "aucun"));
+        toast("Compte autorisé à signer enregistré.");
+      }).catch(function () { ace.value = _chefEmail || ""; toast("Échec : administrateur seul.", true); });
+    });
     var acol = $("admin-collab");
     if (acol) acol.addEventListener("change", function () {
       if (!window.FB || !window.FB.dispo) { toast("Service indisponible.", true); acol.checked = _collab; return; }
@@ -5504,6 +5527,7 @@ window.DEPOUILLEMENT = (function () {
       });
     });
     majEtapes();
+    majVerrouSignature();
 
     // Repli des listes (tuteurs, élèves)
     document.querySelectorAll(".pli").forEach(function (b) {
@@ -5583,18 +5607,21 @@ window.DEPOUILLEMENT = (function () {
       var etabSig = window.SIGNATAIRE.attacherSignature(etabCanvas);
       var bes = $("btn-etab-save");
       if (bes) bes.addEventListener("click", function () {
+        if (!peutSigner()) { toast("Seule la cheffe d'établissement peut signer.", true); return; }
         if (!etabSig || etabSig.estVierge()) { toast("Signez dans le cadre avant d'enregistrer.", true); return; }
         STATE.etab = STATE.etab || {};
         STATE.etab.signature = etabSig.dataURL();
         STATE.etab.faitA = ($("etab-faita").value || "").trim();
-        sauverState("etab-sig"); majEtabStatut(); journal("signature", "a enregistré la signature de l'établissement"); toast("Signature de l'établissement enregistrée pour toutes les conventions.");
+        sauverState("etab-faita");
+        partagerSignature(STATE.etab.signature);
       });
       var bec = $("btn-etab-clear");
       if (bec) bec.addEventListener("click", function () { if (etabSig) etabSig.effacer(); });
       var bex = $("btn-etab-suppr");
       if (bex) bex.addEventListener("click", function () {
         if (!confirm("Retirer la signature enregistrée de l'établissement ?")) return;
-        STATE.etab.signature = ""; if (etabSig) etabSig.effacer(); sauverState("etab-suppr"); majEtabStatut(); toast("Signature retirée.");
+        if (!peutSigner()) { toast("Seule la cheffe d'établissement peut retirer la signature.", true); return; }
+        STATE.etab.signature = ""; if (etabSig) etabSig.effacer(); partagerSignature(""); majEtabStatut();
       });
     }
     majEtabStatut();
@@ -5761,6 +5788,8 @@ window.DEPOUILLEMENT = (function () {
       // Partage, historique et remarques sont PERMANENTS : ils ne dépendent plus d'un interrupteur.
       demarrerJournal();
       demarrerPresence();
+      demarrerSignature();
+      chargerSignature();
       // Trace durable des connexions (la présence, elle, ne dit que « qui est là maintenant »).
       var derniere = +(lsGet(LS_CNX) || 0);
       if (Date.now() - derniere > 3600000) {   // au plus une fois par heure : un rechargement de page n'est pas une nouvelle connexion
@@ -5769,7 +5798,7 @@ window.DEPOUILLEMENT = (function () {
       }
       chargerEtatPartage();
       demarrerRemarques();
-      chargerContenus().then(function () { majAdmin(); });
+      chargerContenus().then(function () { majAdmin(); majVerrouSignature(); });
       // L'interrupteur ne gouverne plus que la relecture avant partage.
       if (!_collabEcoute && window.FB && window.FB.ecouterCollab) {
         _collabEcoute = true;
@@ -6257,6 +6286,80 @@ window.DEPOUILLEMENT = (function () {
     f._t = setTimeout(function () { f.hidden = true; }, 9000);
   }
 
+  // ===== Signature de l'établissement (nœud réservé) =====
+  function partagerSignature(dataURL) {
+    if (!_maitre || !window.FB || !window.FB.ecrireSignature) return;
+    var payload = JSON.stringify({ signature: dataURL || "", par: auteurCourant(), ts: Date.now() });
+    window.CRYPTO.emballerCle(_maitre, payload).then(function (p) {
+      return window.FB.ecrireSignature({ iv: p.iv, ct: p.ct, v: ++_sigVersion, ts: Date.now() });
+    }).then(function () {
+      journal("signature", dataURL ? "a enregistré la signature de l'établissement" : "a retiré la signature de l'établissement");
+      toast(dataURL ? "Signature enregistrée pour toutes les conventions." : "Signature retirée.");
+      majEtabStatut(); majEtapes();
+    }).catch(function () {
+      // Refus du serveur : on annule localement pour ne pas laisser croire que c'est enregistré.
+      _sigVersion--;
+      chargerSignature();
+      toast("Refusé : seule la cheffe d'établissement peut signer.", true);
+    });
+  }
+  function chargerSignature() {
+    if (!_maitre || !window.FB || !window.FB.lireSignature) return Promise.resolve();
+    return window.FB.lireSignature().then(function (rec) {
+      if (!rec || !rec.ct) return;
+      return window.CRYPTO.deballerCle(_maitre, rec).then(function (txt) {
+        try {
+          var o = JSON.parse(txt);
+          STATE.etab = STATE.etab || {};
+          STATE.etab.signature = o.signature || "";
+          _sigVersion = rec.v || 0;
+          majEtabStatut(); majEtapes();
+        } catch (e) {}
+      });
+    }).catch(function () {});
+  }
+  function demarrerSignature() {
+    if (!window.FB || !window.FB.ecouterSignature) return;
+    // La signature enregistrée est visible de tous, en direct.
+    window.FB.ecouterSignature(function (rec) {
+      if (!rec || !rec.ct || !_maitre) return;
+      window.CRYPTO.deballerCle(_maitre, rec).then(function (txt) {
+        try {
+          var o = JSON.parse(txt);
+          STATE.etab = STATE.etab || {};
+          STATE.etab.signature = o.signature || "";
+          _sigVersion = rec.v || 0;
+          majEtabStatut(); majEtapes();
+        } catch (e) {}
+      }, function () {});
+    });
+    if (window.FB.ecouterChefEmail) window.FB.ecouterChefEmail(function (v) { _chefEmail = v || ""; majVerrouSignature(); majAdmin(); });
+  }
+  // Verrouille le cadre de signature pour tous, sauf la cheffe d'établissement.
+  function majVerrouSignature() {
+    var c = $("carte-etab"); if (!c) return;
+    var ok = peutSigner();
+    var cv = $("etab-canvas"), bs = $("btn-etab-save"), bc = $("btn-etab-clear"), bx = $("btn-etab-suppr"), fa = $("etab-faita");
+    if (cv) { cv.style.pointerEvents = ok ? "" : "none"; cv.style.opacity = ok ? "" : ".55"; }
+    if (bs) bs.hidden = !ok;
+    if (bc) bc.hidden = !ok;
+    if (fa) fa.disabled = !ok;
+    if (bx && !ok) bx.hidden = true;
+    var av = $("etab-avis");
+    if (!av) {
+      av = document.createElement("p");
+      av.id = "etab-avis"; av.className = "hint";
+      av.style.cssText = "margin:8px 0 0;color:#8a6d20";
+      c.appendChild(av);
+    }
+    av.hidden = ok;
+    if (!ok) {
+      av.textContent = _chefEmail
+        ? "Seule la cheffe d'établissement peut signer ici. La signature apposée reste visible de tous."
+        : "Le compte autorisé à signer n'a pas encore été désigné (panneau d'administration).";
+    }
+  }
+
   // ===== Remarques d'amélioration =====
   var _remarques = [];
   var LS_RQ_VU = "conv_remarques_vu_v1";
@@ -6371,6 +6474,15 @@ window.DEPOUILLEMENT = (function () {
   // Filtre d'AFFICHAGE seulement : la console est déjà verrouillée par le mot de passe + la clé de chiffrement.
   // Les familles n'atteignent jamais cet écran (elles arrivent en mode signataire).
   var ADMINS = ["paul.meney@ac-nantes.fr"];
+  var _chefEmail = "";       // e-mail du compte autorisé à signer (réglé dans le panneau d'administration)
+  var _sigVersion = 0;
+  function peutSigner() {
+    var u = window.FB && window.FB.utilisateur && window.FB.utilisateur();
+    var mail = ((u && u.email) || "").toLowerCase().trim();
+    if (!mail) return false;
+    if (_chefEmail && mail === _chefEmail.toLowerCase().trim()) return true;
+    return estAdmin();   // l'administrateur garde la main (dépannage, mise en place)
+  }
   var HIST_MAX = 5;
   var _hist = {};           // { cle: [versions précédentes] }
   var _contenusVersion = 0;
@@ -6534,6 +6646,7 @@ window.DEPOUILLEMENT = (function () {
     if (!ok) return;
     var t = $("admin-collab"), l = $("admin-collab-lbl");
     if (t) { t.checked = !!_collab; if (l) l.textContent = _collab ? "Activée" : "Désactivée"; }
+    var ce = $("admin-chef-email"); if (ce && document.activeElement !== ce) ce.value = _chefEmail || "";
     renderAdminChamps(); majDiag(); renderRemarques();
   }
   window.__majAdmin = majAdmin;
@@ -6542,7 +6655,12 @@ window.DEPOUILLEMENT = (function () {
   function nomEl(el) { return ((el.prenom || "") + " " + (el.nom || "")).trim() || "(élève)"; }
   function cleEleve(el) { return norm(el.prenom) + "|" + norm(el.nom) + "|" + norm(el.classe || ""); }
   function indexEleves(niv) { var m = {}; (niv.eleves || []).forEach(function (el) { m[cleEleve(el)] = el; }); return m; }
-  function snapEtat() { return JSON.parse(JSON.stringify({ niveaux: STATE.niveaux, etab: STATE.etab || {} })); }
+  function snapEtat() {
+    // La signature est exclue : elle a son propre nœud, réservé à la cheffe d'établissement.
+    var e = JSON.parse(JSON.stringify(STATE.etab || {}));
+    delete e.signature;
+    return JSON.parse(JSON.stringify({ niveaux: STATE.niveaux, etab: e }));
+  }
   function vide(nk) { return { eleves: [], tuteurs: [], tuteursTel: {}, tuteursMax: {}, tuteursQuotite: {}, modeAttribution: nk === "demo" ? "auto" : "manuel" }; }
 
   // Liste les différences base -> cur (chaque modif porte une "cible" stable pour détecter les collisions).
@@ -6568,7 +6686,7 @@ window.DEPOUILLEMENT = (function () {
       });
     });
     var bs = (base.etab && base.etab.signature) || "", cs = (cur.etab && cur.etab.signature) || "";
-    if (bs !== cs) mods.push({ kind: "etab", apresRaw: cs, label: "Signature de l'établissement", avantTxt: bs ? "enregistrée" : "absente", apresTxt: cs ? "enregistrée" : "retirée", cible: "etab:signature" });
+    // La signature n'est plus comparée ici : elle vit dans son propre nœud (écriture réservée).
     var bm2 = (base.etab && base.etab.missions) || "", cm2 = (cur.etab && cur.etab.missions) || "";
     if (bm2 !== cm2) mods.push({ kind: "etabm", apresRaw: cm2, label: "Missions du tuteur (fiche de suivi)", avantTxt: "texte précédent", apresTxt: "texte réécrit", cible: "etab:missions" });
     return mods;
