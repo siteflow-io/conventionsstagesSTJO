@@ -134,6 +134,19 @@
   .journal-item{padding:7px 0;border-bottom:1px solid var(--ligne);font-size:13.5px;line-height:1.5}
   .journal-when{color:var(--mut);font-variant-numeric:tabular-nums;font-size:12px;margin-right:6px}
   #btn-valider-collab{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:40;background:var(--bordeaux);color:#fff;border:none;border-radius:24px;padding:11px 22px;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(122,46,58,.35)}
+  .presence-barre{margin:0 0 12px;padding:8px 13px;border-radius:10px;background:#f4f6f9;border:1px solid var(--ligne);
+    font-size:12.5px;color:var(--encre);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .pastille{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--ligne);border-radius:20px;padding:3px 10px}
+  .pastille-pt{width:7px;height:7px;border-radius:50%;background:#39a24a;flex:none}
+  .pastille-moi{border-color:var(--or-clair);background:#fdfaf2}
+  .pastille-ou{color:var(--mut)}
+  .flux-direct{margin:0 0 14px;padding:9px 13px;border-radius:10px;background:#fbf6e9;border:1px solid var(--or-clair);font-size:12.5px}
+  .flux-l{padding:2px 0;color:var(--encre);animation:fluxIn .35s ease}
+  @keyframes fluxIn{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){.flux-l{animation:none}}
+  .bandeau-mode{margin:0 0 14px;padding:9px 14px;border-radius:10px;font-size:13px;display:flex;align-items:center;gap:9px}
+  .bandeau-partage{background:#eaf4ea;border:1px solid #b9d9b9;color:#245c28}
+  .bandeau-test{background:#fbf3e0;border:1px solid var(--or-clair);color:#7a5c12}
   .notif-collab{margin:0 0 16px;padding:12px 15px;background:#fbf6e9;border:1px solid var(--or-clair);border-radius:12px}
   .notif-collab-titre{font-weight:600;color:var(--nuit);margin-bottom:6px}
   .notif-l{font-size:13px;padding:3px 0;line-height:1.45}
@@ -315,6 +328,9 @@
   </header>
 
   <main>
+    <div id="bandeau-mode" class="bandeau-mode"></div>
+    <div id="presence-barre" class="presence-barre" hidden></div>
+    <div id="flux-direct" class="flux-direct" hidden></div>
     <div id="notif-collab" class="notif-collab" hidden>
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
         <div style="flex:1">
@@ -484,10 +500,10 @@
       </h2>
       <div id="admin-corps" hidden>
         <div class="admin-bloc">
-          <h4>Mode collaboratif</h4>
-          <p class="hint" style="margin-top:0">Quand il est actif, les modifications passent par une validation, un historique est tenu, et chacun voit ce que les autres ont fait.</p>
+          <h4>Relecture avant partage</h4>
+          <p class="hint" style="margin-top:0">Les données sont toujours communes à l'équipe et l'historique est toujours tenu. Cette option ajoute une étape de relecture : chacun valide ses modifications (et arbitre les conflits) avant qu'elles ne soient transmises. Désactivée, les modifications partent immédiatement.</p>
           <label style="display:inline-flex;align-items:center;gap:8px;font-size:13.5px">
-            <input type="checkbox" id="admin-collab"> <span id="admin-collab-lbl">Désactivé</span>
+            <input type="checkbox" id="admin-collab"> <span id="admin-collab-lbl">Désactivée</span>
           </label>
         </div>
 
@@ -548,6 +564,7 @@
   <p><b>Si deux personnes ont modifié la même chose.</b> La ligne concernée est signalée, et vous choisissez laquelle des deux versions garder. Rien n'est écrasé sans que vous l'ayez décidé.</p>
   <p><b>Les imports ne demandent pas de validation</b> : une liste d'élèves importée est partagée immédiatement. Seules les retouches faites ensuite passent par la validation.</p>
   <p><b>L'historique</b> conserve les cent dernières actions, avec leur auteur et leur date.</p>
+  <p><b>Qui est en ligne.</b> Un bandeau indique en permanence les personnes connectées et la section qu'elles consultent. Cette information est visible de tous, y compris de vous : chacun voit qui travaille au même moment. Elle disparaît dès que l'onglet est fermé. Les actions des autres s'affichent également en direct, brièvement, en haut de l'écran.</p>
   </div>
   <h4 style="margin:16px 0 6px;color:var(--nuit)">Protection des données</h4>
       <p><b>Chiffrement de bout en bout.</b> Chaque convention est chiffrée sur l'appareil de la famille (norme AES-256) avant d'être transmise. Le serveur ne conserve que des données illisibles. La clé de chiffrement elle-même n'y est déposée que sous une forme verrouillée par un secret que le serveur ne connaît pas : l'hébergeur ne peut donc pas lire les conventions.</p>
@@ -593,7 +610,7 @@
 
 <div id="toast" class="toast" hidden></div>
 <button id="btn-valider-collab" hidden onclick="window.__ouvrirValidation && window.__ouvrirValidation()">✓ Valider mes modifications (0)</button>
-<div class="app-version">v2026.07.13·remarques</div>
+<div class="app-version">v2026.07.13·presence</div>
 
 <script>
 /* ===== Configuration : système de transmission ====================
@@ -743,6 +760,22 @@ window.FB = (function () {
       var arr = []; s.forEach(function (ch) { var v = ch.val() || {}; v._id = ch.key; arr.push(v); }); cb(arr);
     });
   }
+  // Présence en direct : chaque onglet publie sa présence et Firebase l'efface tout seul à la fermeture.
+  // Ce sont des métadonnées (qui est là, sur quelle section) : elles ne contiennent aucune donnée d'élève.
+  function presenceAnnoncer(id, o) {
+    if (!dispo) return Promise.reject(new Error("Firebase indisponible"));
+    var r = db.ref("presence/" + id);
+    try { r.onDisconnect().remove(); } catch (e) {}
+    return r.set(o);
+  }
+  function presenceMaj(id, o) { if (!dispo) return Promise.resolve(); return db.ref("presence/" + id).update(o); }
+  function presencePartir(id) { if (!dispo) return Promise.resolve(); return db.ref("presence/" + id).remove(); }
+  function presenceEcouter(cb) {
+    if (!dispo) return;
+    db.ref("presence").on("value", function (s) {
+      var arr = []; s.forEach(function (ch) { var v = ch.val() || {}; v._id = ch.key; arr.push(v); }); cb(arr);
+    });
+  }
   function lireEtat() { if (!dispo) return Promise.resolve(null); return db.ref("etat").once("value").then(function (s) { return s.val(); }); }
   function ecrireEtat(o) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("etat").set(o); }
   function connecter(email, mdp) {
@@ -752,7 +785,7 @@ window.FB = (function () {
   function deconnecter() { if (dispo) try { auth.signOut(); } catch (e) {} }
   function onAuth(cb) { if (dispo) auth.onAuthStateChanged(cb); else cb(null); }
   function utilisateur() { return (dispo && auth && auth.currentUser) || null; }
-  return { dispo: dispo, ecrireConvention: ecrireConvention, ecouter: ecouter, supprimer: supprimer, viderEspace: viderEspace, lireSel: lireSel, ecrireSel: ecrireSel, lireCleAnnee: lireCleAnnee, ecrireCleAnnee: ecrireCleAnnee, lireCanari: lireCanari, ecrireCanari: ecrireCanari, ecouterCollab: ecouterCollab, ecrireCollab: ecrireCollab, journalPush: journalPush, journalEcouter: journalEcouter, journalPurger: journalPurger, lireEtat: lireEtat, ecrireEtat: ecrireEtat, lireContenus: lireContenus, ecrireContenus: ecrireContenus, remarquePush: remarquePush, remarqueMaj: remarqueMaj, remarqueSupprimer: remarqueSupprimer, remarquesEcouter: remarquesEcouter, connecter: connecter, deconnecter: deconnecter, onAuth: onAuth, utilisateur: utilisateur };
+  return { dispo: dispo, ecrireConvention: ecrireConvention, ecouter: ecouter, supprimer: supprimer, viderEspace: viderEspace, lireSel: lireSel, ecrireSel: ecrireSel, lireCleAnnee: lireCleAnnee, ecrireCleAnnee: ecrireCleAnnee, lireCanari: lireCanari, ecrireCanari: ecrireCanari, ecouterCollab: ecouterCollab, ecrireCollab: ecrireCollab, journalPush: journalPush, journalEcouter: journalEcouter, journalPurger: journalPurger, lireEtat: lireEtat, ecrireEtat: ecrireEtat, presenceAnnoncer: presenceAnnoncer, presenceMaj: presenceMaj, presencePartir: presencePartir, presenceEcouter: presenceEcouter, lireContenus: lireContenus, ecrireContenus: ecrireContenus, remarquePush: remarquePush, remarqueMaj: remarqueMaj, remarqueSupprimer: remarqueSupprimer, remarquesEcouter: remarquesEcouter, connecter: connecter, deconnecter: deconnecter, onAuth: onAuth, utilisateur: utilisateur };
 })();
 </script>
 <script>
@@ -4953,6 +4986,7 @@ window.DEPOUILLEMENT = (function () {
   }
 
   function majAnneeNiveau() {
+    majBandeauMode();
     $("champ-annee").value = STATE.annee;
     document.querySelectorAll("[data-niveau]").forEach(function (b) {
       b.classList.toggle("actif", b.getAttribute("data-niveau") === STATE.niveauActif);
@@ -5315,7 +5349,7 @@ window.DEPOUILLEMENT = (function () {
     if (acol) acol.addEventListener("change", function () {
       if (!window.FB || !window.FB.dispo) { toast("Service indisponible.", true); acol.checked = _collab; return; }
       window.FB.ecrireCollab(acol.checked).then(function () {
-        toast(acol.checked ? "Mode collaboratif activé pour toute l'équipe." : "Mode collaboratif désactivé.");
+        toast(acol.checked ? "Relecture avant partage activée pour l'équipe." : "Relecture désactivée : les modifications partent immédiatement.");
       }).catch(function () { acol.checked = _collab; toast("Échec.", true); });
     });
     // Édition des contenus (délégation : champs simples, zones riches, boutons)
@@ -5621,16 +5655,18 @@ window.DEPOUILLEMENT = (function () {
       return Promise.all([assurerCle(STATE.annee), assurerCle("demo")]);
     }).then(function () {
       majAuthConsole(); majDepouillement();
+      // Partage, historique et remarques sont PERMANENTS : ils ne dépendent plus d'un interrupteur.
+      demarrerJournal();
+      demarrerPresence();
+      chargerEtatPartage();
+      demarrerRemarques();
+      chargerContenus().then(function () { majAdmin(); });
+      // L'interrupteur ne gouverne plus que la relecture avant partage.
       if (!_collabEcoute && window.FB && window.FB.ecouterCollab) {
         _collabEcoute = true;
-        window.FB.ecouterCollab(function (v) {
-          var avant = _collab; _collab = v; majCollabUI();
-          if (v && !avant && _maitre) { demarrerJournal(); chargerEtatPartage(); }
-          majAdmin();
-        });
-      } else if (_collab && _maitre) { demarrerJournal(); chargerEtatPartage(); }
-      chargerContenus().then(function () { majAdmin(); });
-      demarrerRemarques();
+        window.FB.ecouterCollab(function (v) { _collab = v; majCollabUI(); majAdmin(); });
+      }
+      majCollabUI();
       return true;
     }).catch(function (e) {
       return (e && e.message === "secret") ? "secret" : false;
@@ -5755,9 +5791,10 @@ window.DEPOUILLEMENT = (function () {
   function sauverState(motif) {
     lsSet(LS_STATE, signature());
     if ((motif === "import" || motif === "demo") && nv().eleves && nv().eleves.length) ouvrirEtape(2);
-    if (_collab && _etatBase) {
+    if (_etatBase && STATE.niveauActif !== "demo") {
       if (motif === "import") commitDirectEtat("a importé des élèves");
-      else majBoutonValider();
+      else if (_collab) majBoutonValider();          // relecture demandée : validation explicite
+      else commitDirectEtatDecrit();                 // partage direct : transmis et journalisé
     }
     if (isAutoSaveOn() && signature() !== _lastSig) { /* auto-dl géré périodiquement/fermeture */ }
   }
@@ -5864,7 +5901,7 @@ window.DEPOUILLEMENT = (function () {
   }
   // Recense une action dans le journal chiffré (uniquement si le mode collaboratif est actif).
   function journal(type, desc) {
-    if (!_collab || !_maitre || !window.FB || !window.FB.dispo || !window.CRYPTO) return;
+    if (!_maitre || !window.FB || !window.FB.dispo || !window.CRYPTO) return;
     var e = { auteur: auteurCourant(), ts: Date.now(), type: type || "", desc: desc || "" };
     window.CRYPTO.emballerCle(_maitre, JSON.stringify(e)).then(function (p) {
       return window.FB.journalPush({ iv: p.iv, ct: p.ct, v: p.v, ts: e.ts });
@@ -5880,6 +5917,7 @@ window.DEPOUILLEMENT = (function () {
       })).then(function (items) {
         _journalItems = items.filter(Boolean).sort(function (a, b) { return b.ts - a.ts; });
         renderJournal();
+        fluxDirect();
         if (!_notifInit) { _notifInit = true; notifierNouveautes(); }
       });
     });
@@ -5894,16 +5932,15 @@ window.DEPOUILLEMENT = (function () {
     }).join("");
   }
   function majCollabUI() {
-    var cj = $("carte-journal"); if (cj) cj.hidden = !_collab;
-    // L'aide sur le travail à plusieurs n'apparaît que si le mode est réellement actif.
-    document.querySelectorAll(".aide-collab").forEach(function (b) { b.hidden = !_collab; });
+    var cj = $("carte-journal"); if (cj) cj.hidden = false;   // l'historique est permanent
+    document.querySelectorAll(".aide-collab").forEach(function (b) { b.hidden = false; });
+    majBandeauMode();
     majBoutonValider();
   }
   window.__journal = journal;
   // Notification « depuis votre dernier passage » : les actions des autres depuis la dernière consultation.
   function notifierNouveautes() {
     var box = $("notif-collab"); if (!box) return;
-    if (!_collab) { box.hidden = true; return; }
     var vu = +(lsGet(LS_VU) || 0), moi = auteurCourant();
     var nouv = _journalItems.filter(function (it) { return it.ts > vu && it.auteur !== moi; });
     if (!nouv.length) { box.hidden = true; return; }
@@ -5917,6 +5954,83 @@ window.DEPOUILLEMENT = (function () {
     box.hidden = false;
   }
   window.__vuNotif = function () { lsSet(LS_VU, String(Date.now())); var b = $("notif-collab"); if (b) b.hidden = true; };
+
+  // ===== Présence en direct =====
+  var _monId = "p" + Math.random().toString(36).slice(2, 10);
+  var _presences = [], _battement = null, _sectionCourante = "";
+  var VERSION_APP = "v2026.07.13";
+  function sectionVisible() {
+    // La section « en cours » = la dernière carte dépliée sur laquelle on a agi, ou la première visible.
+    var cartes = document.querySelectorAll("#mode-console main > section.carte");
+    for (var i = 0; i < cartes.length; i++) {
+      if (!cartes[i].classList.contains("replie")) {
+        var h = cartes[i].querySelector("h2");
+        if (h) return (h.textContent || "").replace(/[▾\d\s]*/, "").trim().slice(0, 28);
+      }
+    }
+    return "";
+  }
+  function annoncerPresence() {
+    if (!window.FB || !window.FB.presenceAnnoncer || !window.FB.utilisateur()) return;
+    _sectionCourante = sectionVisible();
+    window.FB.presenceAnnoncer(_monId, {
+      nom: auteurCourant(), section: _sectionCourante, espace: STATE.niveauActif,
+      depuis: Date.now(), vu: Date.now(), version: VERSION_APP, cle: !!_maitre
+    }).catch(function () {});
+    if (_battement) clearInterval(_battement);
+    // Battement de cœur : signale que l'onglet est toujours vivant, et suit la section consultée.
+    _battement = setInterval(function () {
+      if (!window.FB.utilisateur()) return;
+      var s = sectionVisible();
+      var maj = { vu: Date.now() };
+      if (s !== _sectionCourante) { _sectionCourante = s; maj.section = s; maj.espace = STATE.niveauActif; }
+      window.FB.presenceMaj(_monId, maj).catch(function () {});
+    }, 20000);
+    window.addEventListener("beforeunload", function () { try { window.FB.presencePartir(_monId); } catch (e) {} });
+  }
+  function demarrerPresence() {
+    if (!window.FB || !window.FB.presenceEcouter) return;
+    annoncerPresence();
+    window.FB.presenceEcouter(function (arr) {
+      // On ignore les présences muettes depuis plus de 2 minutes (onglet en veille, réseau coupé).
+      var seuil = Date.now() - 120000;
+      _presences = (arr || []).filter(function (p) { return (p.vu || 0) > seuil; });
+      renderPresence();
+      majDiag();
+    });
+  }
+  function renderPresence() {
+    var b = $("presence-barre"); if (!b) return;
+    if (!_presences.length) { b.hidden = true; return; }
+    b.hidden = false;
+    var h = '<span class="mut">En ligne :</span>';
+    h += _presences.map(function (p) {
+      var moi = p._id === _monId;
+      var ou = p.espace === "demo" ? "espace de test" : (p.section || "");
+      return '<span class="pastille' + (moi ? " pastille-moi" : "") + '"><span class="pastille-pt"></span>'
+        + '<b>' + esc(p.nom || "—") + (moi ? " (vous)" : "") + '</b>'
+        + (ou ? '<span class="pastille-ou">· ' + esc(ou) + '</span>' : '') + '</span>';
+    }).join("");
+    b.innerHTML = h;
+  }
+
+  // ===== Actions en direct =====
+  // Les nouvelles actions des autres apparaissent en haut de l'écran, brièvement.
+  var _fluxVus = null;
+  function fluxDirect() {
+    var f = $("flux-direct"); if (!f) return;
+    var moi = auteurCourant();
+    if (_fluxVus === null) { _fluxVus = _journalItems.length ? _journalItems[0].ts : 0; return; }
+    var neuves = _journalItems.filter(function (it) { return it.ts > _fluxVus && it.auteur !== moi; });
+    if (!neuves.length) return;
+    _fluxVus = _journalItems[0].ts;
+    f.hidden = false;
+    f.innerHTML = neuves.slice(0, 4).map(function (it) {
+      return '<div class="flux-l">⚡ <b>' + esc(it.auteur) + '</b> ' + esc(it.desc) + '</div>';
+    }).join("");
+    clearTimeout(f._t);
+    f._t = setTimeout(function () { f.hidden = true; }, 9000);
+  }
 
   // ===== Remarques d'amélioration =====
   var _remarques = [];
@@ -5972,6 +6086,19 @@ window.DEPOUILLEMENT = (function () {
       }).join("");
     }
     majBadgeRemarques();
+  }
+  // Dit en permanence où vont les modifications : équipe, ou espace de test.
+  function majBandeauMode() {
+    var b = $("bandeau-mode"); if (!b) return;
+    if (STATE.niveauActif === "demo") {
+      b.className = "bandeau-mode bandeau-test";
+      b.innerHTML = "<span>🧪</span><span><b>Espace de test</b> — rien de ce que vous faites ici n'affecte les données réelles.</span>";
+      return;
+    }
+    b.className = "bandeau-mode bandeau-partage";
+    b.innerHTML = _collab
+      ? "<span>👥</span><span><b>Données partagées avec l'équipe</b> — vos modifications sont transmises après validation de votre part.</span>"
+      : "<span>👥</span><span><b>Données partagées avec l'équipe</b> — vos modifications sont transmises immédiatement.</span>";
   }
   function majBadgeRemarques() {
     var b = $("rq-badge"); if (!b) return;
@@ -6116,10 +6243,20 @@ window.DEPOUILLEMENT = (function () {
       "<div>Connecté : <b>" + esc((u && u.email) || "—") + "</b></div>" +
       "<div>Clé de chiffrement : <b>" + (_maitre ? "établie sur cet appareil" : "absente") + "</b></div>" +
       "<div>Liaison au serveur : <b>" + (window.FB && window.FB.dispo ? "active" : "indisponible") + "</b></div>" +
-      "<div>Mode collaboratif : <b>" + (_collab ? "actif" : "désactivé") + "</b></div>" +
+      "<div>Relecture avant partage : <b>" + (_collab ? "activée" : "désactivée") + "</b></div>" +
       "<div>État partagé : version <b>" + _etatVersion + "</b> · Textes : version <b>" + _contenusVersion + "</b></div>" +
       "<div>Historique : <b>" + _journalItems.length + "</b> action(s) enregistrée(s)</div>" +
-      "<div>Code d'activation du mode collaboratif : <b>" + esc(CODE_COLLAB) + "</b></div>";
+      "<div>Code d'activation : <b>" + esc(CODE_COLLAB) + "</b></div>" +
+      "<div style=\"margin-top:8px\"><b>Postes connectés (" + _presences.length + ")</b></div>" +
+      (_presences.length
+        ? _presences.map(function (p) {
+            var d = new Date(p.depuis || Date.now());
+            var hm = ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2);
+            return "<div style=\"padding-left:10px\">• <b>" + esc(p.nom || "—") + "</b> — depuis " + hm
+              + " · " + esc(p.espace === "demo" ? "espace de test" : (p.section || "—"))
+              + " · " + esc(p.version || "?") + " · clé " + (p.cle ? "établie" : "absente") + "</div>";
+          }).join("")
+        : "<div style=\"padding-left:10px\" class=\"mut\">Aucun autre poste.</div>");
   }
   function majAdmin() {
     var c = $("carte-admin"); if (!c) return;
@@ -6127,7 +6264,7 @@ window.DEPOUILLEMENT = (function () {
     c.hidden = !ok;
     if (!ok) return;
     var t = $("admin-collab"), l = $("admin-collab-lbl");
-    if (t) { t.checked = !!_collab; if (l) l.textContent = _collab ? "Actif" : "Désactivé"; }
+    if (t) { t.checked = !!_collab; if (l) l.textContent = _collab ? "Activée" : "Désactivée"; }
     renderAdminChamps(); majDiag(); renderRemarques();
   }
   window.__majAdmin = majAdmin;
@@ -6196,26 +6333,72 @@ window.DEPOUILLEMENT = (function () {
   var _etatBase = null, _etatVersion = 0, _valCtx = null;
   // Charge l'état commun depuis Firebase (ou l'initialise à partir du local) quand le mode collaboratif s'active.
   function chargerEtatPartage() {
-    if (!_collab || !_maitre || !window.FB || !window.FB.lireEtat) return Promise.resolve();
+    if (!_maitre || !window.FB || !window.FB.lireEtat) return Promise.resolve();
     return window.FB.lireEtat().then(function (rec) {
       if (rec && rec.ct) {
         return window.CRYPTO.deballerCle(_maitre, rec).then(function (txt) {
-          try { var o = JSON.parse(txt); if (o.niveaux) STATE.niveaux = o.niveaux; if (o.etab) STATE.etab = o.etab; } catch (e) {}
-          _etatVersion = rec.v || 0; _etatBase = snapEtat();
-          majAnneeNiveau(); renderTuteurs(); renderEleves(); majEtabStatut(); majBoutonValider();
+          var distant; try { distant = JSON.parse(txt); } catch (e) { return; }
+          _etatVersion = rec.v || 0;
+          // Le travail local peut diverger de celui de l'équipe (poste resté ouvert, travail hors ligne…).
+          // On ne l'écrase JAMAIS en silence : on confronte, et l'utilisateur tranche.
+          var local = snapEtat();
+          var ecart = diffEtat({ niveaux: distant.niveaux || {}, etab: distant.etab || {} }, local);
+          if (ecart.length) { proposerFusionDemarrage(distant, ecart); return; }
+          adopterEtatDistant(distant);
         });
       }
+      // Aucun état commun encore : le local devient la base partagée.
       _etatBase = snapEtat(); _etatVersion = 0; majBoutonValider();
     }).catch(function () {});
   }
+  function adopterEtatDistant(distant) {
+    if (distant.niveaux) STATE.niveaux = distant.niveaux;
+    if (distant.etab) STATE.etab = distant.etab;
+    _etatBase = snapEtat();
+    lsSet(LS_STATE, signature());
+    majAnneeNiveau(); renderTuteurs(); renderEleves(); majEtabStatut(); majBoutonValider();
+  }
+  // Écran de confrontation au démarrage : personne ne perd son travail sans l'avoir décidé.
+  function proposerFusionDemarrage(distant, ecart) {
+    var h = '<p>Les données de cet appareil diffèrent de celles de l\'équipe. Cela arrive lorsque des modifications ont été faites ici sans être transmises.</p>';
+    h += '<p><b>' + ecart.length + ' modification(s)</b> présente(s) sur cet appareil et absente(s) chez l\'équipe :</p>';
+    h += '<div style="max-height:34vh;overflow-y:auto;margin:10px 0;padding:10px 12px;background:#f7f9fb;border:1px solid var(--ligne);border-radius:8px">';
+    h += ecart.map(function (m) { return '<div style="font-size:13px;padding:4px 0;border-bottom:1px solid var(--ligne)"><b>' + esc(m.label) + '</b><br><span class="mut">' + esc(m.avantTxt) + ' → ' + esc(m.apresTxt) + '</span></div>'; }).join("");
+    h += '</div>';
+    h += '<div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">'
+      + '<button class="btn ghost" onclick="window.__demarrageAdopter()">Adopter les données de l\'équipe (abandonner ces modifications)</button>'
+      + '<button class="btn bord" onclick="window.__demarrageVerser()">Conserver et transmettre ces modifications</button></div>';
+    _demarrageCtx = { distant: distant, ecart: ecart };
+    $("modal-titre").textContent = "Données locales différentes de celles de l'équipe";
+    $("modal-corps").innerHTML = h;
+    $("modal").hidden = false;
+  }
+  var _demarrageCtx = null;
+  window.__demarrageAdopter = function () {
+    if (!_demarrageCtx) return;
+    if (!confirm("Abandonner définitivement les modifications faites sur cet appareil ?")) return;
+    adopterEtatDistant(_demarrageCtx.distant);
+    _demarrageCtx = null; $("modal").hidden = true;
+    toast("Données de l'équipe adoptées.");
+  };
+  window.__demarrageVerser = function () {
+    if (!_demarrageCtx) return;
+    // La base devient l'état distant : les écarts locaux redeviennent « mes modifications » à transmettre.
+    var d = _demarrageCtx.distant;
+    _etatBase = JSON.parse(JSON.stringify({ niveaux: d.niveaux || {}, etab: d.etab || {} }));
+    _demarrageCtx = null; $("modal").hidden = true;
+    majBoutonValider();
+    if (_collab) { toast("Vos modifications sont prêtes : validez-les pour les transmettre."); ouvrirValidation(); }
+    else { commitDirectEtat("a transmis ses modifications locales"); toast("Vos modifications ont été transmises à l'équipe."); }
+  };
   function majBoutonValider() {
     var b = $("btn-valider-collab"); if (!b) return;
-    if (!_collab || !_etatBase) { b.hidden = true; return; }
+    if (!_collab || !_etatBase) { b.hidden = true; return; }   // _collab = relecture avant partage
     var n = diffEtat(_etatBase, snapEtat()).length;
     b.hidden = (n === 0); b.textContent = "✓ Valider mes modifications (" + n + ")";
   }
   function ouvrirValidation() {
-    if (!_collab || !_maitre) return;
+    if (!_maitre) return;
     var mesMods = diffEtat(_etatBase, snapEtat());
     if (!mesMods.length) { toast("Aucune modification à valider."); return; }
     window.FB.lireEtat().then(function (rec) {
@@ -6281,12 +6464,21 @@ window.DEPOUILLEMENT = (function () {
   window.__ouvrirValidation = ouvrirValidation;
   window.__commettreValidation = commettreValidation;
   // Les imports sont partagés directement, sans passer par la validation (seules les modifs APRÈS import y sont soumises).
+  // Partage direct : décrit précisément ce qui a changé, pour que l'historique reste utile.
+  function commitDirectEtatDecrit() {
+    var mods = _etatBase ? diffEtat(_etatBase, snapEtat()) : [];
+    if (!mods.length) return;
+    var desc = mods.length === 1
+      ? "a modifié : " + mods[0].label + " (" + mods[0].avantTxt + " → " + mods[0].apresTxt + ")"
+      : "a effectué " + mods.length + " modifications (" + mods.slice(0, 3).map(function (m) { return m.label; }).join(", ") + (mods.length > 3 ? "…" : "") + ")";
+    commitDirectEtat(desc);
+  }
   function commitDirectEtat(desc) {
-    if (!_collab || !_maitre || !window.FB || !window.FB.ecrireEtat) return;
+    if (!_maitre || !window.FB || !window.FB.ecrireEtat) return;
     var snapshot = snapEtat();
     window.CRYPTO.emballerCle(_maitre, JSON.stringify(snapshot)).then(function (p) {
       return window.FB.ecrireEtat({ iv: p.iv, ct: p.ct, v: _etatVersion + 1, ts: Date.now() });
-    }).then(function () { _etatVersion += 1; _etatBase = snapshot; if (desc) journal("import", desc); majBoutonValider(); }).catch(function () {});
+    }).then(function () { _etatVersion += 1; _etatBase = snapshot; if (desc) journal("modif", desc); majBoutonValider(); }).catch(function () {});
   }
   function show(id, on) { var e = $(id); if (e) e.hidden = !on; }
 
