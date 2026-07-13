@@ -55,7 +55,7 @@
   .carte.repliable > h2:hover{color:var(--bordeaux)}
   .carte.repliable.replie{background:#f7f9fb;padding-top:15px;padding-bottom:15px}
   .carte.repliable.replie > h2{margin-bottom:0}
-  .carte.repliable.replie > *:not(h2){display:none}
+  .carte.repliable.replie > *:not(h2){display:none !important}
   .carte.repliable:not(.replie){background:var(--carte);border-color:var(--or-clair)}
   .carte.repliable > h2 .titre-etape{flex:1;min-width:0}
   /* Pastille d'avancement */
@@ -74,6 +74,12 @@
   .tag-attente{background:#fbf3e0;color:#8a6d20}
   .tag-alerte{background:#fdecea;color:#c0392b}
   .tag-neutre{background:#eef1f5;color:var(--mut)}
+  .nonlu{flex:none;background:#c0392b;color:#fff;font-size:11px;font-weight:700;border-radius:20px;
+    padding:2px 8px;min-width:18px;text-align:center;text-transform:none;letter-spacing:0;
+    animation:pulseNonLu 2s ease-in-out infinite}
+  @keyframes pulseNonLu{0%,100%{box-shadow:0 0 0 0 rgba(192,57,43,.45)}50%{box-shadow:0 0 0 6px rgba(192,57,43,0)}}
+  @media (prefers-reduced-motion:reduce){.nonlu{animation:none}}
+  .carte.a-lire{border-color:#c0392b;background:#fdf6f5}
   .etape-fait{margin-left:8px;color:#2e7d32;font-size:12px;font-weight:600;text-transform:none;letter-spacing:0}
   /* Lien d'aide sur l'écran de connexion : pulsation discrète pour appeler le clic */
   .aide-lien{display:block;width:100%;margin-top:14px;background:#fbf6e9;border:1px solid var(--or-clair);border-radius:10px;
@@ -164,7 +170,15 @@
   .tut-del{margin-left:auto;width:28px;height:28px;border-radius:6px;border:1px solid var(--ligne);background:#fff;color:var(--bordeaux);font-size:18px;line-height:1;cursor:pointer;padding:0}
   .tut-del:hover{background:var(--bordeaux);color:#fff;border-color:var(--bordeaux)}
   .hint{font-size:12.5px;color:var(--mut);margin:8px 0 0}
-  .journal-item{padding:7px 0;border-bottom:1px solid var(--ligne);font-size:13.5px;line-height:1.5}
+  .journal-item{padding:9px 0;border-bottom:1px solid var(--ligne);font-size:13.5px;line-height:1.5}
+  .journal-tete{margin-bottom:2px}
+  .journal-det{margin:5px 0 0 62px}
+  .jrn-l{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:12.5px;padding:2px 0}
+  .jrn-quoi{color:var(--encre);min-width:190px;flex:none}
+  .jrn-av{color:var(--mut);text-decoration:line-through}
+  .jrn-fl{color:var(--mut)}
+  .jrn-ap{color:#2e7d32;font-weight:600}
+  .jrn-plus{border:0;background:none;color:var(--bordeaux);font-size:12px;cursor:pointer;text-decoration:underline;font-family:inherit;padding:0 0 0 4px}
   .journal-when{color:var(--mut);font-variant-numeric:tabular-nums;font-size:12px;margin-right:6px}
   #btn-valider-collab{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:40;background:var(--bordeaux);color:#fff;border:none;border-radius:24px;padding:11px 22px;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(122,46,58,.35)}
   .presence-barre{margin:0 0 12px;padding:8px 13px;border-radius:10px;background:#f4f6f9;border:1px solid var(--ligne);
@@ -653,7 +667,7 @@
 
 <div id="toast" class="toast" hidden></div>
 <button id="btn-valider-collab" hidden onclick="window.__ouvrirValidation && window.__ouvrirValidation()">✓ Valider mes modifications (0)</button>
-<div class="app-version">v2026.07.13·accordeon2</div>
+<div class="app-version">v2026.07.13·journal-detail2</div>
 
 <script>
 /* ===== Configuration : système de transmission ====================
@@ -5377,6 +5391,12 @@ window.DEPOUILLEMENT = (function () {
           .catch(function () { toast("Échec : seul l'administrateur peut supprimer.", true); });
       }
     });
+    var jl = $("journal-liste");
+    if (jl) jl.addEventListener("click", function (e) {
+      var b = e.target.closest("[data-jrn]"); if (!b) return;
+      var z = jl.querySelector('[data-jrn-c="' + b.getAttribute("data-jrn") + '"]');
+      if (z) { z.hidden = !z.hidden; b.textContent = z.hidden ? "voir le détail" : "masquer le détail"; }
+    });
     var rqf = $("rq-filtres");
     if (rqf) rqf.addEventListener("click", function (e) {
       var b = e.target.closest("[data-rq-f]"); if (!b) return;
@@ -5475,7 +5495,12 @@ window.DEPOUILLEMENT = (function () {
         if (e.target.closest("input, select, a, textarea, label")) return;
         c.classList.toggle("replie");
         b.textContent = c.classList.contains("replie") ? "Ouvrir" : "Fermer";
-        if (!c.classList.contains("replie")) majEtapes();
+        if (!c.classList.contains("replie")) {
+          majEtapes();
+          // Ouvrir la carte vaut lecture : la pastille de non-lus s'éteint.
+          if (c.id === "carte-remarques") window.__vuRemarques();
+          if (c.id === "carte-journal") window.__vuHistorique();
+        }
       });
     });
     majEtapes();
@@ -5877,7 +5902,7 @@ window.DEPOUILLEMENT = (function () {
     try { majEtapes(); } catch (e) {}
     if ((motif === "import" || motif === "demo") && nv().eleves && nv().eleves.length) ouvrirEtape(2);
     if (_etatBase && STATE.niveauActif !== "demo") {
-      if (motif === "import") commitDirectEtat("a importé des élèves");
+      if (motif === "import") commitDirectEtat("a importé " + ((nv().eleves || []).length) + " élève(s) en " + STATE.niveauActif, null);
       else if (_collab) majBoutonValider();          // relecture demandée : validation explicite
       else commitDirectEtatDecrit();                 // partage direct : transmis et journalisé
     }
@@ -5986,9 +6011,11 @@ window.DEPOUILLEMENT = (function () {
     return av ? av.charAt(0).toUpperCase() + av.slice(1) : "Gestionnaire";
   }
   // Recense une action dans le journal chiffré (uniquement si le mode collaboratif est actif).
-  function journal(type, desc) {
+  function journal(type, desc, details) {
     if (!_maitre || !window.FB || !window.FB.dispo || !window.CRYPTO) return;
     var e = { auteur: auteurCourant(), ts: Date.now(), type: type || "", desc: desc || "" };
+    // Le détail exact de chaque modification (quoi, avant, après) : sans lui, l'historique ne dit rien d'utile.
+    if (details && details.length) e.details = details;
     window.CRYPTO.emballerCle(_maitre, JSON.stringify(e)).then(function (p) {
       return window.FB.journalPush({ iv: p.iv, ct: p.ct, v: p.v, ts: e.ts });
     }).then(function () { return window.FB.journalPurger(100); }).catch(function () {});
@@ -6004,6 +6031,7 @@ window.DEPOUILLEMENT = (function () {
         _journalItems = items.filter(Boolean).sort(function (a, b) { return b.ts - a.ts; });
         renderJournal();
         fluxDirect();
+        majNonLus();
         if (!_notifInit) { _notifInit = true; notifierNouveautes(); }
       });
     });
@@ -6011,11 +6039,28 @@ window.DEPOUILLEMENT = (function () {
   function renderJournal() {
     var box = $("journal-liste"); if (!box) return;
     if (!_journalItems.length) { box.innerHTML = '<p class="mut">Aucune action enregistrée pour l\'instant.</p>'; return; }
-    box.innerHTML = _journalItems.map(function (it) {
+    box.innerHTML = _journalItems.map(function (it, idx) {
       var d = new Date(it.ts);
       var q = ("0" + d.getDate()).slice(-2) + "/" + ("0" + (d.getMonth() + 1)).slice(-2) + " " + ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2);
-      return '<div class="journal-item"><span class="journal-when">' + q + '</span> <b>' + esc(it.auteur) + '</b> ' + esc(it.desc) + '</div>';
+      var det = it.details || [];
+      var h = '<div class="journal-item">';
+      h += '<div class="journal-tete"><span class="journal-when">' + q + '</span> <b>' + esc(it.auteur) + '</b> ' + esc(it.desc);
+      if (det.length > 3) h += ' <button class="jrn-plus" data-jrn="' + idx + '">voir les ' + (det.length - 3) + ' autres</button>';
+      h += '</div>';
+      if (det.length) {
+        h += '<div class="journal-det">' + det.slice(0, 3).map(ligneDetail).join("");
+        if (det.length > 3) h += '<div data-jrn-c="' + idx + '" hidden>' + det.slice(3).map(ligneDetail).join("") + '</div>';
+        h += '</div>';
+      }
+      return h + '</div>';
     }).join("");
+  }
+  function ligneDetail(m) {
+    var a = (m.a == null || m.a === "") ? "—" : m.a;
+    var b = (m.b == null || m.b === "") ? "—" : m.b;
+    return '<div class="jrn-l"><span class="jrn-quoi">' + esc(m.l) + '</span>'
+      + '<span class="jrn-av">' + esc(a) + '</span><span class="jrn-fl">→</span>'
+      + '<span class="jrn-ap">' + esc(b) + '</span></div>';
   }
   function majCollabUI() {
     var cj = $("carte-journal"); if (cj) cj.hidden = false;   // l'historique est permanent
@@ -6097,6 +6142,43 @@ window.DEPOUILLEMENT = (function () {
       num.title = e.tag || "";
     });
   }
+
+  // Marque, sur la carte fermée, ce qui n'a pas encore été lu : personne ne passe à côté.
+  function pastilleNonLu(carteId, n, titre) {
+    var c = $(carteId); if (!c) return;
+    var h = c.querySelector("h2"); if (!h) return;
+    var p = h.querySelector(".nonlu");
+    if (!n) {
+      if (p) p.remove();
+      c.classList.remove("a-lire");
+      return;
+    }
+    if (!p) {
+      p = document.createElement("span");
+      p.className = "nonlu";
+      var btn = h.querySelector(".pli-btn");
+      h.insertBefore(p, btn || null);
+    }
+    p.textContent = n > 99 ? "99+" : String(n);
+    p.title = titre || "";
+    c.classList.add("a-lire");
+  }
+  function majNonLus() {
+    // Remarques non lues : celles écrites par d'autres depuis la dernière consultation, et les réponses reçues.
+    var vuRq = +(lsGet(LS_RQ_VU) || 0), moi = auteurCourant();
+    var rqNouv = _remarques.filter(function (r) {
+      if (r.auteur !== moi && r.ts > vuRq) return true;                    // remarque d'un collègue, pas encore lue
+      if (r.auteur === moi && r.reponse && r.repTs > vuRq) return true;    // réponse reçue à ma remarque
+      return false;
+    }).length;
+    pastilleNonLu("carte-remarques", rqNouv, rqNouv + " remarque(s) non lue(s)");
+
+    // Actions des autres non lues.
+    var vuJ = +(lsGet(LS_VU) || 0);
+    var actNouv = _journalItems.filter(function (it) { return it.auteur !== moi && it.ts > vuJ; }).length;
+    pastilleNonLu("carte-journal", actNouv, actNouv + " action(s) non lue(s)");
+  }
+  window.__vuHistorique = function () { lsSet(LS_VU, String(Date.now())); majNonLus(); var b = $("notif-collab"); if (b) b.hidden = true; };
 
   // ===== Présence en direct =====
   var _monId = "p" + Math.random().toString(36).slice(2, 10);
@@ -6201,6 +6283,7 @@ window.DEPOUILLEMENT = (function () {
       }).then(function (liste) {
         _remarques = liste.sort(function (a, b) { return b.ts - a.ts; });
         renderRemarques();
+        majNonLus();
       });
     });
   }
@@ -6282,7 +6365,7 @@ window.DEPOUILLEMENT = (function () {
     }).then(function () { journal("reponse", "a répondu à une remarque"); toast("Réponse enregistrée."); })
       .catch(function () { toast("Échec : seul l'administrateur peut répondre.", true); });
   }
-  window.__vuRemarques = function () { lsSet(LS_RQ_VU, String(Date.now())); majBadgeRemarques(); };
+  window.__vuRemarques = function () { lsSet(LS_RQ_VU, String(Date.now())); majBadgeRemarques(); majNonLus(); };
 
   // ===== Administration =====
   // Filtre d'AFFICHAGE seulement : la console est déjà verrouillée par le mot de passe + la clé de chiffrement.
@@ -6470,24 +6553,24 @@ window.DEPOUILLEMENT = (function () {
       var bi = indexEleves(b), ci = indexEleves(c);
       Object.keys(bi).forEach(function (k) {
         var be = bi[k], ce = ci[k];
-        if (!ce) { mods.push({ kind: "el-", niveau: nk, cle: k, label: "Élève " + nomEl(be) + " (" + nk + ")", avantTxt: "présent", apresTxt: "supprimé", cible: "el:" + nk + ":" + k }); return; }
+        if (!ce) { mods.push({ kind: "el-", niveau: nk, cle: k, label: "Élève " + nomEl(be) + " (" + nk + ")", avantTxt: "dans la liste", apresTxt: "retiré de la liste", cible: "el:" + nk + ":" + k }); return; }
         if ((be.tuteur || "") !== (ce.tuteur || "")) mods.push({ kind: "att", niveau: nk, cle: k, apres: ce.tuteur || "", label: "Tuteur de " + nomEl(ce) + " (" + nk + ")", avantTxt: be.tuteur || "—", apresTxt: ce.tuteur || "—", cible: "att:" + nk + ":" + k });
       });
-      Object.keys(ci).forEach(function (k) { if (!bi[k]) { var ce = ci[k]; mods.push({ kind: "el+", niveau: nk, cle: k, elObj: ce, label: "Élève " + nomEl(ce) + " (" + nk + ")", avantTxt: "absent", apresTxt: "ajouté", cible: "el:" + nk + ":" + k }); } });
-      [["tuteursTel", "tél"], ["tuteursMax", "quota"], ["tuteursQuotite", "quotité"]].forEach(function (p) {
+      Object.keys(ci).forEach(function (k) { if (!bi[k]) { var ce = ci[k]; mods.push({ kind: "el+", niveau: nk, cle: k, elObj: ce, label: "Élève " + nomEl(ce) + " (" + nk + ")", avantTxt: "absent", apresTxt: "ajouté à la liste", cible: "el:" + nk + ":" + k }); } });
+      [["tuteursTel", "téléphone"], ["tuteursMax", "nombre maximum d'élèves"], ["tuteursQuotite", "quotité"]].forEach(function (p) {
         var map = p[0], bm = b[map] || {}, cm = c[map] || {}, noms = {};
         Object.keys(bm).forEach(function (n) { noms[n] = 1; }); Object.keys(cm).forEach(function (n) { noms[n] = 1; });
         Object.keys(noms).forEach(function (nom) {
           var av = bm[nom], ap = cm[nom];
           if (String(av == null ? "" : av) !== String(ap == null ? "" : ap))
-            mods.push({ kind: "tut", niveau: nk, map: map, tuteur: nom, apres: (ap == null ? "" : ap), label: nom + " — " + p[1] + " (" + nk + ")", avantTxt: (av == null ? "—" : String(av)), apresTxt: (ap == null ? "—" : String(ap)), cible: "tut:" + nk + ":" + map + ":" + norm(nom) });
+            mods.push({ kind: "tut", niveau: nk, map: map, tuteur: nom, apres: (ap == null ? "" : ap), label: p[1].charAt(0).toUpperCase() + p[1].slice(1) + " de " + nom + " (" + nk + ")", avantTxt: (av == null ? "—" : String(av)), apresTxt: (ap == null ? "—" : String(ap)), cible: "tut:" + nk + ":" + map + ":" + norm(nom) });
         });
       });
     });
     var bs = (base.etab && base.etab.signature) || "", cs = (cur.etab && cur.etab.signature) || "";
-    if (bs !== cs) mods.push({ kind: "etab", apresRaw: cs, label: "Signature de l'établissement", avantTxt: bs ? "définie" : "absente", apresTxt: cs ? "définie" : "retirée", cible: "etab:signature" });
+    if (bs !== cs) mods.push({ kind: "etab", apresRaw: cs, label: "Signature de l'établissement", avantTxt: bs ? "enregistrée" : "absente", apresTxt: cs ? "enregistrée" : "retirée", cible: "etab:signature" });
     var bm2 = (base.etab && base.etab.missions) || "", cm2 = (cur.etab && cur.etab.missions) || "";
-    if (bm2 !== cm2) mods.push({ kind: "etabm", apresRaw: cm2, label: "Missions du tuteur (fiche de suivi)", avantTxt: "ancien texte", apresTxt: "nouveau texte", cible: "etab:missions" });
+    if (bm2 !== cm2) mods.push({ kind: "etabm", apresRaw: cm2, label: "Missions du tuteur (fiche de suivi)", avantTxt: "texte précédent", apresTxt: "texte réécrit", cible: "etab:missions" });
     return mods;
   }
 
@@ -6636,7 +6719,8 @@ window.DEPOUILLEMENT = (function () {
     window.CRYPTO.emballerCle(_maitre, JSON.stringify({ niveaux: fin.niveaux, etab: fin.etab })).then(function (p) {
       return window.FB.ecrireEtat({ iv: p.iv, ct: p.ct, v: ctx.vDistant + 1, ts: Date.now() });
     }).then(function () {
-      retenues.forEach(function (m) { journal(m.kind, m.label + " : " + m.avantTxt + " → " + m.apresTxt); });
+      journal("modif", retenues.length === 1 ? "a validé une modification" : "a validé " + retenues.length + " modifications",
+        retenues.map(function (m) { return { l: m.label, a: m.avantTxt, b: m.apresTxt }; }));
       _etatBase = JSON.parse(JSON.stringify({ niveaux: fin.niveaux, etab: fin.etab }));
       _etatVersion = ctx.vDistant + 1;
       var wrap = { niveaux: fin.niveaux, etab: fin.etab };
@@ -6654,17 +6738,16 @@ window.DEPOUILLEMENT = (function () {
   function commitDirectEtatDecrit() {
     var mods = _etatBase ? diffEtat(_etatBase, snapEtat()) : [];
     if (!mods.length) return;
-    var desc = mods.length === 1
-      ? "a modifié : " + mods[0].label + " (" + mods[0].avantTxt + " → " + mods[0].apresTxt + ")"
-      : "a effectué " + mods.length + " modifications (" + mods.slice(0, 3).map(function (m) { return m.label; }).join(", ") + (mods.length > 3 ? "…" : "") + ")";
-    commitDirectEtat(desc);
+    var desc = mods.length === 1 ? "a modifié un élément" : "a effectué " + mods.length + " modifications";
+    var details = mods.map(function (m) { return { l: m.label, a: m.avantTxt, b: m.apresTxt }; });
+    commitDirectEtat(desc, details);
   }
-  function commitDirectEtat(desc) {
+  function commitDirectEtat(desc, details) {
     if (!_maitre || !window.FB || !window.FB.ecrireEtat) return;
     var snapshot = snapEtat();
     window.CRYPTO.emballerCle(_maitre, JSON.stringify(snapshot)).then(function (p) {
       return window.FB.ecrireEtat({ iv: p.iv, ct: p.ct, v: _etatVersion + 1, ts: Date.now() });
-    }).then(function () { _etatVersion += 1; _etatBase = snapshot; if (desc) journal("modif", desc); majBoutonValider(); }).catch(function () {});
+    }).then(function () { _etatVersion += 1; _etatBase = snapshot; if (desc) journal("modif", desc, details); majBoutonValider(); }).catch(function () {});
   }
   function show(id, on) { var e = $(id); if (e) e.hidden = !on; }
 
