@@ -570,7 +570,7 @@
 
 <div id="toast" class="toast" hidden></div>
 <button id="btn-valider-collab" hidden onclick="window.__ouvrirValidation && window.__ouvrirValidation()">✓ Valider mes modifications (0)</button>
-<div class="app-version">v2026.07.13·login-voir</div>
+<div class="app-version">v2026.07.13·admin-verrou</div>
 
 <script>
 /* ===== Configuration : système de transmission ====================
@@ -5912,7 +5912,13 @@ window.DEPOUILLEMENT = (function () {
     }).then(function () {
       journal("contenu", "a modifié un texte de l'application (" + cle + ")");
       toast("Modification enregistrée et partagée.");
-    }).catch(function () { toast("Échec du partage de la modification.", true); });
+    }).catch(function () {
+      // Le serveur refuse l'écriture (réservée à l'administrateur) : on annule la modification locale
+      // pour ne pas laisser croire qu'elle a été prise en compte.
+      _contenusVersion--;
+      chargerContenus().then(function () { renderAdminChamps(); });
+      toast("Modification refusée : seul l'administrateur peut modifier ces textes.", true);
+    });
   }
   function chargerContenus() {
     if (!_maitre || !window.FB || !window.FB.lireContenus) return Promise.resolve();
