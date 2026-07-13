@@ -49,6 +49,24 @@
   .carte > h2 .pli .chev{transition:transform .15s ease;font-size:13px;color:var(--mut)}
   .carte.replie .pli .chev{transform:rotate(-90deg)}
   .carte.replie .pliable{display:none}
+  /* Repliage : tout l'en-tête est cliquable (plus de petite flèche à viser) */
+  .carte.repliable > h2{cursor:pointer;user-select:none;border-radius:8px;margin:-4px -6px 10px;padding:4px 6px;transition:background .15s ease}
+  .carte.repliable > h2:hover{background:#f4f6f9}
+  .carte.repliable > h2::after{content:"▾";margin-left:auto;color:var(--mut);font-size:14px;transition:transform .18s ease}
+  .carte.repliable.replie > h2::after{transform:rotate(-90deg)}
+  .carte.repliable.replie{padding-bottom:14px}
+  .carte.repliable.replie > h2{margin-bottom:0}
+  .carte.repliable.replie > *:not(h2){display:none}
+  .etape-fait{margin-left:8px;color:#2e7d32;font-size:12px;font-weight:600;text-transform:none;letter-spacing:0}
+  /* Lien d'aide sur l'écran de connexion : pulsation discrète pour appeler le clic */
+  .aide-lien{display:block;width:100%;margin-top:14px;background:#fbf6e9;border:1px solid var(--or-clair);border-radius:10px;
+    padding:11px 14px;cursor:pointer;font-size:13px;color:var(--nuit);text-align:left;font-family:inherit;
+    animation:pulseAide 2.6s ease-in-out infinite}
+  .aide-lien:hover{background:#f7eed8;animation:none}
+  @keyframes pulseAide{0%,100%{box-shadow:0 0 0 0 rgba(184,146,63,.34)}50%{box-shadow:0 0 0 7px rgba(184,146,63,0)}}
+  @media (prefers-reduced-motion:reduce){.aide-lien{animation:none}}
+  .aide-corps{margin-top:10px;text-align:left;font-size:13px;line-height:1.55;color:var(--encre);
+    max-height:46vh;overflow-y:auto;padding:12px 14px;background:#fff;border:1px solid var(--ligne);border-radius:10px}
   .compte-pill{color:var(--mut)}
   .compte-pill b{color:var(--encre)}
   .sans-tut{color:var(--bordeaux);font-weight:600;margin-left:8px}
@@ -238,6 +256,11 @@
       <p class="hint" style="text-align:left;margin:2px 2px 6px;font-size:11.5px">Le mot de passe ouvre la console ; la clé de chiffrement — la même pour vous quatre, différente du mot de passe — permet de lire les conventions. Elle reste sur cet appareil et n'est jamais envoyée à Firebase.</p>
       <button class="btn bord" id="btn-login" type="button" title="Accéder à l'espace de gestion">Se connecter</button>
       <p class="login-err" id="login-err"></p>
+      <button class="aide-lien" id="aide-toggle" type="button" aria-expanded="false">
+        <b>Comment fonctionne cette application ?</b><br>
+        <span style="font-size:12px;color:var(--mut)">Le déroulé complet, les deux mots de passe, la protection des données.</span>
+      </button>
+      <div class="aide-corps" id="aide-login" hidden></div>
     </div>
   </div>
   <header class="top">
@@ -317,9 +340,9 @@
     <!-- 2 · Tuteurs -->
     <section class="carte">
       <h2><span class="num">2</span> Enseignants tuteurs &amp; attribution
-        <button class="pli" type="button" title="Replier ou déplier la liste des tuteurs">
-          <span class="compte-pill"><b id="compte-tuteurs">0</b> tuteur(s)</span><span class="chev">▾</span>
-        </button>
+        <span class="compte-slot" style="margin-left:auto">
+          <span class="compte-pill"><b id="compte-tuteurs">0</b> tuteur(s)</span>
+        </span>
       </h2>
       <div class="pliable">
         <label class="fld">Liste des enseignants tuteurs. Règle d'un clic le nombre d'élèves que chacun peut suivre — un collègue à 80&nbsp;% en prend moins, laisse <b>∞</b> pour aucune limite.</label>
@@ -344,9 +367,9 @@
     <!-- 3 · Élèves -->
     <section class="carte">
       <h2><span class="num">3</span> Élèves, liens &amp; QR
-        <button class="pli" type="button" title="Replier ou déplier la liste des élèves">
-          <span class="compte-pill"><b id="compte-eleves">0</b> élève(s)<span id="sans-tuteur" class="sans-tut"></span></span><span class="chev">▾</span>
-        </button>
+        <span class="compte-slot" style="margin-left:auto">
+          <span class="compte-pill"><b id="compte-eleves">0</b> élève(s)<span id="sans-tuteur" class="sans-tut"></span></span>
+        </span>
       </h2>
       <div class="pliable">
         <div class="table-wrap">
@@ -361,7 +384,7 @@
 
     <!-- Signature de l'établissement (en lot) -->
     <section class="carte" id="carte-etab">
-      <h2><span class="num">✍</span> Signature de l'établissement</h2>
+      <h2><span class="num">4</span> Signature de l'établissement</h2>
       <p class="hint" style="margin-top:0">Mme Chrétien signe <b>une seule fois</b> ici. Cette signature est apposée automatiquement sur le volet « établissement » de <b>toutes</b> les conventions générées — pas besoin d'un lien par élève.</p>
       <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end">
         <label style="font-size:13px">Fait à<br><input id="etab-faita" type="text" value="Doué-en-Anjou" style="padding:8px 10px;border:1px solid var(--ligne);border-radius:8px;margin-top:4px"></label>
@@ -384,14 +407,14 @@
 
     <!-- Missions du tuteur (fiche de suivi) -->
     <section class="carte" id="carte-missions">
-      <h2><span class="num">📋</span> Missions du tuteur</h2>
+      <h2><span class="num">5</span> Missions du tuteur</h2>
       <p class="hint" style="margin-top:0">Ce texte apparaît en tête de chaque fiche de suivi remise aux enseignants tuteurs. Il est enregistré automatiquement.</p>
       <textarea id="etab-missions" rows="6" style="width:100%;padding:10px 12px;border:1px solid var(--ligne);border-radius:8px;font-family:inherit;font-size:13.5px;line-height:1.5;resize:vertical;box-sizing:border-box"></textarea>
     </section>
 
     <!-- 4 · Conventions reçues -->
     <section class="carte">
-      <h2><span class="num">4</span> Conventions reçues</h2>
+      <h2><span class="num">6</span> Conventions reçues</h2>
       <p class="hint" id="dep-info-direct" style="margin-top:0">Les conventions transmises par les familles s'affichent ici automatiquement, regroupées par élève.</p>
       <div id="bloc-nuage" hidden>
         <p class="hint" style="margin-top:0">Sur le Nuage, le dossier <b>Conventions-4e</b> peut être téléchargé (Nextcloud fournit un ZIP), puis déposé ici. Tout reste sur l'appareil.</p>
@@ -408,20 +431,37 @@
     </section>
 
     <!-- Règles de confidentialité -->
-    <section class="carte" id="carte-confid">
-      <h2><span class="num">🔒</span> Règles de confidentialité</h2>
-      <p class="hint" style="margin-top:0">Comment les données des familles et des élèves sont protégées dans cette application.</p>
-      <details style="margin-top:6px">
-        <summary style="cursor:pointer;font-weight:600;color:var(--nuit)">Lire le fonctionnement en détail</summary>
-        <div style="margin-top:10px;font-size:13.5px;line-height:1.55;color:var(--encre)">
-          <p><b>Deux secrets, deux rôles.</b> L'accès repose sur deux éléments distincts. Le <b>mot de passe</b> ouvre la console : il est vérifié par le service d'hébergement (Firebase). La <b>clé de chiffrement</b>, commune à l'équipe et différente du mot de passe, sert à lire le contenu des conventions ; elle n'est <b>jamais envoyée</b> au serveur et reste sur chaque appareil.</p>
-          <p><b>Chiffrement de bout en bout.</b> Chaque convention est chiffrée sur l'appareil de la famille (norme AES-256) avant d'être transmise. Le serveur ne stocke que des données illisibles ; seules les personnes disposant de la clé de chiffrement — vous — peuvent les déchiffrer. La clé de chiffrement elle-même n'est déposée sur le serveur que sous forme <b>verrouillée</b> par un secret que le serveur ne connaît pas : même l'hébergeur ne peut donc pas lire les conventions.</p>
-          <p><b>Saisie unique.</b> Le mot de passe et la clé de chiffrement ne sont demandés qu'une seule fois par appareil. Ils sont ensuite mémorisés localement, de façon sécurisée, pour ne plus avoir à les ressaisir. Le bouton « Se déconnecter » les efface de l'appareil.</p>
-          <p><b>Hébergement en Europe.</b> Les données chiffrées sont hébergées sur des serveurs situés dans l'Union européenne (Belgique), conformément au RGPD.</p>
-          <p style="color:var(--bordeaux)"><b>Important.</b> La clé de chiffrement ne peut pas être récupérée si elle est perdue par tous les gestionnaires : c'est la garantie que personne d'autre ne peut lire les conventions. Elle est à conserver en lieu sûr (gestionnaire de mots de passe, ou coffre de l'établissement).</p>
-        </div>
-      </details>
+    <section class="carte repliable replie" id="carte-confid">
+      <h2><span class="num">🔒</span> Règles de fonctionnement et de confidentialité</h2>
+      <div id="aide-console"></div>
     </section>
+    <div id="aide-contenu-src" hidden>
+      <p style="margin-top:0"><b>En bref.</b> Vous importez la liste des élèves, vous attribuez un enseignant tuteur à chacun, puis vous distribuez aux familles un lien (ou un QR code) par élève. La famille et l'entreprise remplissent et signent depuis leur téléphone. Les conventions vous reviennent automatiquement, chiffrées. Vous n'avez plus qu'à générer les documents finaux et les fiches de suivi des tuteurs. La signature de l'établissement est apposée une seule fois, pour toutes les conventions.</p>
+      <p><b>Deux mots de passe, et pourquoi.</b> Le <b>mot de passe</b> ouvre l'espace de gestion. La <b>clé de chiffrement</b>, commune à l'équipe et différente du mot de passe, sert à lire le contenu des conventions : elle n'est jamais transmise au serveur. L'un et l'autre ne sont demandés qu'une fois par appareil. Attention : si la clé de chiffrement est perdue par tout le monde, les conventions déjà reçues deviennent illisibles — c'est précisément ce qui garantit que personne d'autre ne peut les lire.</p>
+    
+      <h4 style="margin:16px 0 6px;color:var(--nuit)">Le déroulé, étape par étape</h4>
+    
+      <p><b>1 · Importer la liste des élèves.</b> Déposez l'export École Directe (ou un tableau au format Excel). Les colonnes sont reconnues automatiquement ; une vérification vous est proposée avant application. Un code unique est attribué à chaque élève : c'est lui qui identifiera sa convention de bout en bout. Le fichier ne quitte pas l'appareil.</p>
+    
+      <p><b>2 · Enseignants tuteurs et attribution.</b> Saisissez les tuteurs (ou collez la liste du personnel : les noms et téléphones sont extraits automatiquement). L'attribution peut être <i>automatique</i>, c'est-à-dire répartie équitablement par ordre alphabétique, ou <i>manuelle</i>, élève par élève. Un quota maximum d'élèves par tuteur peut être fixé.</p>
+    
+      <p><b>3 · Élèves, liens et QR codes.</b> Chaque élève dispose d'un lien personnel et d'un QR code. Un document imprimable par classe permet de les distribuer aux familles. Le lien contient la clé qui permettra de chiffrer la convention : il ne doit être diffusé qu'à la famille concernée.</p>
+    
+      <p><b>4 · Ce que font les familles et les entreprises.</b> En ouvrant le lien, chacun choisit son rôle — <i>entreprise</i> ou <i>parents</i> — puis remplit les informations demandées, prend connaissance des articles de la convention, et signe du doigt. L'entreprise renseigne le stage (raison sociale, lieu, dates, horaires, tuteur, coordonnées) ; les parents autorisent et signent. Chaque envoi est chiffré sur leur appareil avant d'être transmis.</p>
+    
+      <p><b>5 · Signature de l'établissement.</b> La cheffe d'établissement signe une seule fois dans l'espace de gestion. Cette signature est ensuite apposée automatiquement sur le volet « établissement » de toutes les conventions : il n'y a pas de lien à envoyer pour cela.</p>
+    
+      <p><b>6 · Missions du tuteur.</b> Le texte saisi dans cette section apparaît en tête de chaque fiche de suivi remise aux enseignants tuteurs. Il est modifiable à tout moment.</p>
+    
+      <p><b>7 · Conventions reçues.</b> Les conventions remontent ici en temps réel, regroupées par élève. Vous voyez d'un coup d'œil les volets reçus et ceux qui manquent. Vous pouvez alors générer la <i>convention complète</i> (les trois volets assemblés et signés), les <i>fiches de suivi</i> des tuteurs (leurs élèves, les entreprises, les coordonnées), et supprimer ce qui doit l'être — la suppression efface définitivement les données correspondantes.</p>
+    
+      <p><b>Le mode test.</b> Un espace de test, entièrement séparé des données réelles, permet d'essayer le circuit complet sans risque. Il se reconnaît à son fond rayé et au préfixe « TEST » sur les documents produits. Les conventions de test n'apparaissent jamais parmi les vraies.</p>
+    
+      <h4 style="margin:16px 0 6px;color:var(--nuit)">Protection des données</h4>
+      <p><b>Chiffrement de bout en bout.</b> Chaque convention est chiffrée sur l'appareil de la famille (norme AES-256) avant d'être transmise. Le serveur ne conserve que des données illisibles. La clé de chiffrement elle-même n'y est déposée que sous une forme verrouillée par un secret que le serveur ne connaît pas : l'hébergeur ne peut donc pas lire les conventions.</p>
+      <p><b>Hébergement en Europe.</b> Les données chiffrées sont hébergées sur des serveurs situés dans l'Union européenne (Belgique), conformément au RGPD.</p>
+      <p><b>Conservation.</b> Les conventions restent disponibles jusqu'à leur suppression depuis l'espace de gestion. Tout y est supprimable : un élève, une classe, une convention, ou l'ensemble des conventions reçues.</p>
+    </div>
   </main>
 </div>
 
@@ -461,7 +501,7 @@
 
 <div id="toast" class="toast" hidden></div>
 <button id="btn-valider-collab" hidden onclick="window.__ouvrirValidation && window.__ouvrirValidation()">✓ Valider mes modifications (0)</button>
-<div class="app-version">v2026.07.01·fiche-missions</div>
+<div class="app-version">v2026.07.13·parcours-aide</div>
 
 <script>
 /* ===== Configuration : système de transmission ====================
@@ -5093,6 +5133,34 @@ window.DEPOUILLEMENT = (function () {
     });
     var bImp = $("btn-tut-import");
     if (bImp) bImp.addEventListener("click", importerTuteursTexte);
+    // Aide « fonctionnement et confidentialité » : un seul contenu, deux points d'entrée (connexion + console)
+    var srcAide = $("aide-contenu-src");
+    if (srcAide) {
+      var htmlAide = srcAide.innerHTML;
+      var cible1 = $("aide-login"); if (cible1) cible1.innerHTML = htmlAide;
+      var cible2 = $("aide-console"); if (cible2) cible2.innerHTML = htmlAide;
+    }
+    var at = $("aide-toggle");
+    if (at) at.addEventListener("click", function () {
+      var z = $("aide-login"); if (!z) return;
+      var ouvert = !z.hidden; z.hidden = ouvert;
+      at.setAttribute("aria-expanded", ouvert ? "false" : "true");
+      at.style.animation = "none";
+    });
+
+    // Parcours séquentiel : en-têtes entièrement cliquables, seule la première étape ouverte à l'arrivée
+    var premiereEtape = true;
+    document.querySelectorAll("#mode-console main > section.carte").forEach(function (c) {
+      c.classList.add("repliable");
+      var h = c.querySelector("h2"); if (!h) return;
+      var estEtape = /^[1-9]$/.test((h.querySelector(".num") || {}).textContent || "");
+      if (estEtape && premiereEtape) { premiereEtape = false; } else { c.classList.add("replie"); }
+      h.addEventListener("click", function (e) {
+        if (e.target.closest("button:not(.pli), input, select, a")) return;
+        c.classList.toggle("replie");
+      });
+    });
+
     // Repli des listes (tuteurs, élèves)
     document.querySelectorAll(".pli").forEach(function (b) {
       b.addEventListener("click", function () { var c = b.closest(".carte"); if (c) c.classList.toggle("replie"); });
@@ -5228,6 +5296,18 @@ window.DEPOUILLEMENT = (function () {
   }
 
   // ---- Rendu de la liste élèves -------------------------------------
+  // Parcours fluide : à la fin d'une étape, ouvrir la suivante et l'amener à l'écran.
+  function ouvrirEtape(n) {
+    var cartes = document.querySelectorAll("#mode-console main > section.carte");
+    for (var i = 0; i < cartes.length; i++) {
+      var num = cartes[i].querySelector("h2 .num");
+      if (num && (num.textContent || "").trim() === String(n)) {
+        cartes[i].classList.remove("replie");
+        try { cartes[i].scrollIntoView({ behavior: "smooth", block: "start" }); } catch (e) {}
+        return;
+      }
+    }
+  }
   function renderEleves() {
     var els = nv().eleves;
     $("compte-eleves").textContent = els.length;
@@ -5448,6 +5528,7 @@ window.DEPOUILLEMENT = (function () {
   function signature() { return JSON.stringify(stateAExporter()); }
   function sauverState(motif) {
     lsSet(LS_STATE, signature());
+    if ((motif === "import" || motif === "demo") && nv().eleves && nv().eleves.length) ouvrirEtape(2);
     if (_collab && _etatBase) {
       if (motif === "import") commitDirectEtat("a importé des élèves");
       else majBoutonValider();
