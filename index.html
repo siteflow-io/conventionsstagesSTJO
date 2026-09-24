@@ -13,7 +13,12 @@
  3. Fonctions en sommeil : voir l'objet MISE_EN_SERVICE dans le script principal.
     Une fonction en sommeil est active en mode test et invisible en mode normal.
     Mise en service = passer sa clé à true dans une livraison que Paul pousse (D64).
-    Aucun interrupteur à l'écran. En sommeil au 24/09/2026 : rien.
+    Aucun interrupteur à l'écran. En sommeil au 24/09/2026 :
+      - groupe2 (tranche 2.1) : sélecteur d'élèves de l'étape 3 (classe, tri, cases à cocher),
+        documents QR de la sélection, codes personnels des familles (planche à découper,
+        coupon par élève, bouton « Code »). Stockage : codes/<année> (liste chiffrée avec le
+        secret de l'équipe) et verif/<année>/<élève>/<empreinte SHA-256 de « élève|CODE »>.
+        Les tranches 2.2 (côté parents) et 2.3 restent à livrer avant toute mise en service.
  4. À remplacer au retour des réponses de Mme Chrétien (D48) :
     - article sur l'assurance (Q13) : la phrase « cotisations accidents du travail »
       contredit la circulaire du 21/11/2025 et doit disparaître ;
@@ -167,6 +172,12 @@
   .rq-rep{margin-top:8px;padding:9px 12px;background:#f4f6f9;border-left:3px solid var(--or);border-radius:0 8px 8px 0}
   .rq-rep-lab{font-size:11.5px;color:var(--mut);margin-bottom:3px}
   .rq-rep-txt{font-size:13px;line-height:1.5;color:var(--encre);white-space:pre-wrap}
+  .selecteur{margin:0 0 12px;padding:10px 12px;background:#f7f9fb;border:1px solid var(--ligne);border-radius:10px}
+  .sel-ligne{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px}
+  .sel-ligne + .sel-ligne{margin-top:8px}
+  .sel-ligne select{margin-left:4px;padding:4px 6px;border:1px solid var(--ligne);border-radius:6px;font-family:inherit}
+  .sel-compte{margin-left:auto;color:var(--mut);font-size:12.5px}
+  .code-perso{font-family:"Courier New",monospace;font-size:30px;font-weight:700;letter-spacing:8px;text-align:center;margin:14px 0;color:var(--nuit)}
   .nouv-item{padding:10px 0;border-top:1px solid var(--ligne)}
   .nouv-item:first-child{border-top:0}
   .nouv-tete{font-size:13px;margin-bottom:4px}
@@ -506,9 +517,10 @@
         </span>
       </h2>
       <div class="pliable">
+        <div id="selecteur" class="selecteur" hidden></div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Code</th><th>Élève</th><th>Tuteur</th><th>Liens &amp; QR</th></tr></thead>
+            <thead id="eleves-thead"><tr><th>Code</th><th>Élève</th><th>Tuteur</th><th>Liens &amp; QR</th></tr></thead>
             <tbody id="eleves-body"></tbody>
           </table>
         </div>
@@ -720,7 +732,7 @@
 
 <div id="toast" class="toast" hidden></div>
 <button id="btn-valider-collab" hidden onclick="window.__ouvrirValidation && window.__ouvrirValidation()">✓ Valider mes modifications (0)</button>
-<div class="app-version">v2026.09.24·signatures</div>
+<div class="app-version">v2026.09.24·g2-codes</div>
 
 <script>
 /* ===== Configuration : système de transmission ====================
@@ -859,6 +871,11 @@ window.FB = (function () {
   }
   // État commun partagé (élèves, tuteurs, signature) — chiffré, versionné pour le 3-way merge.
   // La signature vit dans son propre nœud : c'est ce qui permet au serveur d'en réserver l'écriture.
+  // Codes personnels des familles (groupe 2) : la liste est chiffrée avec le secret de l'équipe ;
+  // l'empreinte de chaque code sert au serveur pour reconnaître un envoi « avec code » (tranche 2.2).
+  function lireCodes(annee) { if (!dispo) return Promise.resolve(null); return db.ref("codes/" + encodeCle(annee)).once("value").then(function (s) { return s.val(); }); }
+  function ecrireCodes(annee, rec) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("codes/" + encodeCle(annee)).set(rec); }
+  function ecrireVerif(annee, code, empreinte) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("verif/" + encodeCle(annee) + "/" + encodeCle(code) + "/" + empreinte).set(true); }
   function lireSignature() { if (!dispo) return Promise.resolve(null); return db.ref("signature").once("value").then(function (s) { return s.val(); }); }
   function ecrireSignature(o) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("signature").set(o); }
   function ecouterSignature(cb) { if (!dispo) return; db.ref("signature").on("value", function (s) { cb(s.val()); }); }
@@ -903,7 +920,7 @@ window.FB = (function () {
   function deconnecter() { if (dispo) try { auth.signOut(); } catch (e) {} }
   function onAuth(cb) { if (dispo) auth.onAuthStateChanged(cb); else cb(null); }
   function utilisateur() { return (dispo && auth && auth.currentUser) || null; }
-  return { dispo: dispo, ecrireConvention: ecrireConvention, ecouter: ecouter, supprimer: supprimer, viderEspace: viderEspace, lireSel: lireSel, ecrireSel: ecrireSel, lireCleAnnee: lireCleAnnee, ecrireCleAnnee: ecrireCleAnnee, lireCanari: lireCanari, ecrireCanari: ecrireCanari, ecouterCollab: ecouterCollab, ecrireCollab: ecrireCollab, journalPush: journalPush, journalEcouter: journalEcouter, journalPurger: journalPurger, lireEtat: lireEtat, ecrireEtat: ecrireEtat, presenceAnnoncer: presenceAnnoncer, presenceMaj: presenceMaj, presencePartir: presencePartir, presenceEcouter: presenceEcouter, lireContenus: lireContenus, ecrireContenus: ecrireContenus, lireSignature: lireSignature, ecrireSignature: ecrireSignature, ecouterSignature: ecouterSignature, lireChefEmail: lireChefEmail, ecrireChefEmail: ecrireChefEmail, ecouterChefEmail: ecouterChefEmail, remarquePush: remarquePush, remarqueMaj: remarqueMaj, remarqueSupprimer: remarqueSupprimer, remarquesEcouter: remarquesEcouter, connecter: connecter, deconnecter: deconnecter, onAuth: onAuth, utilisateur: utilisateur };
+  return { dispo: dispo, ecrireConvention: ecrireConvention, ecouter: ecouter, supprimer: supprimer, viderEspace: viderEspace, lireSel: lireSel, ecrireSel: ecrireSel, lireCleAnnee: lireCleAnnee, ecrireCleAnnee: ecrireCleAnnee, lireCanari: lireCanari, ecrireCanari: ecrireCanari, ecouterCollab: ecouterCollab, ecrireCollab: ecrireCollab, journalPush: journalPush, journalEcouter: journalEcouter, journalPurger: journalPurger, lireEtat: lireEtat, ecrireEtat: ecrireEtat, presenceAnnoncer: presenceAnnoncer, presenceMaj: presenceMaj, presencePartir: presencePartir, presenceEcouter: presenceEcouter, lireContenus: lireContenus, ecrireContenus: ecrireContenus, lireCodes: lireCodes, ecrireCodes: ecrireCodes, ecrireVerif: ecrireVerif, lireSignature: lireSignature, ecrireSignature: ecrireSignature, ecouterSignature: ecouterSignature, lireChefEmail: lireChefEmail, ecrireChefEmail: ecrireChefEmail, ecouterChefEmail: ecouterChefEmail, remarquePush: remarquePush, remarqueMaj: remarqueMaj, remarqueSupprimer: remarqueSupprimer, remarquesEcouter: remarquesEcouter, connecter: connecter, deconnecter: deconnecter, onAuth: onAuth, utilisateur: utilisateur };
 })();
 </script>
 <script>
@@ -5747,7 +5764,7 @@ window.DEPOUILLEMENT = (function () {
       try { window.FB.presencePartir(_monId); } catch (e) {}
       try { localStorage.removeItem(LS_SECRET); localStorage.removeItem(LS_CNX); } catch (e) {}
       setTimeout(function () {
-        _maitre = null; STATE.cles = {};
+        _maitre = null; STATE.cles = {}; _codesPerso = {}; SEL.coches = {};
         if (window.FB) window.FB.deconnecter();
         majAuthConsole();
       }, 250);   // laisse le temps à l'écriture du journal de partir
@@ -5874,22 +5891,35 @@ window.DEPOUILLEMENT = (function () {
       }
     }
   }
+  // Fonction en sommeil (D64) : active en mode test, invisible en mode normal tant que sa clé
+  // de MISE_EN_SERVICE vaut false. Voir la consigne en tête du fichier.
+  function estActif(f) { return STATE.niveauActif === "demo" || !!(window.MISE_EN_SERVICE || {})[f]; }
+  window.__estActif = estActif;
   function renderEleves() {
     var els = nv().eleves;
     $("compte-eleves").textContent = els.length;
     var st = $("sans-tuteur");
     if (st) { var sans = els.filter(function (e) { return !e.tuteur; }).length; st.textContent = (els.length && sans) ? " · " + sans + " sans tuteur" : ""; }
-    if (!els.length) { $("eleves-body").innerHTML = '<tr><td colspan="4" class="vide">Aucun élève importé pour le ' + STATE.niveauActif + ".</td></tr>"; renderDocsButtons(); return; }
+    var g2 = estActif("groupe2");
+    renderSelecteur(g2);
+    var th = $("eleves-thead");
+    if (th) th.innerHTML = "<tr>" + (g2 ? '<th style="width:28px"></th>' : "") + "<th>Code</th><th>Élève</th><th>Tuteur</th><th>Liens &amp; QR</th></tr>";
+    if (!els.length) { $("eleves-body").innerHTML = '<tr><td colspan="' + (g2 ? 5 : 4) + '" class="vide">Aucun élève importé pour le ' + STATE.niveauActif + ".</td></tr>"; renderDocsButtons(); return; }
+    // Vue : en mode normal, la liste telle quelle ; avec le sélecteur (groupe 2), filtrée par classe et triée.
+    var vue = els.map(function (el, i) { return { el: el, i: i }; });
+    if (g2) vue = vueSelecteur(vue);
     var html = "";
-    els.forEach(function (el, i) {
+    vue.forEach(function (v) {
+      var el = v.el, i = v.i;
       var nomComplet = (el.prenom + " " + el.nom).trim() || "—";
       html += "<tr>";
+      if (g2) html += '<td><input type="checkbox" data-coche="' + esc(el.code) + '"' + (SEL.coches[el.code] ? " checked" : "") + ' title="Cocher cet élève pour l\'inclure dans les documents de la sélection (QR codes, codes personnels)."></td>';
       html += "<td>" + esc(el.code) + "</td>";
       html += "<td>" + esc(nomComplet) + "<br><span class=\"mut\">" + esc(el.classe) + "</span></td>";
       html += "<td><select data-tut=\"" + i + "\"><option value=\"\">—</option>" +
         nv().tuteurs.map(function (t) { return '<option value="' + esc(t) + '"' + (el.tuteur === t ? " selected" : "") + ">" + esc(t) + "</option>"; }).join("") +
         "</select></td>";
-      html += "<td><button class=\"mini\" data-liens=\"" + i + "\" title=\"Afficher les liens et QR codes a envoyer aux familles et a l\'entreprise\">Liens &amp; QR</button> <button class=\"mini danger\" data-suppr-el=\"" + i + "\" title=\"Supprimer cet élève\">🗑</button></td>";
+      html += "<td><button class=\"mini\" data-liens=\"" + i + "\" title=\"Afficher les liens et QR codes a envoyer aux familles et a l\'entreprise\">Liens &amp; QR</button> <button class=\"mini danger\" data-suppr-el=\"" + i + "\" title=\"Supprimer cet élève\">🗑</button>" + (g2 ? ' <button class="mini" data-codeperso="' + i + '" title="Afficher le code personnel de cette famille, le copier ou imprimer son coupon. Le code est créé au premier affichage, puis ne change plus.">Code</button>' : "") + "</td>";
       html += "</tr>";
     });
     var body = $("eleves-body");
@@ -5910,6 +5940,13 @@ window.DEPOUILLEMENT = (function () {
     body.querySelectorAll("[data-liens]").forEach(function (b) {
       b.addEventListener("click", function () { ouvrirLiens(nv().eleves[+b.getAttribute("data-liens")]); });
     });
+    body.querySelectorAll("[data-coche]").forEach(function (c) {
+      c.addEventListener("change", function () { SEL.coches[c.getAttribute("data-coche")] = c.checked; majCompteSelection(); });
+    });
+    body.querySelectorAll("[data-codeperso]").forEach(function (b) {
+      b.addEventListener("click", function () { ouvrirCodePerso(nv().eleves[+b.getAttribute("data-codeperso")]); });
+    });
+    majCompteSelection();
     renderDocsButtons();
   }
 
@@ -6060,11 +6097,14 @@ window.DEPOUILLEMENT = (function () {
     assurerCle(espaceAnnee()).then(function () { genererDocumentClasseImpl(classe); });
   }
   function genererDocumentClasseImpl(classe) {
+    var els = nv().eleves.filter(function (e) { return (e.classe || "") === classe; });
+    if (!els.length) { toast("Aucun élève pour cette classe.", true); return; }
+    genererDocumentEleves(els, "Classe " + classe, String(classe).replace(/\s+/g, "_"));
+  }
+  function genererDocumentEleves(els, libelle, suffixe) {
     if (estFirebase() && !STATE.cles[espaceAnnee()]) {
       toast("Clé de sécurité non générée — ouvrez l'application depuis son adresse en ligne (https). Aucun QR produit.", true); return;
     }
-    var els = nv().eleves.filter(function (e) { return (e.classe || "") === classe; });
-    if (!els.length) { toast("Aucun élève pour cette classe.", true); return; }
     var doc = window.__wrapPDF(new window.jspdf.jsPDF({ unit: "mm", format: "a4", compress: true }));
     var M = 14, W = 210, PAGEH = 297, y = 0;
     function entete() {
@@ -6072,7 +6112,7 @@ window.DEPOUILLEMENT = (function () {
       doc.setTextColor(255); doc.setFont("times", "bold"); doc.setFontSize(13);
       doc.text("Collège Saint-Joseph — Conventions de stage", M, 10);
       doc.setFont("helvetica", "normal"); doc.setFontSize(9);
-      doc.text("Classe " + classe + " · " + STATE.annee + " · à remettre à chaque partie", M, 16.5);
+      doc.text(libelle + " · " + STATE.annee + " · à remettre à chaque partie", M, 16.5);
       doc.setDrawColor(184, 146, 63); doc.setLineWidth(0.6); doc.line(0, 22, W, 22);
       y = 29;
     }
@@ -6097,8 +6137,170 @@ window.DEPOUILLEMENT = (function () {
       });
       y += hBloc;
     });
-    doc.save("Distribution_" + String(classe).replace(/\s+/g, "_") + ".pdf");
-    toast("Document de distribution généré pour " + classe + ".");
+    doc.save("Distribution_" + suffixe + ".pdf");
+    toast("Document de distribution généré : " + libelle + ".");
+  }
+
+
+  // ===================== Groupe 2 — sélecteur et codes personnels (en sommeil, D64) =====================
+  var SEL = { classe: "", tri: "classe", coches: {}, niveau: "" };
+  function renderSelecteur(actif) {
+    var z = $("selecteur"); if (!z) return;
+    // Une sélection n'est valable que dans son espace (un code comme 4PYTH-01 existe en test et en réel).
+    if (SEL.niveau !== STATE.niveauActif) { SEL = { classe: "", tri: SEL.tri, coches: {}, niveau: STATE.niveauActif }; }
+    z.hidden = !actif; if (!actif) { z.innerHTML = ""; return; }
+    var classes = {}; (nv().eleves || []).forEach(function (e) { if (e.classe) classes[e.classe] = (classes[e.classe] || 0) + 1; });
+    var noms = Object.keys(classes).sort();
+    if (SEL.classe && !classes[SEL.classe]) SEL.classe = "";
+    z.innerHTML =
+      '<div class="sel-ligne">'
+      + '<label title="N\'afficher que les élèves de cette classe.">Classe <select id="sel-classe"><option value="">Toutes (' + (nv().eleves || []).length + ')</option>'
+      + noms.map(function (c) { return '<option value="' + esc(c) + '"' + (SEL.classe === c ? " selected" : "") + '>' + esc(c) + ' (' + classes[c] + ')</option>'; }).join("") + '</select></label>'
+      + '<label title="Ordre d\'affichage des élèves.">Tri <select id="sel-tri">'
+      + [["classe", "Classe, puis nom"], ["nom", "Nom"], ["code", "Code"]].map(function (t) { return '<option value="' + t[0] + '"' + (SEL.tri === t[0] ? " selected" : "") + '>' + t[1] + '</option>'; }).join("")
+      + '</select></label>'
+      + '<button class="btn ghost sm" id="sel-tout" type="button" title="Cocher tous les élèves affichés.">Tout cocher</button>'
+      + '<button class="btn ghost sm" id="sel-rien" type="button" title="Décocher tous les élèves, affichés ou non.">Tout décocher</button>'
+      + '<span class="sel-compte" id="sel-compte"></span></div>'
+      + '<div class="sel-ligne">'
+      + '<button class="btn sm" id="sel-doc" type="button" title="Fabrique le document de distribution (QR codes et liens) des élèves cochés, à imprimer.">📄 QR codes de la sélection</button>'
+      + '<button class="btn sm" id="sel-codes" type="button" title="Fabrique la planche des codes personnels des élèves cochés, à imprimer et découper. Les codes manquants sont créés, puis ne changent plus.">🔑 Codes personnels de la sélection</button>'
+      + '<span class="hint" style="margin:0">Espace de test : fonctions en préparation.</span></div>';
+    $("sel-classe").addEventListener("change", function () { SEL.classe = this.value; renderEleves(); });
+    $("sel-tri").addEventListener("change", function () { SEL.tri = this.value; renderEleves(); });
+    $("sel-tout").addEventListener("click", function () { vueSelecteur((nv().eleves || []).map(function (e, i) { return { el: e, i: i }; })).forEach(function (v) { SEL.coches[v.el.code] = true; }); renderEleves(); });
+    $("sel-rien").addEventListener("click", function () { SEL.coches = {}; renderEleves(); });
+    $("sel-doc").addEventListener("click", function () {
+      var els = selectionCourante(); if (!els.length) { toast("Cochez au moins un élève.", true); return; }
+      assurerCle(espaceAnnee()).then(function () { genererDocumentEleves(els, "Sélection de " + els.length + " élève(s)", "Selection"); });
+    });
+    $("sel-codes").addEventListener("click", function () {
+      var els = selectionCourante(); if (!els.length) { toast("Cochez au moins un élève.", true); return; }
+      assurerCodes(els).then(function (map) { if (map) planchesCodes(els, map); });
+    });
+  }
+  function vueSelecteur(vue) {
+    var r = vue.filter(function (v) { return !SEL.classe || (v.el.classe || "") === SEL.classe; });
+    function nomTri(e) { return norm((e.nom || "") + " " + (e.prenom || "")); }
+    r.sort(function (a, b) {
+      if (SEL.tri === "code") return String(a.el.code).localeCompare(String(b.el.code));
+      if (SEL.tri === "nom") return nomTri(a.el).localeCompare(nomTri(b.el));
+      return String(a.el.classe || "").localeCompare(String(b.el.classe || "")) || nomTri(a.el).localeCompare(nomTri(b.el));
+    });
+    return r;
+  }
+  function selectionCourante() {
+    return vueSelecteur((nv().eleves || []).map(function (e, i) { return { el: e, i: i }; }))
+      .filter(function (v) { return SEL.coches[v.el.code]; }).map(function (v) { return v.el; })
+      .concat((nv().eleves || []).filter(function (e) { return SEL.coches[e.code] && SEL.classe && (e.classe || "") !== SEL.classe; }));
+  }
+  function majCompteSelection() {
+    var z = $("sel-compte"); if (!z) return;
+    var n = (nv().eleves || []).filter(function (e) { return SEL.coches[e.code]; }).length;
+    z.textContent = n + " élève(s) coché(s)";
+  }
+
+  // ---- Codes personnels : 6 caractères, sans lettres ambiguës (ni O/0, ni I/1/L)
+  var ALPHABET_CODE = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  var _codesPerso = {};   // { annee: { codeEleve: codePersonnel } } — en mémoire seulement, jamais sur le disque
+  function tirerCodePerso() {
+    var t = new Uint8Array(6); window.crypto.getRandomValues(t);
+    var c = ""; for (var i = 0; i < 6; i++) c += ALPHABET_CODE[t[i] % ALPHABET_CODE.length];
+    return c;
+  }
+  function empreinteCode(codeEleve, codePerso) {
+    var data = new TextEncoder().encode(String(codeEleve) + "|" + String(codePerso).toUpperCase());
+    return window.crypto.subtle.digest("SHA-256", data).then(function (h) {
+      return Array.prototype.map.call(new Uint8Array(h), function (b) { return ("0" + b.toString(16)).slice(-2); }).join("");
+    });
+  }
+  window.__empreinteCode = empreinteCode;
+  function chargerCodes(annee) {
+    if (_codesPerso[annee]) return Promise.resolve(_codesPerso[annee]);
+    if (!_maitre || !window.FB || !window.FB.lireCodes) return Promise.resolve({});
+    return window.FB.lireCodes(annee).then(function (rec) {
+      if (!rec || !rec.ct) { _codesPerso[annee] = {}; return _codesPerso[annee]; }
+      return window.CRYPTO.deballerCle(_maitre, rec).then(function (txt) { _codesPerso[annee] = JSON.parse(txt) || {}; return _codesPerso[annee]; });
+    });
+  }
+  // Crée les codes manquants des élèves donnés, les enregistre (chiffrés) et dépose leurs empreintes.
+  // Un code déjà créé ne change jamais. Rien n'est affiché comme fait avant la confirmation du serveur.
+  function assurerCodes(els) {
+    var annee = espaceAnnee();
+    if (!_maitre || !window.FB || !window.FB.dispo) { toast("Service indisponible : les codes n'ont pas pu être préparés.", true); return Promise.resolve(null); }
+    return chargerCodes(annee).then(function (map) {
+      var existants = {}; Object.keys(map).forEach(function (k) { existants[map[k]] = 1; });
+      var nouveaux = [];
+      els.forEach(function (e) {
+        if (map[e.code]) return;
+        var c; do { c = tirerCodePerso(); } while (existants[c]);
+        existants[c] = 1; map[e.code] = c; nouveaux.push(e.code);
+      });
+      if (!nouveaux.length) return map;
+      return window.CRYPTO.emballerCle(_maitre, JSON.stringify(map)).then(function (p) {
+        return window.FB.ecrireCodes(annee, { iv: p.iv, ct: p.ct, v: p.v, ts: Date.now() });
+      }).then(function () {
+        return Promise.all(nouveaux.map(function (code) {
+          return empreinteCode(code, map[code]).then(function (h) { return window.FB.ecrireVerif(annee, code, h); });
+        }));
+      }).then(function () {
+        journal("codes", nouveaux.length + " code(s) personnel(s) créé(s)");
+        return map;
+      }).catch(function () {
+        nouveaux.forEach(function (code) { delete map[code]; });
+        toast("Échec : les nouveaux codes n'ont pas été enregistrés. Aucun document fabriqué.", true);
+        return null;
+      });
+    });
+  }
+  function ouvrirCodePerso(el) {
+    if (!el) return;
+    assurerCodes([el]).then(function (map) {
+      if (!map) return;
+      var c = map[el.code], nom = ((el.prenom || "") + " " + (el.nom || "")).trim();
+      $("modal-titre").textContent = "Code personnel — " + nom;
+      $("modal-corps").innerHTML =
+        '<p style="margin-top:0">Famille de <b>' + esc(nom) + '</b> (' + esc(el.classe || "") + ', ' + esc(el.code) + ')</p>'
+        + '<p class="code-perso">' + esc(c) + '</p>'
+        + '<p class="hint">Ce code ne change plus. Il est à saisir par les parents à l\'ouverture de leur lien de convention.</p>'
+        + '<div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">'
+        + '<button class="btn ghost sm" id="code-copier" type="button" title="Copie le code, pour le coller dans un message à la famille (par exemple sur École Directe).">Copier le code</button>'
+        + '<button class="btn sm" id="code-coupon" type="button" title="Fabrique le coupon de cet élève seul, à imprimer.">Imprimer son coupon</button></div>';
+      $("modal").hidden = false;
+      $("code-copier").addEventListener("click", function () {
+        try { navigator.clipboard.writeText(c).then(function () { toast("Code copié."); }); } catch (e) { toast("Copie impossible : " + c, true); }
+      });
+      $("code-coupon").addEventListener("click", function () { planchesCodes([el], map, true); });
+    });
+  }
+  // Planche de coupons à découper (10 par page), ou coupon seul.
+  function planchesCodes(els, map, seul) {
+    var doc = window.__wrapPDF(new window.jspdf.jsPDF({ unit: "mm", format: "a4", compress: true }));
+    var test = STATE.niveauActif === "demo";
+    var CW = 91, CH = 54, X0 = 14, Y0 = 12, COLS = 2, ROWS = 5;
+    els.forEach(function (el, k) {
+      var pos = k % (COLS * ROWS);
+      if (k && pos === 0) doc.addPage();
+      var x = X0 + (pos % COLS) * CW, y = Y0 + Math.floor(pos / COLS) * CH;
+      doc.setDrawColor(150); doc.setLineWidth(0.2);
+      if (doc.setLineDashPattern) doc.setLineDashPattern([2, 1.5], 0);
+      doc.rect(x, y, CW, CH);
+      if (doc.setLineDashPattern) doc.setLineDashPattern([], 0);
+      var nom = ((el.prenom || "") + " " + (el.nom || "")).trim();
+      doc.setTextColor(110); doc.setFont("helvetica", "normal"); doc.setFontSize(7);
+      doc.text((test ? "ESSAI — espace de test · " : "") + (((window.__contenus && window.__contenus()) || {}).etab || {}).nom + " — Convention de stage", x + 4, y + 6);
+      doc.setTextColor(33); doc.setFont("helvetica", "bold"); doc.setFontSize(9.5);
+      doc.text("Code personnel de la famille de", x + 4, y + 12);
+      doc.setFontSize(10.5); doc.text(doc.splitTextToSize(nom + " (" + (el.classe || "") + ")", CW - 8)[0], x + 4, y + 17.5);
+      doc.setFont("courier", "bold"); doc.setFontSize(22); doc.setTextColor(22, 36, 63);
+      doc.text(String(map[el.code]).split("").join(" "), x + CW / 2, y + 30, { align: "center" });
+      doc.setFont("helvetica", "normal"); doc.setFontSize(6.8); doc.setTextColor(60);
+      doc.text(doc.splitTextToSize("À saisir quand vous ouvrez le lien « Responsable légal » de la convention de stage (lien ou QR code remis par le collège). Il permet de retrouver les informations connues de l'établissement. À ne communiquer qu'aux responsables légaux de l'élève.", CW - 8), x + 4, y + 38);
+      doc.setTextColor(33);
+    });
+    var nomFichier = (test ? "TEST_" : "") + (seul ? "Code_personnel_" + els[0].code : "Codes_personnels_" + els.length + "_eleves") + ".pdf";
+    doc.save(nomFichier);
+    toast(seul ? "Coupon fabriqué." : els.length + " coupon(s) fabriqué(s).");
   }
 
   // ---- Sauvegarde (dispositif Dugain) -------------------------------
@@ -6396,7 +6598,11 @@ window.DEPOUILLEMENT = (function () {
   // Une entrée par version mise en ligne, la plus récente en tête. Dates et versions relevées dans l'historique
   // des envois sur GitHub ; descriptions reconstituées. À COMPLÉTER À CHAQUE LIVRAISON (consigne 8 en tête du fichier).
   var NOUVEAUTES = [
-    { date: "24/09/2026", heure: "", auteur: "Paul Meney", version: "v2026.09.24·signatures", points: [
+    { date: "24/09/2026", heure: "", auteur: "Paul Meney", version: "v2026.09.24·g2-codes", points: [
+      "En préparation, visible seulement en mode test : un sélecteur d'élèves à l'étape 3 (par classe, triés, à cocher), pour fabriquer les QR codes d'une sélection.",
+      "En préparation, visible seulement en mode test : les codes personnels des familles, sur une planche à découper ou en coupon par élève. Ils serviront à pré-remplir la convention des parents."
+    ] },
+    { date: "24/09/2026", heure: "10:02", auteur: "Paul Meney", version: "v2026.09.24·signatures", points: [
       "Les signatures tiennent dans leur cadre, sans être déformées ni déborder.",
       "Sous chaque signature, « Lu et approuvé » apparaît seul, en écriture manuscrite, pour distinguer ce qui a été recopié de ce qui a été tapé.",
       "Tant que la cheffe d'établissement n'a pas signé, son bloc indique « En attente de signature », au lieu d'une mention et d'une date qu'elle n'a pas données.",
@@ -6750,7 +6956,7 @@ window.DEPOUILLEMENT = (function () {
   var ADMINS = ["paul.meney@ac-nantes.fr"];
   // Fonctions en sommeil (D64) : actives en mode test, invisibles en mode normal tant que leur clé vaut false.
   // Mise en service = passer la clé à true dans une livraison que Paul pousse. Voir la consigne en tête du fichier.
-  var MISE_EN_SERVICE = {};
+  var MISE_EN_SERVICE = window.MISE_EN_SERVICE = { groupe2: false };
   // Compte de la cheffe d'établissement : reconnu par son identifiant Firebase, qui ne change jamais.
   var CHEF_UID = "52TpTEH18TVNsDTOLpiaE2eZIDA3";     // Mme Céline Chrétien
   var _chefEmail = "";       // remplaçant éventuel, désigné dans le panneau d'administration
