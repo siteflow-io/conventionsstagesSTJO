@@ -1,4 +1,37 @@
 <!DOCTYPE html>
+<!--
+=====================================================================
+ CONSIGNES POUR L'INSTANCE QUI LIVRERA LA PROCHAINE VERSION (décision D66)
+ À lire en entier avant toute modification. À tenir à jour à chaque livraison.
+ Suivi complet (décisions D1..., chantiers, questions ouvertes) :
+ https://claude.ai/code/artifact/e434a799-bd92-4e79-bf52-619e59dd6156
+---------------------------------------------------------------------
+ 1. Qui livre : Claude livre le fichier dans la conversation ; Paul le pousse
+    lui-même sur GitHub (index.html). Claude n'a ni jeton ni accès (D65).
+ 2. Rien de nouveau n'est mis en service pour les familles avant les réponses
+    de Mme Chrétien (D51). Seule exception : le groupe 1 (D55), livré le 24/09/2026.
+ 3. Fonctions en sommeil : voir l'objet MISE_EN_SERVICE dans le script principal.
+    Une fonction en sommeil est active en mode test et invisible en mode normal.
+    Mise en service = passer sa clé à true dans une livraison que Paul pousse (D64).
+    Aucun interrupteur à l'écran. En sommeil au 24/09/2026 : rien.
+ 4. À remplacer au retour des réponses de Mme Chrétien (D48) :
+    - article sur l'assurance (Q13) : la phrase « cotisations accidents du travail »
+      contredit la circulaire du 21/11/2025 et doit disparaître ;
+    - en-tête « Vu... » : conseil de direction, avec la date de délibération (D47) ;
+    - stage chez un parent : autorisé avec déclaration, ou découragé ;
+    - validation du texte final de la convention (modèle officiel adapté, D12).
+ 5. Mails : le script d'essai installé sur monsieurmeney@gmail.com est à SUPPRIMER
+    le jour où le script est installé sur l'adresse officielle du collège (D61, Q7).
+ 6. Ne JAMAIS renuméroter un code élève : il est imprimé sur les liens et les QR
+    codes distribués aux familles (défaut 22 : un réimport aurait changé 80 codes sur 120).
+ 7. Poste neuf : la clé locale conv_etat_base_v1 mémorise la dernière synchronisation
+    avec l'équipe (défaut 18) ; conv_copie_avant_adoption_v1 garde ce que contenait
+    un poste avant de reprendre les données de l'équipe.
+ 8. À chaque livraison : ajouter une entrée en tête de NOUVEAUTES (D58, D63),
+    changer le marqueur de version, rejouer tous les bancs, vérifier que le mode
+    normal n'a pas changé, mettre à jour le suivi.
+=====================================================================
+-->
 <html lang="fr">
 <head>
 <meta charset="utf-8">
@@ -131,6 +164,10 @@
   .rq-rep{margin-top:8px;padding:9px 12px;background:#f4f6f9;border-left:3px solid var(--or);border-radius:0 8px 8px 0}
   .rq-rep-lab{font-size:11.5px;color:var(--mut);margin-bottom:3px}
   .rq-rep-txt{font-size:13px;line-height:1.5;color:var(--encre);white-space:pre-wrap}
+  .nouv-item{padding:10px 0;border-top:1px solid var(--ligne)}
+  .nouv-item:first-child{border-top:0}
+  .nouv-tete{font-size:13px;margin-bottom:4px}
+  .nouv-points{margin:0;padding-left:20px;font-size:13px;line-height:1.55;color:var(--encre)}
   .rq-form{margin-top:8px}
   .rq-rep-saisie{width:100%;padding:8px 10px;border:1px solid var(--ligne);border-radius:8px;font-family:inherit;font-size:13px;line-height:1.5;box-sizing:border-box;resize:vertical}
   .rq-actions{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}
@@ -526,6 +563,13 @@
 
     <!-- Règles de confidentialité -->
     <!-- Remarques d'amélioration -->
+    <!-- Nouveautés : historique des mises à jour, visible de toute l'équipe (D58, D63) -->
+    <section class="carte" id="carte-nouveautes">
+      <h2><span class="num">📰</span> Nouveautés</h2>
+      <p class="hint" style="margin-top:0" id="nouv-tete"></p>
+      <div id="nouv-liste"></div>
+    </section>
+
     <section class="carte repliable replie" id="carte-remarques">
       <h2><span class="num">💬</span> Remarques d'amélioration<span id="rq-badge" class="rq-badge" hidden></span></h2>
       <p class="hint" style="margin-top:0">Le développement de ce logiciel s'appuie aussi sur vos idées et vos besoins : il n'est pas figé. N'hésitez pas à écrire ici tout ce qui vous vient — une gêne, une question, une fonction qui manque, un mot mal choisi, une idée d'amélioration, de quelque ordre que ce soit. Tout est lu, et vous recevrez une réponse.</p>
@@ -673,7 +717,7 @@
 
 <div id="toast" class="toast" hidden></div>
 <button id="btn-valider-collab" hidden onclick="window.__ouvrirValidation && window.__ouvrirValidation()">✓ Valider mes modifications (0)</button>
-<div class="app-version">v2026.07.13·test-etanche</div>
+<div class="app-version">v2026.09.24·groupe1</div>
 
 <script>
 /* ===== Configuration : système de transmission ====================
@@ -4724,7 +4768,13 @@ window.DEPOUILLEMENT = (function () {
     function preuve(role) { if (!v[role]) return null; var d = v[role].data; var h = d.hash || ""; return { ts: d.ts || "", depot: dToStr(v[role].date), hash: h ? h.slice(0, 24) + "…" : "" }; }
     function pick(k) { return (v.ENTREPRISE && v.ENTREPRISE.data[k]) || (v.PARENTS && v.PARENTS.data[k]) || (v.ETABLISSEMENT && v.ETABLISSEMENT.data[k]) || ""; }
     var sigs = {};
-    ["ENTREPRISE", "PARENTS", "ETABLISSEMENT"].forEach(function (r) { if (v[r] && v[r].data.sig) sigs[r] = v[r].data.sig; });
+    // La famille et l'entreprise envoient leur signature sous le nom « signature » ; les anciennes versions
+    // de la console la cherchaient sous « sig ». On lit les deux, sans toucher aux envois déjà reçus.
+    ["ENTREPRISE", "PARENTS", "ETABLISSEMENT"].forEach(function (r) {
+      var d = v[r] && v[r].data; if (!d) return;
+      var s = d.signature || d.sig;
+      if (s) sigs[r] = s;
+    });
     var nom = ((el.prenom || "") + " " + (el.nom || "")).trim() || pick("eleve") || "";
     return {
       nomEleve: nom, naissance: el.naissance || "", code: code, annee: pick("annee"),
@@ -5149,10 +5199,8 @@ window.DEPOUILLEMENT = (function () {
 
         // Format École Directe : extraction complète automatique (pas de mapping manuel)
         if (estEcoleDirecte(headers)) {
-          nv().eleves = extraireEcoleDirecte(headers, lignes);
           $("zone-mapping").hidden = true; $("file-eleves").value = "";
-          renderEleves(); sauverState("import");
-          toast(nv().eleves.length + " élève(s) importé(s), responsables compris.");
+          proposerImport(extraireEcoleDirecte(headers, lignes), file.name || "fichier École Directe");
           return;
         }
 
@@ -5226,16 +5274,102 @@ window.DEPOUILLEMENT = (function () {
         code = ab + "-" + String(compteurClasse[ab]).padStart(2, "0");
       }
       return {
-        code: code, nom: nom, prenom: prenom, classe: classe,
+        code: code, nom: nom, prenom: prenom, classe: classe, _codeFichier: !!(m.code && String(r[m.code]).trim()),
         tuteur: m.tuteur ? String(r[m.tuteur]).trim() : ""
       };
     });
-    nv().eleves = eleves;
     $("zone-mapping").hidden = true;
     $("file-eleves").value = "";
-    renderEleves(); sauverState("import");
-    toast(eleves.length + " élève(s) importé(s).");
+    proposerImport(eleves, "tableur");
   }
+
+  // ===== Import sans jamais renuméroter (défaut 22) =====
+  // Un code élève est imprimé sur les liens distribués aux familles : il ne doit JAMAIS changer.
+  // L'import ne touche que les classes présentes dans le fichier ; les élèves déjà connus gardent leur code
+  // et reçoivent les informations nouvelles ; les nouveaux reçoivent un code neuf ; aucun élève n'est retiré.
+  function cleNomComplet(e) { return norm((e.nom || "") + (e.prenom || "")).replace(/[^a-z0-9]/g, ""); }
+  function preparerImport(fichier) {
+    var existants = nv().eleves || [];
+    var classes = {}; fichier.forEach(function (e) { classes[abregerClasse(e.classe)] = e.classe; });
+    var parCle = {};
+    existants.forEach(function (e) {
+      if (!classes[abregerClasse(e.classe)]) return;
+      var k = abregerClasse(e.classe) + "|" + cleNomComplet(e);
+      (parCle[k] = parCle[k] || []).push(e);
+    });
+    var maxNum = {};
+    existants.forEach(function (e) { var m = /^(.*)-(\d+)$/.exec(e.code || ""); if (m) maxNum[m[1]] = Math.max(maxNum[m[1]] || 0, +m[2]); });
+    var plan = { classes: Object.keys(classes).map(function (k) { return classes[k]; }), retrouves: [], nouveaux: [], absents: [], dates: 0, coords: 0, autres: 0, maxNum: maxNum };
+    var vus = {};
+    fichier.forEach(function (f) {
+      var k = abregerClasse(f.classe) + "|" + cleNomComplet(f);
+      var ex = (parCle[k] || []).filter(function (e) { return !vus[e.code]; })[0];
+      if (ex) {
+        vus[ex.code] = 1;
+        plan.retrouves.push({ ancien: ex, fichier: f });
+        if (f.naissance && !ex.naissance) plan.dates++;
+        var rf = f.resp1 || {}, re = ex.resp1 || {};
+        if ((rf.email || rf.tel) && !(re.email || re.tel)) plan.coords++;
+      } else plan.nouveaux.push(f);
+    });
+    existants.forEach(function (e) {
+      if (classes[abregerClasse(e.classe)]) { if (!vus[e.code]) plan.absents.push(e); }
+      else plan.autres++;
+    });
+    return plan;
+  }
+  function appliquerPlanImport(plan) {
+    var liste = nv().eleves || [];
+    var CHAMPS = ["naissance", "sexe", "age", "regime", "resp1", "resp2"];
+    plan.retrouves.forEach(function (r) {
+      CHAMPS.forEach(function (k) {
+        var v = r.fichier[k];
+        var plein = v && (typeof v !== "object" || v.nom || v.tel || v.email || v.adresse);
+        if (plein) r.ancien[k] = JSON.parse(JSON.stringify(v));
+      });
+    });
+    var pris = {}; liste.forEach(function (e) { pris[e.code] = 1; });
+    plan.nouveaux.forEach(function (f) {
+      var n = JSON.parse(JSON.stringify(f)); var fourni = n._codeFichier; delete n._codeFichier;
+      if (!(fourni && n.code && !pris[n.code])) {
+        var ab = abregerClasse(n.classe);
+        plan.maxNum[ab] = (plan.maxNum[ab] || 0) + 1;
+        n.code = ab + "-" + String(plan.maxNum[ab]).padStart(2, "0");
+      }
+      pris[n.code] = 1;
+      liste.push(n);
+    });
+    nv().eleves = liste;
+  }
+  var _planImport = null;
+  function proposerImport(fichier, source) {
+    if (!fichier || !fichier.length) { toast("Aucun élève lu dans ce fichier.", true); return; }
+    _planImport = preparerImport(fichier);
+    var p = _planImport;
+    var h = '<p>Fichier : <b>' + esc(source) + '</b><br>Classe(s) concernée(s) : <b>' + p.classes.map(esc).join(", ") + '</b></p>';
+    h += '<div style="padding:10px 12px;background:#f7f9fb;border:1px solid var(--ligne);border-radius:8px;font-size:13.5px;line-height:1.8">'
+      + '<div><b>' + p.retrouves.length + '</b> élève(s) retrouvé(s) : leur code, déjà distribué aux familles, est conservé.</div>'
+      + '<div><b>' + p.nouveaux.length + '</b> nouvel(aux) élève(s) : un code neuf leur sera attribué.</div>'
+      + '<div><b>' + p.absents.length + '</b> élève(s) de la liste absent(s) du fichier : conservé(s), rien n\'est retiré.</div>'
+      + '<div><b>' + p.dates + '</b> date(s) de naissance et <b>' + p.coords + '</b> coordonnées de responsables ajoutées.</div>'
+      + '<div><b>' + p.autres + '</b> élève(s) des autres classes du niveau : non touché(s).</div></div>';
+    function liste(t, arr) { return arr.length ? '<p style="margin:10px 0 4px"><b>' + t + '</b></p><div class="hint" style="margin:0">' + arr.map(function (e) { return esc((e.prenom || "") + " " + (e.nom || "")); }).join(" · ") + '</div>' : ""; }
+    h += liste("Nouveaux élèves :", p.nouveaux) + liste("Absents du fichier (conservés) :", p.absents);
+    h += '<div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">'
+      + '<button class="btn ghost" onclick="window.__importAnnuler()" title="Ne change rien : la liste reste telle qu\'elle est.">Annuler</button>'
+      + '<button class="btn bord" onclick="window.__importAppliquer()" title="Ajoute les nouveaux élèves et les informations du fichier. Aucun code existant ne change, aucun élève n\'est retiré. Transmis aussitôt à l\'équipe.">Appliquer l\'import</button></div>';
+    $("modal-titre").textContent = "Vérifier l'import avant de l'appliquer";
+    $("modal-corps").innerHTML = h;
+    $("modal").hidden = false;
+  }
+  window.__importAnnuler = function () { _planImport = null; $("modal").hidden = true; toast("Import annulé : rien n'a changé."); };
+  window.__importAppliquer = function () {
+    if (!_planImport) return;
+    var p = _planImport; _planImport = null; $("modal").hidden = true;
+    appliquerPlanImport(p);
+    renderEleves(); sauverState("import");
+    toast(p.retrouves.length + " élève(s) mis à jour, " + p.nouveaux.length + " ajouté(s), aucun code modifié.");
+  };
 
   // ---- Liste interactive des tuteurs --------------------------------
   function renderTuteurs() {
@@ -5528,6 +5662,7 @@ window.DEPOUILLEMENT = (function () {
     });
     majEtapes();
     majVerrouSignature();
+    renderNouveautes();
 
     // Repli des listes (tuteurs, élèves)
     document.querySelectorAll(".pli").forEach(function (b) {
@@ -6212,10 +6347,92 @@ window.DEPOUILLEMENT = (function () {
   }
   window.__vuHistorique = function () { lsSet(LS_VU, String(Date.now())); majNonLus(); var b = $("notif-collab"); if (b) b.hidden = true; };
 
+
+  // ===== Nouveautés (D58, D63) =====
+  // Une entrée par version mise en ligne, la plus récente en tête. Dates et versions relevées dans l'historique
+  // des envois sur GitHub ; descriptions reconstituées. À COMPLÉTER À CHAQUE LIVRAISON (consigne 8 en tête du fichier).
+  var NOUVEAUTES = [
+    { date: "24/09/2026", version: "v2026.09.24·groupe1", points: [
+      "Les signatures dessinées par les familles et les entreprises apparaissent sur les conventions complètes. Elles étaient bien enregistrées, mais pas imprimées : il suffit de refabriquer les conventions.",
+      "Un ordinateur qui ouvre l'application pour la première fois, ou en navigation privée, reprend les données de l'équipe sans poser de question. La fenêtre qui proposait de « transmettre » l'absence de données, et donc d'effacer tous les élèves, a disparu.",
+      "Si un poste a réellement des modifications non transmises, la fenêtre n'affiche plus que celles-ci ; aucun des deux choix ne peut effacer le travail des autres.",
+      "Les tuteurs ajoutés ou retirés sont transmis à toute l'équipe. Auparavant, ils restaient sur le poste et disparaissaient au rechargement.",
+      "L'import d'une liste Excel ne touche plus que la classe du fichier. Les codes déjà distribués aux familles ne changent jamais, aucun élève n'est retiré, et un écran de vérification donne les comptes avant d'appliquer.",
+      "Cette rubrique « Nouveautés » apparaît."
+    ] },
+    { date: "13/07/2026", version: "v2026.07.13·test-etanche", points: [
+      "Le mode test devient étanche : ni la signature, ni l'historique, ni les données de test n'atteignent plus les vraies conventions."
+    ] },
+    { date: "13/07/2026", version: "v2026.07.13·signature-uid", points: [
+      "La signature de l'établissement est réservée au compte de la cheffe d'établissement, et le serveur le vérifie."
+    ] },
+    { date: "13/07/2026", version: "v2026.07.13·signature-chef", points: [
+      "La signature de l'établissement est rangée à part ; pour les autres comptes, le cadre de signature est inactif, la signature reste visible."
+    ] },
+    { date: "13/07/2026", version: "v2026.07.13·journal-detail2", points: [
+      "L'historique détaille chaque modification : ce qui a changé, avant et après.",
+      "Pastilles de non-lus sur les remarques et l'historique."
+    ] },
+    { date: "13/07/2026", version: "v2026.07.13·accordeon2", points: [
+      "Le parcours se présente en étapes repliables, avec leur avancement.",
+      "Diagnostic refondu pour le dépannage."
+    ] },
+    { date: "13/07/2026", version: "v2026.07.13·moderation", points: [
+      "Réponse aux remarques directement dans la page, filtre « À traiter ».",
+      "Les connexions sont inscrites à l'historique."
+    ] },
+    { date: "13/07/2026", version: "v2026.07.13·aide-complete", points: [
+      "L'aide explique le travail à plusieurs, les remarques et la déconnexion."
+    ] },
+    { date: "13/07/2026", version: "v2026.07.13·presence", points: [
+      "On voit qui est en ligne, et les actions des autres s'affichent en direct."
+    ] },
+    { date: "13/07/2026", version: "v2026.07.13·remarques", points: [
+      "Nouvelle rubrique « Remarques d'amélioration », avec réponse."
+    ] },
+    { date: "13/07/2026", version: "v2026.07.13·admin-verrou", points: [
+      "Les textes de la convention et les réglages ne peuvent être modifiés que par l'administrateur, vérifié par le serveur."
+    ] },
+    { date: "13/07/2026", version: "v2026.07.13·login-voir", points: [
+      "Case « Afficher le mot de passe et la clé » à la connexion."
+    ] },
+    { date: "13/07/2026", version: "v2026.07.13·admin-contenus", points: [
+      "Panneau d'administration : identité de l'établissement et articles de la convention modifiables, avec retour en arrière."
+    ] },
+    { date: "13/07/2026", version: "v2026.07.13·parcours-aide", points: [
+      "Parcours numéroté de 1 à 6 et aide « Règles de fonctionnement et de confidentialité »."
+    ] },
+    { date: "13/07/2026", version: "v2026.07.01·fiche-missions", points: [
+      "La cheffe d'établissement signe une seule fois pour toutes les conventions.",
+      "Les missions du tuteur figurent en tête des fiches de suivi."
+    ] },
+    { date: "01/07/2026", version: "v2026.07.01·collab-complet", points: [
+      "Travail à plusieurs : données communes à l'équipe, relecture avant partage, fusion des modifications de chacun."
+    ] },
+    { date: "01/07/2026", version: "v2026.07.01·modele-c", points: [
+      "Chiffrement de bout en bout : un mot de passe pour entrer, une clé d'équipe pour lire les conventions, jamais transmise au serveur."
+    ] },
+    { date: "01/07/2026", version: "v2026.07.01·auth-globale", points: [
+      "Connexion par compte personnel à l'espace de gestion."
+    ] },
+    { date: "30/06/2026", version: "première mise en ligne", points: [
+      "Mise en ligne de l'application sur le site du collège."
+    ] }
+  ];
+  function renderNouveautes() {
+    var t = $("nouv-tete"), l = $("nouv-liste"); if (!t || !l) return;
+    var nbPoints = NOUVEAUTES.reduce(function (a, v) { return a + v.points.length; }, 0);
+    t.textContent = NOUVEAUTES.length + " versions mises en ligne depuis le 30 juin 2026, " + nbPoints + " évolutions. Dates relevées dans l'historique des envois ; descriptions reconstituées.";
+    l.innerHTML = NOUVEAUTES.map(function (v) {
+      return '<div class="nouv-item"><div class="nouv-tete"><b>' + esc(v.date) + '</b> <span class="mut">· ' + esc(v.version) + '</span></div>'
+        + '<ul class="nouv-points">' + v.points.map(function (pt) { return '<li>' + esc(pt) + '</li>'; }).join("") + '</ul></div>';
+    }).join("");
+  }
+
   // ===== Présence en direct =====
   var _monId = "p" + Math.random().toString(36).slice(2, 10);
   var _presences = [], _battement = null, _sectionCourante = "";
-  var VERSION_APP = "v2026.07.13";
+  var VERSION_APP = "v2026.09.24";
   function sectionVisible() {
     // La section « en cours » = la dernière carte dépliée sur laquelle on a agi, ou la première visible.
     var cartes = document.querySelectorAll("#mode-console main > section.carte");
@@ -6477,6 +6694,9 @@ window.DEPOUILLEMENT = (function () {
   // Filtre d'AFFICHAGE seulement : la console est déjà verrouillée par le mot de passe + la clé de chiffrement.
   // Les familles n'atteignent jamais cet écran (elles arrivent en mode signataire).
   var ADMINS = ["paul.meney@ac-nantes.fr"];
+  // Fonctions en sommeil (D64) : actives en mode test, invisibles en mode normal tant que leur clé vaut false.
+  // Mise en service = passer la clé à true dans une livraison que Paul pousse. Voir la consigne en tête du fichier.
+  var MISE_EN_SERVICE = {};
   // Compte de la cheffe d'établissement : reconnu par son identifiant Firebase, qui ne change jamais.
   var CHEF_UID = "52TpTEH18TVNsDTOLpiaE2eZIDA3";     // Mme Céline Chrétien
   var _chefEmail = "";       // remplaçant éventuel, désigné dans le panneau d'administration
@@ -6684,6 +6904,12 @@ window.DEPOUILLEMENT = (function () {
         if ((be.tuteur || "") !== (ce.tuteur || "")) mods.push({ kind: "att", niveau: nk, cle: k, apres: ce.tuteur || "", label: "Tuteur de " + nomEl(ce) + " (" + nk + ")", avantTxt: be.tuteur || "—", apresTxt: ce.tuteur || "—", cible: "att:" + nk + ":" + k });
       });
       Object.keys(ci).forEach(function (k) { if (!bi[k]) { var ce = ci[k]; mods.push({ kind: "el+", niveau: nk, cle: k, elObj: ce, label: "Élève " + nomEl(ce) + " (" + nk + ")", avantTxt: "absent", apresTxt: "ajouté à la liste", cible: "el:" + nk + ":" + k }); } });
+      // Liste des tuteurs : un ajout ou un retrait doit partir vers l'équipe (il était ignoré, donc perdu).
+      var bt = {}, ct = {};
+      (b.tuteurs || []).forEach(function (n) { if (n) bt[norm(n)] = n; });
+      (c.tuteurs || []).forEach(function (n) { if (n) ct[norm(n)] = n; });
+      Object.keys(ct).forEach(function (k) { if (!bt[k]) mods.push({ kind: "tut+", niveau: nk, tuteur: ct[k], label: "Tuteur " + ct[k] + " (" + nk + ")", avantTxt: "absent de la liste", apresTxt: "ajouté à la liste", cible: "tutn:" + nk + ":" + k }); });
+      Object.keys(bt).forEach(function (k) { if (!ct[k]) mods.push({ kind: "tut-", niveau: nk, tuteur: bt[k], label: "Tuteur " + bt[k] + " (" + nk + ")", avantTxt: "dans la liste", apresTxt: "retiré de la liste", cible: "tutn:" + nk + ":" + k }); });
       [["tuteursTel", "téléphone"], ["tuteursMax", "nombre maximum d'élèves"], ["tuteursQuotite", "quotité"]].forEach(function (p) {
         var map = p[0], bm = b[map] || {}, cm = c[map] || {}, noms = {};
         Object.keys(bm).forEach(function (n) { noms[n] = 1; }); Object.keys(cm).forEach(function (n) { noms[n] = 1; });
@@ -6710,6 +6936,8 @@ window.DEPOUILLEMENT = (function () {
     else if (m.kind === "el-") { niv.eleves = (niv.eleves || []).filter(function (el) { return cleEleve(el) !== m.cle; }); }
     else if (m.kind === "el+") { niv.eleves = niv.eleves || []; if (!niv.eleves.some(function (el) { return cleEleve(el) === m.cle; })) niv.eleves.push(JSON.parse(JSON.stringify(m.elObj))); }
     else if (m.kind === "tut") { niv[m.map] = niv[m.map] || {}; if (m.apres === "" || m.apres == null) delete niv[m.map][m.tuteur]; else niv[m.map][m.tuteur] = m.apres; }
+    else if (m.kind === "tut+") { niv.tuteurs = niv.tuteurs || []; if (!niv.tuteurs.some(function (n) { return norm(n) === norm(m.tuteur); })) niv.tuteurs.push(m.tuteur); }
+    else if (m.kind === "tut-") { niv.tuteurs = (niv.tuteurs || []).filter(function (n) { return norm(n) !== norm(m.tuteur); }); }
   }
 
   // Cibles modifiées à la fois par moi et par les autres depuis la base commune.
@@ -6727,6 +6955,15 @@ window.DEPOUILLEMENT = (function () {
   window.__collab = { diffEtat: diffEtat, appliquerModif: appliquerModif, collisions: collisions, fusionner: fusionner, cleEleve: cleEleve };
 
   var _etatBase = null, _etatVersion = 0, _valCtx = null;
+  // Dernier état reçu de l'équipe ou transmis par ce poste. Sans cette mémoire, un poste neuf prenait
+  // l'absence de données pour des suppressions voulues, et proposait d'effacer toute l'équipe (défaut 18).
+  var LS_BASE = "conv_etat_base_v1";
+  var LS_COPIE = "conv_copie_avant_adoption_v1";
+  function poserBase(snap) {
+    _etatBase = JSON.parse(JSON.stringify(snap));
+    lsSet(LS_BASE, JSON.stringify(_etatBase));
+  }
+  function lireBase() { try { var t = lsGet(LS_BASE); return t ? JSON.parse(t) : null; } catch (e) { return null; } }
   // Charge l'état commun depuis Firebase (ou l'initialise à partir du local) quand le mode collaboratif s'active.
   function chargerEtatPartage() {
     if (!_maitre || !window.FB || !window.FB.lireEtat) return Promise.resolve();
@@ -6735,16 +6972,28 @@ window.DEPOUILLEMENT = (function () {
         return window.CRYPTO.deballerCle(_maitre, rec).then(function (txt) {
           var distant; try { distant = JSON.parse(txt); } catch (e) { return; }
           _etatVersion = rec.v || 0;
-          // Le travail local peut diverger de celui de l'équipe (poste resté ouvert, travail hors ligne…).
-          // On ne l'écrase JAMAIS en silence : on confronte, et l'utilisateur tranche.
+          var dist = { niveaux: distant.niveaux || {}, etab: distant.etab || {} };
           var local = snapEtat();
-          var ecart = diffEtat({ niveaux: distant.niveaux || {}, etab: distant.etab || {} }, local);
-          if (ecart.length) { proposerFusionDemarrage(distant, ecart); return; }
+          var base = lireBase();
+          if (!base) {
+            // Poste qui n'a jamais reçu les données de l'équipe (nouveau poste, cache vidé, navigation privée) :
+            // il les reprend sans rien demander. Si ce poste contenait autre chose, on en garde une copie ici.
+            if (diffEtat(dist, local).length && ((local.niveaux["4e"] || {}).eleves || []).concat((local.niveaux["3e"] || {}).eleves || []).length) {
+              lsSet(LS_COPIE, JSON.stringify({ date: Date.now(), etat: local }));
+            }
+            adopterEtatDistant(distant);
+            return;
+          }
+          // Poste déjà synchronisé : ses vraies modifications = ce qui a changé ici depuis la dernière synchronisation,
+          // et qui n'est pas déjà chez l'équipe.
+          var ecartEquipe = {}; diffEtat(dist, local).forEach(function (m) { ecartEquipe[m.cible] = 1; });
+          var miennes = diffEtat(base, local).filter(function (m) { return ecartEquipe[m.cible]; });
+          if (miennes.length) { proposerFusionDemarrage(distant, miennes); return; }
           adopterEtatDistant(distant);
         });
       }
       // Aucun état commun encore : le local devient la base partagée.
-      _etatBase = snapEtat(); _etatVersion = 0; majBoutonValider();
+      poserBase(snapEtat()); _etatVersion = 0; majBoutonValider();
     }).catch(function () {});
   }
   function adopterEtatDistant(distant) {
@@ -6753,43 +7002,63 @@ window.DEPOUILLEMENT = (function () {
       STATE.niveaux = distant.niveaux;
       if (demoLocal) STATE.niveaux.demo = demoLocal;
     }
-    if (distant.etab) STATE.etab = distant.etab;
-    _etatBase = snapEtat();
+    if (distant.etab) {
+      var sigLocale = (STATE.etab || {}).signature;      // la signature vit dans son propre nœud
+      STATE.etab = distant.etab;
+      if (sigLocale) STATE.etab.signature = sigLocale;
+    }
+    poserBase(snapEtat());
     lsSet(LS_STATE, signature());
     majAnneeNiveau(); renderTuteurs(); renderEleves(); majEtabStatut(); majBoutonValider();
+    try { majEtapes(); } catch (e) {}
   }
-  // Écran de confrontation au démarrage : personne ne perd son travail sans l'avoir décidé.
-  function proposerFusionDemarrage(distant, ecart) {
-    var h = '<p>Les données de cet appareil diffèrent de celles de l\'équipe. Cela arrive lorsque des modifications ont été faites ici sans être transmises.</p>';
-    h += '<p><b>' + ecart.length + ' modification(s)</b> présente(s) sur cet appareil et absente(s) chez l\'équipe :</p>';
+  // Écran de confrontation au démarrage : il ne montre que les modifications réellement faites sur ce poste
+  // et pas encore transmises. Aucun des deux choix ne peut effacer le travail des autres.
+  function proposerFusionDemarrage(distant, miennes) {
+    var h = '<p>Des modifications faites sur cet appareil n\'ont pas encore été transmises à l\'équipe.</p>';
+    h += '<p><b>' + miennes.length + ' modification(s)</b> :</p>';
     h += '<div style="max-height:34vh;overflow-y:auto;margin:10px 0;padding:10px 12px;background:#f7f9fb;border:1px solid var(--ligne);border-radius:8px">';
-    h += ecart.map(function (m) { return '<div style="font-size:13px;padding:4px 0;border-bottom:1px solid var(--ligne)"><b>' + esc(m.label) + '</b><br><span class="mut">' + esc(m.avantTxt) + ' → ' + esc(m.apresTxt) + '</span></div>'; }).join("");
+    h += miennes.map(function (m) { return '<div style="font-size:13px;padding:4px 0;border-bottom:1px solid var(--ligne)"><b>' + esc(m.label) + '</b><br><span class="mut">' + esc(m.avantTxt) + ' → ' + esc(m.apresTxt) + '</span></div>'; }).join("");
     h += '</div>';
+    h += '<p class="hint" style="margin:0">Les données de l\'équipe sont conservées dans les deux cas : seules ces modifications sont en jeu.</p>';
     h += '<div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">'
-      + '<button class="btn ghost" onclick="window.__demarrageAdopter()">Adopter les données de l\'équipe (abandonner ces modifications)</button>'
-      + '<button class="btn bord" onclick="window.__demarrageVerser()">Conserver et transmettre ces modifications</button></div>';
-    _demarrageCtx = { distant: distant, ecart: ecart };
-    $("modal-titre").textContent = "Données locales différentes de celles de l'équipe";
+      + '<button class="btn ghost" onclick="window.__demarrageAdopter()" title="Oublie les modifications listées ci-dessus et reprend les données de l\'équipe telles quelles.">Abandonner ces modifications</button>'
+      + '<button class="btn bord" onclick="window.__demarrageVerser()" title="Ajoute ces modifications aux données de l\'équipe, sans rien retirer d\'autre.">Transmettre ces modifications</button></div>';
+    _demarrageCtx = { distant: distant, miennes: miennes };
+    $("modal-titre").textContent = "Modifications non transmises sur cet appareil";
     $("modal-corps").innerHTML = h;
     $("modal").hidden = false;
   }
   var _demarrageCtx = null;
   window.__demarrageAdopter = function () {
     if (!_demarrageCtx) return;
-    if (!confirm("Abandonner définitivement les modifications faites sur cet appareil ?")) return;
+    if (!confirm("Abandonner les modifications faites sur cet appareil ? Les données de l'équipe ne changent pas.")) return;
     adopterEtatDistant(_demarrageCtx.distant);
     _demarrageCtx = null; $("modal").hidden = true;
-    toast("Données de l'équipe adoptées.");
+    toast("Modifications abandonnées : cet appareil a repris les données de l'équipe.");
   };
   window.__demarrageVerser = function () {
     if (!_demarrageCtx) return;
-    // La base devient l'état distant : les écarts locaux redeviennent « mes modifications » à transmettre.
-    var d = _demarrageCtx.distant;
-    _etatBase = JSON.parse(JSON.stringify({ niveaux: d.niveaux || {}, etab: d.etab || {} }));
+    var d = _demarrageCtx.distant, miennes = _demarrageCtx.miennes;
+    var dist = { niveaux: d.niveaux || {}, etab: d.etab || {} };
     _demarrageCtx = null; $("modal").hidden = true;
-    majBoutonValider();
-    if (_collab) { toast("Vos modifications sont prêtes : validez-les pour les transmettre."); ouvrirValidation(); }
-    else { commitDirectEtat("a transmis ses modifications locales"); toast("Vos modifications ont été transmises à l'équipe."); }
+    if (_collab) {
+      // Relecture activée : la base devient l'état de l'équipe ; la validation habituelle affiche et fusionne.
+      poserBase(dist); majBoutonValider();
+      toast("Vos modifications sont prêtes : validez-les pour les transmettre."); ouvrirValidation();
+      return;
+    }
+    // Partage direct : on part des données de l'équipe et on y ajoute seulement ces modifications.
+    var fin = fusionner(dist, miennes, {});
+    var demoLocal = (STATE.niveaux || {}).demo;
+    STATE.niveaux = fin.niveaux; if (demoLocal) STATE.niveaux.demo = demoLocal;
+    var sigLocale = (STATE.etab || {}).signature;
+    STATE.etab = fin.etab || STATE.etab; if (sigLocale) STATE.etab.signature = sigLocale;
+    _etatBase = JSON.parse(JSON.stringify(dist));
+    lsSet(LS_STATE, signature());
+    majAnneeNiveau(); renderTuteurs(); renderEleves(); majEtabStatut();
+    commitDirectEtatDecrit();
+    toast("Vos modifications ont été transmises à l'équipe.");
   };
   function majBoutonValider() {
     var b = $("btn-valider-collab"); if (!b) return;
@@ -6852,7 +7121,7 @@ window.DEPOUILLEMENT = (function () {
     }).then(function () {
       journal("modif", retenues.length === 1 ? "a validé une modification" : "a validé " + retenues.length + " modifications",
         retenues.map(function (m) { return { l: m.label, a: m.avantTxt, b: m.apresTxt }; }));
-      _etatBase = JSON.parse(JSON.stringify({ niveaux: fin.niveaux, etab: fin.etab }));
+      poserBase({ niveaux: fin.niveaux, etab: fin.etab });
       _etatVersion = ctx.vDistant + 1;
       var wrap = { niveaux: fin.niveaux, etab: fin.etab };
       nonRetenues.forEach(function (m) { appliquerModif(wrap, m); });
@@ -6878,7 +7147,7 @@ window.DEPOUILLEMENT = (function () {
     var snapshot = snapEtat();
     window.CRYPTO.emballerCle(_maitre, JSON.stringify(snapshot)).then(function (p) {
       return window.FB.ecrireEtat({ iv: p.iv, ct: p.ct, v: _etatVersion + 1, ts: Date.now() });
-    }).then(function () { _etatVersion += 1; _etatBase = snapshot; if (desc) journal("modif", desc, details); majBoutonValider(); }).catch(function () {});
+    }).then(function () { _etatVersion += 1; poserBase(snapshot); if (desc) journal("modif", desc, details); majBoutonValider(); }).catch(function () {});
   }
   function show(id, on) { var e = $(id); if (e) e.hidden = !on; }
 
@@ -6892,7 +7161,9 @@ window.DEPOUILLEMENT = (function () {
         var p = roles[role]; if (!p || !p.ct) return;
         taches.push(window.CRYPTO.dechiffrer(cle, p).then(function (obj) {
           var dt = p.ts ? new Date(p.ts) : new Date();
-          return { nom: (obj.code || codeEnc) + "_" + role, date: dt, data: { code: obj.code, role: obj.role || role, eleve: obj.eleve, annee: espaceAnnee(), champs: obj.champs, hash: obj.hash, ts: dt.toISOString() } };
+          // La signature dessinée (et la date de naissance) doivent suivre : elles étaient abandonnées ici,
+          // d'où des conventions complètes sans aucune signature (défaut U2).
+          return { nom: (obj.code || codeEnc) + "_" + role, date: dt, data: { code: obj.code, role: obj.role || role, eleve: obj.eleve, naissance: obj.naissance || "", annee: espaceAnnee(), champs: obj.champs, hash: obj.hash, ts: dt.toISOString(), signature: obj.signature || obj.sig || "" } };
         }).catch(function () { return null; }));
       });
     });
