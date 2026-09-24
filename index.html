@@ -25,6 +25,11 @@
     - en-tête « Vu... » : conseil de direction, avec la date de délibération (D47) ;
     - stage chez un parent : autorisé avec déclaration, ou découragé ;
     - validation du texte final de la convention (modèle officiel adapté, D12).
+ 4 bis. Livraison « deux-lieux » (24/09/2026) : places ENTREPRISE, ENTREPRISE_2, PARENTS, PARENTS_2,
+    ATTESTATION ; une place remplie ne se remplace plus depuis un lien (règle serveur) ; seul le
+    statut « e » est lisible depuis un lien ; demandes/<année>/<élève>/<place> ; archive/<année> ;
+    dates_officielles/<année>/<niveau> (écrites aussi dans l'espace de test « demo »).
+    Les règles Firebase correspondantes doivent être publiées AVANT le site.
  5. Mails : le script d'essai installé sur monsieurmeney@gmail.com est à SUPPRIMER
     le jour où le script est installé sur l'adresse officielle du collège (D61, Q7).
  6. Ne JAMAIS renuméroter un code élève : il est imprimé sur les liens et les QR
@@ -172,6 +177,25 @@
   .rq-rep{margin-top:8px;padding:9px 12px;background:#f4f6f9;border-left:3px solid var(--or);border-radius:0 8px 8px 0}
   .rq-rep-lab{font-size:11.5px;color:var(--mut);margin-bottom:3px}
   .rq-rep-txt{font-size:13px;line-height:1.5;color:var(--encre);white-space:pre-wrap}
+  #sig-step .champ{display:block;margin:12px 0}
+  #sig-step .champ > span{display:block;font-weight:600;font-size:14px;margin-bottom:6px}
+  #sig-step .champ input[type=text], #sig-step .champ textarea{width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid var(--ligne);border-radius:8px;font:inherit}
+  #sig-step .radio{display:block;margin:6px 0;cursor:pointer}
+  #sig-step label.chk{display:block;margin:6px 0;cursor:pointer}
+  .demandes{margin:0 0 14px;padding:10px 12px;border:1px solid #e6c9ce;background:#fbf3f4;border-radius:10px}
+  .demandes-t{font-weight:700;color:var(--bordeaux,#7a2e3a);margin-bottom:6px}
+  .demande{padding:8px 0;border-top:1px solid #efd9dc;font-size:13.5px}
+  .demande:first-of-type{border-top:0}
+  .demande-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+  .pastille-dem{display:inline-block;min-width:20px;padding:1px 6px;margin:0 8px;border-radius:10px;background:#c0392b;color:#fff;font:700 12px/18px system-ui,sans-serif;text-align:center}
+  .warn-pill{display:inline-block;padding:1px 8px;border-radius:10px;background:#fff4dc;color:#8a5a00;border:1px solid #f0d49a;font-size:12px;margin:2px 0}
+  .etats{margin-top:4px;display:flex;flex-direction:column;gap:2px;align-items:flex-start}
+  .etats .ok-pill,.etats .ko-pill,.etats .warn-pill{white-space:normal;max-width:240px;line-height:1.35}
+  .choix-place{display:flex;flex-direction:column;gap:4px;margin:12px 0}
+  .choix-place .btn{align-self:flex-start}
+  .second-lieu{margin:16px 0;padding:12px 14px;border:1px solid var(--ligne);border-radius:10px;background:#f7f9fb}
+  .second-lieu-t{font-weight:700;margin-bottom:4px}
+  .adm-dates{margin:6px 0}
   .selecteur{margin:0 0 12px;padding:10px 12px;background:#f7f9fb;border:1px solid var(--ligne);border-radius:10px}
   .sel-ligne{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px}
   .sel-ligne + .sel-ligne{margin-top:8px}
@@ -561,6 +585,7 @@
     <!-- 4 · Conventions reçues -->
     <section class="carte">
       <h2><span class="num">6</span> Conventions reçues</h2>
+      <div id="demandes-refaire"></div>
       <p class="hint" id="dep-info-direct" style="margin-top:0">Les conventions transmises par les familles s'affichent ici automatiquement, regroupées par élève.</p>
       <div id="bloc-nuage" hidden>
         <p class="hint" style="margin-top:0">Sur le Nuage, le dossier <b>Conventions-4e</b> peut être téléchargé (Nextcloud fournit un ZIP), puis déposé ici. Tout reste sur l'appareil.</p>
@@ -622,6 +647,12 @@
           <h4>Compte autorisé à signer</h4>
           <p class="hint" style="margin-top:0">La signature de l'établissement est réservée au compte de Mme Chrétien. Ce champ permet d'autoriser un second compte (changement de direction, remplacement) ; laissez-le vide si ce n'est pas nécessaire. Votre compte d'administrateur conserve la main.</p>
           <input class="admin-in" type="email" id="admin-chef-email" placeholder="Facultatif — compte supplémentaire autorisé">
+        </div>
+
+        <div class="admin-bloc">
+          <h4>Dates officielles de la séquence (année en cours)</h4>
+          <p class="hint" style="margin-top:0">Les entreprises cochent parmi ces dates celles où elles accueillent l'élève ; la console s'en sert pour signaler les jours non couverts ou couverts deux fois.</p>
+          <div id="admin-dates"></div>
         </div>
 
         <div class="admin-bloc">
@@ -732,7 +763,7 @@
 
 <div id="toast" class="toast" hidden></div>
 <button id="btn-valider-collab" hidden onclick="window.__ouvrirValidation && window.__ouvrirValidation()">✓ Valider mes modifications (0)</button>
-<div class="app-version">v2026.09.24·g2-codes</div>
+<div class="app-version">v2026.09.24·tri-conventions</div>
 
 <script>
 /* ===== Configuration : système de transmission ====================
@@ -828,8 +859,38 @@ window.FB = (function () {
   function ecrireConvention(annee, code, role, paquet) {
     if (!dispo) return Promise.reject(new Error("Firebase indisponible"));
     var ref = db.ref("conventions/" + encodeCle(annee) + "/" + encodeCle(code) + "/" + encodeCle(role));
-    return ref.set({ iv: paquet.iv, ct: paquet.ct, v: paquet.v || 1, ts: window.firebase.database.ServerValue.TIMESTAMP });
+    // « e » : seule marque lisible depuis un lien (statut d'envoi, D82). Une place remplie ne se remplace plus
+    // depuis un lien (règle serveur, D78) : seul l'établissement la libère, après archivage.
+    return ref.set({ iv: paquet.iv, ct: paquet.ct, v: paquet.v || 1, ts: window.firebase.database.ServerValue.TIMESTAMP, e: true });
   }
+  // Places d'un élève (D72, D77, D86) : lieu 1 et lieu 2 côté entreprise, conventions 1 et 2 côté parents, attestation.
+  var PLACES = ["ENTREPRISE", "ENTREPRISE_2", "PARENTS", "PARENTS_2", "ATTESTATION"];
+  function lireStatuts(annee, code) {
+    if (!dispo) return Promise.reject(new Error("Firebase indisponible"));
+    return Promise.all(PLACES.map(function (pl) {
+      return db.ref("conventions/" + encodeCle(annee) + "/" + encodeCle(code) + "/" + pl + "/e").once("value").then(function (s) { return !!s.val(); });
+    })).then(function (r) { var o = {}; PLACES.forEach(function (pl, i) { o[pl] = r[i]; }); return o; });
+  }
+  function marquerStatut(annee, code, place) { if (!dispo) return Promise.resolve(); return db.ref("conventions/" + encodeCle(annee) + "/" + encodeCle(code) + "/" + encodeCle(place) + "/e").set(true); }
+  function supprimerPlace(annee, code, place) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("conventions/" + encodeCle(annee) + "/" + encodeCle(code) + "/" + encodeCle(place)).remove(); }
+  // Demandes de refaire (D78, D80) : une par place, chiffrée comme les conventions ; l'établissement seul les lit.
+  function ecrireDemande(annee, code, place, paquet) {
+    if (!dispo) return Promise.reject(new Error("Firebase indisponible"));
+    return db.ref("demandes/" + encodeCle(annee) + "/" + encodeCle(code) + "/" + encodeCle(place)).set({ iv: paquet.iv, ct: paquet.ct, v: paquet.v || 1, ts: window.firebase.database.ServerValue.TIMESTAMP });
+  }
+  function ecouterDemandes(annee, cb) {
+    if (!dispo) return function () {};
+    var ref = db.ref("demandes/" + encodeCle(annee));
+    var h = ref.on("value", function (snap) { cb(snap.val() || {}); }, function () { cb({}); });
+    return function () { try { ref.off("value", h); } catch (e) {} };
+  }
+  function supprimerDemande(annee, code, place) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("demandes/" + encodeCle(annee) + "/" + encodeCle(code) + "/" + encodeCle(place)).remove(); }
+  // Archive (D24, D81) : copie chiffrée, telle quelle, de ce qui est supprimé.
+  function ecrireArchive(annee, rec) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("archive/" + encodeCle(annee)).push(rec); }
+  function lirePlace(annee, code, place) { if (!dispo) return Promise.resolve(null); return db.ref("conventions/" + encodeCle(annee) + "/" + encodeCle(code) + "/" + encodeCle(place)).once("value").then(function (s) { return s.val(); }); }
+  // Dates officielles de la séquence (D89) : lisibles depuis un lien (rien de personnel), écrites par l'administrateur.
+  function lireDatesOfficielles(annee, niveau) { if (!dispo) return Promise.resolve([]); return db.ref("dates_officielles/" + encodeCle(annee) + "/" + encodeCle(niveau)).once("value").then(function (s) { var v = s.val(); return Array.isArray(v) ? v : (v ? Object.keys(v).map(function (k) { return v[k]; }) : []); }); }
+  function ecrireDatesOfficielles(annee, niveau, liste) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("dates_officielles/" + encodeCle(annee) + "/" + encodeCle(niveau)).set(liste && liste.length ? liste : null); }
   function ecouter(annee, cb) {
     if (!dispo) return function () {};
     var ref = db.ref("conventions/" + encodeCle(annee));
@@ -920,7 +981,7 @@ window.FB = (function () {
   function deconnecter() { if (dispo) try { auth.signOut(); } catch (e) {} }
   function onAuth(cb) { if (dispo) auth.onAuthStateChanged(cb); else cb(null); }
   function utilisateur() { return (dispo && auth && auth.currentUser) || null; }
-  return { dispo: dispo, ecrireConvention: ecrireConvention, ecouter: ecouter, supprimer: supprimer, viderEspace: viderEspace, lireSel: lireSel, ecrireSel: ecrireSel, lireCleAnnee: lireCleAnnee, ecrireCleAnnee: ecrireCleAnnee, lireCanari: lireCanari, ecrireCanari: ecrireCanari, ecouterCollab: ecouterCollab, ecrireCollab: ecrireCollab, journalPush: journalPush, journalEcouter: journalEcouter, journalPurger: journalPurger, lireEtat: lireEtat, ecrireEtat: ecrireEtat, presenceAnnoncer: presenceAnnoncer, presenceMaj: presenceMaj, presencePartir: presencePartir, presenceEcouter: presenceEcouter, lireContenus: lireContenus, ecrireContenus: ecrireContenus, lireCodes: lireCodes, ecrireCodes: ecrireCodes, ecrireVerif: ecrireVerif, lireSignature: lireSignature, ecrireSignature: ecrireSignature, ecouterSignature: ecouterSignature, lireChefEmail: lireChefEmail, ecrireChefEmail: ecrireChefEmail, ecouterChefEmail: ecouterChefEmail, remarquePush: remarquePush, remarqueMaj: remarqueMaj, remarqueSupprimer: remarqueSupprimer, remarquesEcouter: remarquesEcouter, connecter: connecter, deconnecter: deconnecter, onAuth: onAuth, utilisateur: utilisateur };
+  return { dispo: dispo, ecrireConvention: ecrireConvention, ecouter: ecouter, supprimer: supprimer, viderEspace: viderEspace, lireSel: lireSel, ecrireSel: ecrireSel, lireCleAnnee: lireCleAnnee, ecrireCleAnnee: ecrireCleAnnee, lireCanari: lireCanari, ecrireCanari: ecrireCanari, ecouterCollab: ecouterCollab, ecrireCollab: ecrireCollab, journalPush: journalPush, journalEcouter: journalEcouter, journalPurger: journalPurger, lireEtat: lireEtat, ecrireEtat: ecrireEtat, presenceAnnoncer: presenceAnnoncer, presenceMaj: presenceMaj, presencePartir: presencePartir, presenceEcouter: presenceEcouter, lireContenus: lireContenus, ecrireContenus: ecrireContenus, lireCodes: lireCodes, ecrireCodes: ecrireCodes, ecrireVerif: ecrireVerif, PLACES: PLACES, lireStatuts: lireStatuts, marquerStatut: marquerStatut, supprimerPlace: supprimerPlace, ecrireDemande: ecrireDemande, ecouterDemandes: ecouterDemandes, supprimerDemande: supprimerDemande, ecrireArchive: ecrireArchive, lirePlace: lirePlace, lireDatesOfficielles: lireDatesOfficielles, ecrireDatesOfficielles: ecrireDatesOfficielles, lireSignature: lireSignature, ecrireSignature: ecrireSignature, ecouterSignature: ecouterSignature, lireChefEmail: lireChefEmail, ecrireChefEmail: ecrireChefEmail, ecouterChefEmail: ecouterChefEmail, remarquePush: remarquePush, remarqueMaj: remarqueMaj, remarqueSupprimer: remarqueSupprimer, remarquesEcouter: remarquesEcouter, connecter: connecter, deconnecter: deconnecter, onAuth: onAuth, utilisateur: utilisateur };
 })();
 </script>
 <script>
@@ -3805,7 +3866,7 @@ window.SIGNATAIRE = (function () {
     return el || { prenom: "Léa", nom: "MARTIN", code: "4PYTH-01", naissance: "15/05/2012" };
   }
 
-  var CTX = { code: "", nomEleve: "", annee: "", lienDepot: "", role: "", champs: {}, sig: null, nomFichier: "" };
+  var CTX = { code: "", nomEleve: "", annee: "", lienDepot: "", role: "", place: "", champs: {}, sig: null, nomFichier: "", statut: null, datesOff: [] };
 
   function $(id) { return document.getElementById(id); }
 
@@ -3813,7 +3874,8 @@ window.SIGNATAIRE = (function () {
   function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
   function lsDel(k) { try { localStorage.removeItem(k); } catch (e) {} }
-  function cleProgress() { return "conv_sig_v1_" + (CTX.code || "") + "_" + (CTX.role || ""); }
+  function cleProgress() { return "conv_sig_v1_" + (CTX.code || "") + "_" + (CTX.place || CTX.role || ""); }
+  function cleProfilParents() { return "conv_profil_parents_v1_" + (CTX.code || ""); }
   var CLE_PROFIL_ENT = "conv_profil_entreprise_v1";
 
   function sauverProgress() {
@@ -3842,7 +3904,7 @@ window.SIGNATAIRE = (function () {
     ENTREPRISE: [
       { titre: "L'entreprise d'accueil", ids: ["raison_sociale", "adresse", "siret"] },
       { titre: "Le tuteur de stage", ids: ["tuteur_ent", "tel", "email"] },
-      { titre: "Le stage", ids: ["lieu_stage", "date_debut", "date_fin", "horaires"] },
+      { titre: "Le stage", ids: ["lieu_stage", "horaires"] },
       { titre: "Le signataire", ids: ["chef_nom", "fait_a"] }
     ],
     PARENTS: [
@@ -3869,6 +3931,8 @@ window.SIGNATAIRE = (function () {
 
   function construireSteps(role) {
     var steps = [{ type: "intro" }];
+    // Jours de stage (D85, D90) : l'entreprise dit si elle accueille l'élève tout le stage ou certains jours, et coche les vraies dates.
+    if (role === "ENTREPRISE") steps.push({ type: "accueil", titre: "Les jours de stage" });
     GROUPES[role].forEach(function (g) { steps.push({ type: "fields", titre: g.titre, ids: g.ids }); });
     steps.push({ type: "articles", titre: "La convention" });
     steps.push({ type: "mention", titre: "Lu et approuvé" });
@@ -3901,12 +3965,221 @@ window.SIGNATAIRE = (function () {
     $("sig-nom").textContent = CTX.nomEleve || "(à confirmer)";
     if (CTX.roleLock) {
       CTX.role = CTX.roleLock;
-      var sauve = CTX.persist ? chargerProgress() : null;
-      if (sauve && sauve.stepIndex > 0) { proposerReprise(sauve); return; }
-      demarrerRole(CTX.roleLock); return;
+      CTX.place = CTX.roleLock;
+      if (!CTX.apercu && estFirebase() && window.FB && window.FB.lireStatuts) {
+        CTX.steps = [{ type: "porte" }]; CTX.stepIndex = 0; renderStep();
+        verifierPorte();
+        return;
+      }
+      ouvrirPlace();
+      return;
     }
     CTX.role = ""; CTX.steps = [{ type: "choix-role" }]; CTX.stepIndex = 0;
     renderStep();
+  }
+
+
+  // ===================== Couloirs (D77 à D91) =====================
+  // La porte (le lien) ne change pas. À l'ouverture, l'app lit le seul statut d'envoi des places de l'élève,
+  // puis oriente : place libre → parcours habituel ; place prise → choix (second lieu, refaire, attestation).
+  function niveauDuCode(code) { var d = String(code || "").charAt(0); return d === "3" ? "3e" : "4e"; }
+  function verifierPorte() {
+    var fini = false;
+    var dates = window.FB.lireDatesOfficielles ? window.FB.lireDatesOfficielles(CTX.annee, niveauDuCode(CTX.code)).catch(function () { return []; }) : Promise.resolve([]);
+    Promise.all([window.FB.lireStatuts(CTX.annee, CTX.code), dates]).then(function (r) {
+      fini = true; CTX.statut = r[0] || {}; CTX.datesOff = (r[1] || []).filter(Boolean).sort();
+      orienter();
+    }).catch(function () {
+      // Statut illisible (réseau) : on ne bloque pas. Si la place est prise, le serveur refusera l'envoi et l'app orientera alors.
+      if (fini) return; CTX.statut = null; ouvrirPlace();
+    });
+  }
+  function orienter() {
+    var st = CTX.statut || {};
+    if (CTX.roleLock === "ENTREPRISE") {
+      if (!st.ENTREPRISE) { CTX.place = "ENTREPRISE"; ouvrirPlace(); return; }
+      CTX.steps = [{ type: "place-prise" }]; CTX.stepIndex = 0; renderStep(); return;
+    }
+    if (CTX.roleLock === "PARENTS") {
+      if (!st.PARENTS) { CTX.place = "PARENTS"; ouvrirPlace(); return; }
+      CTX.steps = [{ type: "place-prise" }]; CTX.stepIndex = 0; renderStep(); return;
+    }
+    ouvrirPlace();
+  }
+  function ouvrirPlace() {
+    var sauve = CTX.persist ? chargerProgress() : null;
+    if (sauve && sauve.stepIndex > 0) { proposerReprise(sauve); return; }
+    demarrerRole(CTX.roleLock);
+  }
+  function htmlPorte() {
+    return '<h3 class="serif">Un instant…</h3><p class="mut">Vérification de votre convention.</p>';
+  }
+  function libDate(iso) {
+    var d = new Date(String(iso) + "T12:00:00");
+    if (isNaN(d.getTime())) return String(iso);
+    return d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  }
+  function htmlPlacePrise() {
+    var st = CTX.statut || {}, h = "";
+    if (CTX.roleLock === "ENTREPRISE") {
+      h += '<h3 class="serif">Une partie entreprise a déjà été envoyée</h3>';
+      h += '<p>Pour ' + esc(CTX.nomEleve || "cet élève") + ', une entreprise a déjà envoyé sa partie de la convention.</p>';
+      if (!st.ENTREPRISE_2) {
+        h += '<div class="choix-place"><button class="btn bord" onclick="SIGNATAIRE.secondLieu()" title="Votre entreprise accueille l\'élève certains jours seulement, une autre entreprise les autres jours : vous remplissez la convention de ce second lieu.">Je suis le second lieu de stage de l\'élève</button>'
+          + '<span class="mut">L\'élève fait son stage dans deux entreprises : vous accueillez l\'élève les jours où la première ne le peut pas.</span></div>';
+      } else {
+        h += '<div class="encadre-conseil">Les deux lieux de stage de cet élève ont déjà envoyé leur partie.</div>';
+      }
+      h += '<div class="choix-place"><button class="btn ghost" onclick="SIGNATAIRE.demanderRefaire()" title="Vous êtes l\'entreprise qui a déjà rempli cette convention et vous devez la corriger : le collège reçoit votre demande et libère la place.">Je souhaite refaire ma convention</button>'
+        + '<span class="mut">Vous avez déjà rempli cette convention et devez la corriger : le collège reçoit votre demande.</span></div>';
+      return h;
+    }
+    h += '<h3 class="serif">Votre partie a déjà été envoyée</h3>';
+    h += '<p>La partie « responsable légal » de la convention de ' + esc(CTX.nomEleve || "votre enfant") + ' a déjà été transmise au collège.</p>';
+    if (!st.PARENTS_2 && !st.ATTESTATION) h += htmlBoutonsSecondLieu();
+    h += '<div class="choix-place"><button class="btn ghost" onclick="SIGNATAIRE.demanderRefaire()" title="Vous devez corriger ce que vous avez envoyé : le collège reçoit votre demande et libère la place.">Je souhaite refaire ma partie</button>'
+      + '<span class="mut">Le collège reçoit votre demande ; une fois la place libérée, ce même lien vous permettra de tout refaire.</span></div>';
+    return h;
+  }
+  function htmlBoutonsSecondLieu() {
+    return '<div class="second-lieu"><div class="second-lieu-t">Votre enfant a-t-il un second lieu de stage ?</div>'
+      + '<div class="choix-place"><button class="btn bord" onclick="SIGNATAIRE.secondeConventionParents()" title="Votre enfant fait son stage dans deux entreprises : vous signez aussi la convention du second lieu.">Si votre enfant a un second lieu de stage, continuez ici</button></div>'
+      + '<div class="choix-place"><button class="btn ghost" onclick="SIGNATAIRE.attester()" title="Confirme au collège que votre enfant fait tout son stage dans une seule entreprise. Votre dossier est alors complet.">J\'atteste que mon enfant n\'a qu\'un seul lieu de stage</button></div></div>';
+  }
+  function secondLieu() {
+    CTX.place = "ENTREPRISE_2";
+    // Arrivé ici après un envoi refusé : tout est déjà rempli et signé, on envoie directement à la place du second lieu.
+    if (CTX.pretAEnvoyer && CTX.sig) { envoyerConvention(); return; }
+    ouvrirPlace();
+  }
+  function secondeConventionParents() {
+    CTX.place = "PARENTS_2";
+    if (CTX.pretAEnvoyer && CTX.sig) { envoyerConvention(); return; }
+    var prof = null; try { prof = JSON.parse(lsGet(cleProfilParents()) || "null"); } catch (e) {}
+    if (prof && prof.champs && Object.keys(prof.champs).length) { CTX._profilParents = prof.champs; CTX.steps = [{ type: "reutiliser" }]; CTX.stepIndex = 0; renderStep(); return; }
+    ouvrirPlace();
+  }
+  function htmlReutiliser() {
+    return '<h3 class="serif">Seconde convention de stage</h3>'
+      + '<p>Réutiliser les informations de la première convention ?</p>'
+      + '<p class="mut">Vos nom, lien avec l\'élève, adresse, téléphone, courriel, contacts d\'urgence et lieu de signature seront repris, et restent modifiables. La mention « Lu et approuvé » et la signature sont à refaire : elles valident cette seconde convention.</p>'
+      + '<div class="sig-actions"><button class="btn ghost" onclick="SIGNATAIRE.reutiliserParents(false)" title="Remplir cette seconde convention sans reprendre les informations.">Non, tout remplir</button>'
+      + '<button class="btn bord" onclick="SIGNATAIRE.reutiliserParents(true)" title="Reprendre les informations de la première convention, modifiables.">Oui, réutiliser</button></div>';
+  }
+  function reutiliserParents(oui) {
+    demarrerRole("PARENTS");
+    if (oui && CTX._profilParents) { Object.keys(CTX._profilParents).forEach(function (k) { CTX.data[k] = CTX._profilParents[k]; }); renderStep(); }
+  }
+  // ---- Demande de refaire (D78, D80) : raison obligatoire ; c'est l'établissement qui libère la place.
+  function demanderRefaire() { CTX.steps = [{ type: "demande" }]; CTX.stepIndex = 0; renderStep(); }
+  function htmlDemande() {
+    var st = CTX.statut || {}, h = '<h3 class="serif">Demander à refaire ' + (CTX.roleLock === "ENTREPRISE" ? "votre convention" : "votre partie") + '</h3>';
+    h += '<p class="mut">Votre demande est transmise au collège, qui vérifie et libère la place. Ce même lien vous permettra ensuite de tout refaire.</p>';
+    if (CTX.roleLock === "ENTREPRISE") {
+      h += '<label class="champ"><span>Nom de votre entreprise *</span><input id="dem-ent" type="text" autocomplete="organization"></label>';
+    } else if (st.PARENTS_2) {
+      h += '<div class="champ"><span>Quelle partie voulez-vous refaire ? *</span>'
+        + '<label class="radio"><input type="radio" name="dem-place" value="PARENTS" checked> Celle de la première convention</label>'
+        + '<label class="radio"><input type="radio" name="dem-place" value="PARENTS_2"> Celle de la seconde convention (second lieu de stage)</label></div>';
+    }
+    h += '<label class="champ"><span>Pourquoi voulez-vous refaire ' + (CTX.roleLock === "ENTREPRISE" ? "votre convention" : "votre partie") + ' ? *</span><textarea id="dem-raison" rows="4" placeholder="Par exemple : erreur dans les dates, changement de tuteur…"></textarea></label>';
+    h += '<div class="sig-actions"><button class="btn ghost" onclick="SIGNATAIRE.retourPorte()" title="Revenir sans rien envoyer.">← Retour</button>'
+      + '<button class="btn bord" onclick="SIGNATAIRE.envoyerDemande()" title="Transmet votre demande au collège. Rien n\'est effacé tant que le collège ne l\'a pas traitée.">Envoyer ma demande</button></div>';
+    return h;
+  }
+  function envoyerDemande() {
+    var raison = ($("dem-raison") || {}).value || "", ent = ($("dem-ent") || {}).value || "";
+    if (raison.trim().length < 5) { toast("Merci d'expliquer en quelques mots pourquoi vous voulez refaire.", true); return; }
+    if (CTX.roleLock === "ENTREPRISE" && !ent.trim()) { toast("Merci d'indiquer le nom de votre entreprise.", true); return; }
+    var place = CTX.roleLock === "ENTREPRISE" ? "ENTREPRISE" : (document.querySelector('input[name="dem-place"]:checked') || { value: "PARENTS" }).value;
+    if (!CTX.cle || !window.CRYPTO || !window.FB || !window.FB.dispo) { toast("Service momentanément indisponible. Réessayez dans un instant.", true); return; }
+    var objet = { code: CTX.code, place: place, qui: CTX.roleLock === "ENTREPRISE" ? "entreprise" : "famille", eleve: CTX.nomEleve, entreprise: ent.trim(), raison: raison.trim(), tsClient: new Date().toISOString() };
+    window.CRYPTO.chiffrer(CTX.cle, objet).then(function (paquet) { return window.FB.ecrireDemande(CTX.annee, CTX.code, place, paquet); })
+      .then(function () { CTX.steps = [{ type: "demande-ok" }]; CTX.stepIndex = 0; renderStep(); })
+      .catch(function (e) {
+        if (estRefus(e)) { CTX.steps = [{ type: "demande-deja" }]; CTX.stepIndex = 0; renderStep(); return; }
+        toast("L'envoi de la demande a échoué : vérifiez votre connexion et réessayez.", true);
+      });
+  }
+  function estRefus(e) { return /PERMISSION_DENIED/i.test(String((e && (e.code || e.message)) || "")); }
+  function retourPorte() { CTX.steps = [{ type: "place-prise" }]; CTX.stepIndex = 0; renderStep(); }
+  // ---- Attestation « un seul lieu de stage » (D86, D91) : partie définitive, confirmée par le parent lui-même.
+  function attester() { CTX.steps = [{ type: "attestation" }]; CTX.stepIndex = 0; renderStep(); }
+  function htmlAttestation() {
+    var prof = null; try { prof = JSON.parse(lsGet(cleProfilParents()) || "null"); } catch (e) {}
+    var nom = (prof && prof.champs && prof.champs.resp_nom) || "";
+    return '<h3 class="serif">Un seul lieu de stage</h3>'
+      + '<label class="champ"><span>Vos nom et prénom *</span><input id="att-nom" type="text" value="' + esc(nom) + '" autocomplete="name"></label>'
+      + '<label class="chk"><input type="checkbox" id="att-chk"> J\'atteste que ' + esc(CTX.nomEleve || "mon enfant") + ' n\'a qu\'un seul lieu de stage.</label>'
+      + '<div class="sig-actions"><button class="btn ghost" onclick="SIGNATAIRE.retourFin()" title="Revenir sans rien envoyer.">← Retour</button>'
+      + '<button class="btn bord" onclick="SIGNATAIRE.envoyerAttestation()" title="Transmet votre attestation au collège : votre dossier est alors complet. Elle ne se modifie plus ensuite, sauf en demandant à refaire votre partie.">Confirmer</button></div>';
+  }
+  function envoyerAttestation() {
+    var nom = (($("att-nom") || {}).value || "").trim(), ok = ($("att-chk") || {}).checked;
+    if (!nom) { toast("Merci d'indiquer vos nom et prénom.", true); return; }
+    if (!ok) { toast("Merci de cocher l'attestation.", true); return; }
+    if (!CTX.cle || !window.CRYPTO || !window.FB || !window.FB.dispo) { toast("Service momentanément indisponible. Réessayez dans un instant.", true); return; }
+    var objet = { code: CTX.code, role: "ATTESTATION", eleve: CTX.nomEleve, champs: { nom: nom, texte: "un seul lieu de stage" }, tsClient: new Date().toISOString() };
+    window.CRYPTO.chiffrer(CTX.cle, objet).then(function (paquet) { return window.FB.ecrireConvention(CTX.annee, CTX.code, "ATTESTATION", paquet); })
+      .then(function () { if (CTX.statut) CTX.statut.ATTESTATION = true; CTX.steps = [{ type: "attestation-ok" }]; CTX.stepIndex = 0; renderStep(); })
+      .catch(function (e) {
+        if (estRefus(e)) { toast("Une attestation a déjà été transmise pour cet élève.", true); return; }
+        toast("L'envoi a échoué : vérifiez votre connexion et réessayez.", true);
+      });
+  }
+  function retourFin() { if (CTX._finHtml) { CTX.steps = [{ type: "fin-retour" }]; CTX.stepIndex = 0; renderStep(); } else retourPorte(); }
+  function htmlMessage(titre, texte) { return '<h3 class="serif">' + titre + '</h3><div class="encadre-conseil" style="background:#e9f5ee;border-color:#9fd3b4;color:#1d6a40">' + texte + '</div>' + htmlEffacer(); }
+  function htmlEffacer() {
+    return '<p style="margin-top:14px"><button class="btn ghost sm" onclick="SIGNATAIRE.effacerMesInfos()" title="Efface de cet appareil les informations que vous avez saisies (utile sur un ordinateur partagé). Rien n\'est effacé au collège.">Effacer mes informations de cet appareil</button></p>';
+  }
+  function effacerMesInfos() {
+    lsDel(cleProgress()); lsDel(cleProfilParents()); lsDel(CLE_PROFIL_ENT);
+    toast("Vos informations ont été effacées de cet appareil.");
+  }
+  // ---- Jours de stage (D85, D90) : pas de champ libre ; dates officielles à cocher, calendrier en secours.
+  function htmlAccueil() {
+    var off = CTX.datesOff || [], a = CTX.data.accueil || "", dates = CTX.data.dates || [];
+    var h = '<h3 class="serif">Les jours de stage</h3>';
+    if (off.length) h += '<p>La séquence d\'observation a lieu le' + (off.length > 1 ? 's' : '') + ' <b>' + off.map(libDate).join(", ") + '</b>.</p>';
+    h += '<div class="champ"><span>Accueillez-vous l\'élève pour tout son stage ? *</span>'
+      + '<label class="radio" title="Votre entreprise accueille l\'élève tous les jours de la séquence."><input type="radio" name="acc" value="tout"' + (a === "tout" ? " checked" : "") + ' onchange="SIGNATAIRE.accueil(this.value)"> Oui, tous les jours du stage</label>'
+      + '<label class="radio" title="L\'élève passe les autres jours dans une seconde entreprise, qui remplira sa propre convention avec le même lien."><input type="radio" name="acc" value="partiel"' + (a === "partiel" ? " checked" : "") + ' onchange="SIGNATAIRE.accueil(this.value)"> Non, seulement certains jours</label></div>';
+    if (a) {
+      if (off.length) {
+        h += '<div class="champ"><span>' + (a === "tout" ? "Dates du stage" : "Cochez les dates où vous accueillez l'élève *") + '</span>';
+        off.forEach(function (d) {
+          var coche = a === "tout" || dates.indexOf(d) >= 0;
+          h += '<label class="chk"><input type="checkbox" class="acc-date" value="' + esc(d) + '"' + (coche ? " checked" : "") + (a === "tout" ? " disabled" : "") + '> ' + esc(libDate(d)) + '</label>';
+        });
+        h += '</div>';
+      } else {
+        h += '<div class="champ"><span>Dates où vous accueillez l\'élève *</span><div id="acc-cal">';
+        var saisie = CTX._datesSaisie || (dates.length ? dates : [""]);
+        (saisie.length ? saisie : [""]).forEach(function (d) { h += '<input type="date" class="acc-date-cal" value="' + esc(d) + '" style="display:block;margin:4px 0">'; });
+        h += '</div><button class="btn ghost sm" type="button" onclick="SIGNATAIRE.ajouterDate()" title="Ajouter une autre date de présence de l\'élève.">+ Ajouter une date</button></div>';
+      }
+    }
+    return h + navHTML(true);
+  }
+  function lireAccueil() {
+    var off = CTX.datesOff || [], a = CTX.data.accueil || "";
+    var dates = [];
+    if (off.length) { if (a === "tout") dates = off.slice(); else document.querySelectorAll("#sig-step .acc-date").forEach(function (c) { if (c.checked) dates.push(c.value); }); }
+    else {
+      CTX._datesSaisie = [];
+      document.querySelectorAll("#sig-step .acc-date-cal").forEach(function (c) { CTX._datesSaisie.push(c.value || ""); if (c.value) dates.push(c.value); });
+    }
+    dates = dates.filter(function (d, i) { return dates.indexOf(d) === i; }).sort();
+    CTX.data.dates = dates;
+    CTX.data.date_debut = dates[0] || ""; CTX.data.date_fin = dates[dates.length - 1] || "";
+  }
+  function choisirAccueil(v) { lireAccueil(); CTX.data.accueil = v; if (v === "tout" && (CTX.datesOff || []).length) CTX.data.dates = CTX.datesOff.slice(); renderStep(); }
+  function ajouterDate() { lireAccueil(); CTX._datesSaisie = (CTX._datesSaisie || []).concat([""]); renderStep(); }
+  function validerAccueil() {
+    lireAccueil();
+    if (!CTX.data.accueil) { toast("Merci d'indiquer si vous accueillez l'élève pour tout son stage.", true); return false; }
+    if (!CTX.data.dates.length) { toast("Merci d'indiquer au moins une date de présence de l'élève.", true); return false; }
+    return true;
   }
 
   function proposerReprise(sauve) {
@@ -3965,7 +4238,7 @@ window.SIGNATAIRE = (function () {
   function majProgression() {
     var prog = $("sig-prog"); if (!prog) return;
     var st = CTX.steps[CTX.stepIndex];
-    if (!st || st.type === "intro" || st.type === "fin" || st.type === "choix-role" || st.type === "reprise") { prog.hidden = true; return; }
+    if (!st || ["intro", "fin", "choix-role", "reprise", "porte", "place-prise", "reutiliser", "demande", "demande-ok", "demande-deja", "attestation", "attestation-ok", "fin-retour"].indexOf(st.type) >= 0) { prog.hidden = true; return; }
     prog.hidden = false;
     var liste = etapesContenu(), n = liste.length, cur = liste.indexOf(st) + 1;
     $("sig-prog-fill").style.width = Math.round(cur / n * 100) + "%";
@@ -3978,7 +4251,17 @@ window.SIGNATAIRE = (function () {
 
   function renderStep() {
     var st = CTX.steps[CTX.stepIndex], box = $("sig-step");
-    if (st.type === "reprise") box.innerHTML = htmlReprise();
+    if (st.type === "porte") box.innerHTML = htmlPorte();
+    else if (st.type === "place-prise") box.innerHTML = htmlPlacePrise();
+    else if (st.type === "reutiliser") box.innerHTML = htmlReutiliser();
+    else if (st.type === "demande") box.innerHTML = htmlDemande();
+    else if (st.type === "demande-ok") box.innerHTML = htmlMessage("Demande transmise", "Votre demande a bien été transmise au collège. Dès qu'il aura libéré la place, ce même lien vous permettra de tout refaire.");
+    else if (st.type === "demande-deja") box.innerHTML = htmlMessage("Demande déjà transmise", "Une demande est déjà en attente au collège pour cette partie. Elle sera traitée : inutile de la renvoyer.");
+    else if (st.type === "attestation") box.innerHTML = htmlAttestation();
+    else if (st.type === "attestation-ok") box.innerHTML = htmlMessage("Attestation transmise ✓", "Merci : le collège a bien reçu votre attestation. Votre dossier est complet de votre côté.");
+    else if (st.type === "fin-retour") box.innerHTML = CTX._finHtml || "";
+    else if (st.type === "accueil") box.innerHTML = htmlAccueil();
+    else if (st.type === "reprise") box.innerHTML = htmlReprise();
     else if (st.type === "choix-role") box.innerHTML = htmlChoixRole();
     else if (st.type === "intro") box.innerHTML = htmlIntro();
     else if (st.type === "fields") box.innerHTML = htmlFields(st);
@@ -4135,6 +4418,10 @@ window.SIGNATAIRE = (function () {
         + '<b>' + (CTX.estTest ? 'Test réussi : la convention a été transmise dans l\'espace de test.' : 'Votre convention a bien été transmise à l\'établissement.') + '</b><br>'
         + 'Élève : ' + esc(CTX.nomEleve || '') + (CTX.code ? ' · réf. ' + esc(CTX.code) : '') + '.</div>';
       h += '<p class="mut">Vos informations ont été chiffrées sur votre appareil avant l\'envoi : seul l\'établissement peut les lire. Vous pouvez fermer cette page.</p>';
+      var st = CTX.statut || {};
+      if (CTX.place === "PARENTS" && !st.PARENTS_2 && !st.ATTESTATION) h += htmlBoutonsSecondLieu();
+      h += htmlEffacer();
+      CTX._finHtml = h;
       return h;
     }
     var h = '<h3 class="serif">Votre convention est prête</h3>';
@@ -4156,6 +4443,7 @@ window.SIGNATAIRE = (function () {
   function validerEtape() {
     var st = CTX.steps[CTX.stepIndex];
     if (st.type === "intro" || st.type === "choix-role") return true;
+    if (st.type === "accueil") return validerAccueil();
     if (st.type === "fields") {
       if (CTX.locked[CTX.stepIndex]) return true;
       lireChampsVisibles();
@@ -4266,12 +4554,28 @@ window.SIGNATAIRE = (function () {
       if (!window.FB || !window.FB.dispo) { toast("Service d'envoi momentanément indisponible. Réessayez dans un instant.", true); return; }
       var btn = document.querySelector('#sig-step [onclick*="finaliser"]');
       if (btn) { btn.disabled = true; btn.textContent = "Envoi en cours…"; }
-      var objet = { code: CTX.code, role: CTX.role, eleve: CTX.nomEleve, naissance: CTX.naissance, champs: CTX.champs, signature: CTX.sig, hash: hash, tsClient: CTX.ts };
+      var place = CTX.place || CTX.role;
+      var objet = { code: CTX.code, role: place, eleve: CTX.nomEleve, naissance: CTX.naissance, champs: CTX.champs, signature: CTX.sig, hash: hash, tsClient: CTX.ts };
       window.CRYPTO.chiffrer(CTX.cle, objet)
-        .then(function (paquet) { return window.FB.ecrireConvention(CTX.annee, CTX.code, CTX.role, paquet); })
-        .then(function () { effacerProgress(); allerFin(); })
+        .then(function (paquet) { return window.FB.ecrireConvention(CTX.annee, CTX.code, place, paquet); })
+        .then(function () {
+          effacerProgress();
+          if (CTX.role === "PARENTS" && CTX.persist) {
+            var ch = {}; Object.keys(CTX.data || {}).forEach(function (k) { if (k !== "lu_approuve") ch[k] = CTX.data[k]; });
+            lsSet(cleProfilParents(), JSON.stringify({ champs: ch, ts: Date.now() }));
+          }
+          CTX.statut = CTX.statut || {}; CTX.statut[place] = true; CTX.pretAEnvoyer = false;
+          allerFin();
+        })
         .catch(function (e) {
           if (btn) { btn.disabled = false; btn.textContent = "Envoyer ma convention"; }
+          if (estRefus(e)) {
+            // Place déjà prise (règle serveur) : rien n'est écrasé ; on garde ce qui est rempli et on oriente.
+            CTX.pretAEnvoyer = true;
+            var suite = function () { CTX.statut = CTX.statut || {}; CTX.statut[place] = true; CTX.steps = [{ type: "place-prise" }]; CTX.stepIndex = 0; renderStep(); };
+            window.FB.lireStatuts(CTX.annee, CTX.code).then(function (st) { CTX.statut = st; suite(); }).catch(suite);
+            return;
+          }
           toast("L'envoi a échoué : " + (e && e.message ? e.message : "vérifiez votre connexion et réessayez"), true);
         });
     });
@@ -4443,6 +4747,18 @@ window.SIGNATAIRE = (function () {
     } catch (e) { doc.__manuscrite = false; }
     return doc.__manuscrite;
   }
+  // Dates en toutes lettres : « mercredi 24 mars 2027, jeudi 25 mars 2027 et vendredi 26 mars 2027 ».
+  // Anciennes conventions (sans liste de dates) : « du … au … ».
+  function texteDates(ent) {
+    var ds = (ent && ent.dates) || [];
+    if (ds.length) {
+      var l = ds.map(function (d) { var x = new Date(String(d) + "T12:00:00"); return isNaN(x.getTime()) ? String(d) : x.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); });
+      return l.length > 1 ? l.slice(0, -1).join(", ") + " et " + l[l.length - 1] : l[0];
+    }
+    if (ent && (ent.date_debut || ent.date_fin)) return "du " + (ent.date_debut ? frDate(ent.date_debut) : "…") + " au " + (ent.date_fin ? frDate(ent.date_fin) : "…");
+    return "—";
+  }
+  window.__texteDates = texteDates;
   function rendreConventionTissee(doc, o) {
     var M = 18, W = 210, PAGEH = 297, y = 0;
     var manuscrite = poserPoliceManuscrite(doc);
@@ -4452,7 +4768,7 @@ window.SIGNATAIRE = (function () {
     enteteConv(doc, M, W, "Doué-en-Anjou — Convention de séquence d'observation en milieu professionnel");
     y = 34;
     doc.setTextColor(33); doc.setFont("times", "bold"); doc.setFontSize(13);
-    doc.text("Convention de séquence d'observation", M, y); y += 8;
+    doc.text("Convention de séquence d'observation" + (o.lieu === 2 ? " — second lieu de stage" : ""), M, y); y += 8;
 
     function ligne(label, val) {
       val = (val == null || val === "") ? "—" : String(val);
@@ -4471,7 +4787,7 @@ window.SIGNATAIRE = (function () {
     ligne("Téléphone", ent.tel);
     ligne("Lieu de stage effectif", ent.lieu_stage);
     ligne("Élève", o.nomEleve + (o.naissance ? " (né(e) le " + o.naissance + ")" : ""));
-    ligne("Dates de stage", (ent.date_debut ? frDate(ent.date_debut) : "—") + " → " + (ent.date_fin ? frDate(ent.date_fin) : "—"));
+    ligne("Dates de stage", texteDates(ent));
     ligne("Horaires", ent.horaires);
 
     y += 2; saut(14);
@@ -4554,7 +4870,9 @@ window.SIGNATAIRE = (function () {
   }
 
   // Génère la convention tissée pour un élève à partir des données compilées (appelée par le dépouillement)
-  function genererConventionComplete(o) {
+  // mode : absent → téléchargement ; "fichier" → { nom, blob } pour un ZIP (livraison B).
+  function nomConvention(o) { return ((o && o.annee === "demo") ? "TEST_DEMO_" : "") + "Convention_complete_" + (o.code || "eleve") + (o.lieu === 2 ? "_lieu2" : "") + ".pdf"; }
+  function genererConventionComplete(o, mode) {
     o = o || {};
     // Signature de l'établissement apposée en lot (Mme Chrétien, depuis la console)
     if (window.__etab) {
@@ -4569,8 +4887,26 @@ window.SIGNATAIRE = (function () {
     }
     var doc = wrapPDF(new window.jspdf.jsPDF({ unit: "mm", format: "a4", compress: true }));
     rendreConventionTissee(doc, o);
-    var pref = (o && o.annee === "demo") ? "TEST_DEMO_" : "";
-    doc.save(pref + "Convention_complete_" + (o.code || "eleve") + ".pdf");
+    if (mode === "fichier") return { nom: nomConvention(o), blob: doc.output("blob") };
+    doc.save(nomConvention(o));
+  }
+  // PDF unique pour le secrétariat (D87) : toutes les conventions demandées, l'une après l'autre.
+  function genererConventionsUnique(liste, nomFichier) {
+    var doc = wrapPDF(new window.jspdf.jsPDF({ unit: "mm", format: "a4", compress: true }));
+    liste.forEach(function (o, i) {
+      o = o || {};
+      if (window.__etab) {
+        var e = window.__etab();
+        if (e && e.signature) {
+          o.sigs = o.sigs || {}; if (!o.sigs.ETABLISSEMENT) o.sigs.ETABLISSEMENT = e.signature;
+          if (e.signatureTs) o.sigEtabTs = e.signatureTs;
+          o.data = o.data || {}; o.data.ETABLISSEMENT = Object.assign({ fait_a: e.faitA || "", lu_approuve: "Lu et approuvé" }, o.data.ETABLISSEMENT || {});
+        }
+      }
+      if (i) doc.addPage();
+      rendreConventionTissee(doc, o);
+    });
+    doc.save(nomFichier);
   }
 
   // Aperçu de la convention complète : 3 signatures à dessiner puis rendu tissé (données fictives)
@@ -4667,6 +5003,18 @@ window.SIGNATAIRE = (function () {
     modifier: modifier,
     reprendre: reprendre,
     recommencer: recommencer,
+    secondLieu: secondLieu,
+    secondeConventionParents: secondeConventionParents,
+    reutiliserParents: reutiliserParents,
+    demanderRefaire: demanderRefaire,
+    envoyerDemande: envoyerDemande,
+    retourPorte: retourPorte,
+    attester: attester,
+    envoyerAttestation: envoyerAttestation,
+    retourFin: retourFin,
+    effacerMesInfos: effacerMesInfos,
+    accueil: choisirAccueil,
+    ajouterDate: ajouterDate,
     reutiliserProfil: reutiliserProfil,
     ignorerProfil: ignorerProfil,
     effacerSignature: effacerSignature,
@@ -4679,7 +5027,8 @@ window.SIGNATAIRE = (function () {
     effacerSig: effacerSig,
     fermerConvComplete: fermerConvComplete,
     genererConvCompleteSignee: genererConvCompleteSignee,
-    genererConventionComplete: genererConventionComplete
+    genererConventionComplete: genererConventionComplete,
+    genererConventionsUnique: genererConventionsUnique
   };
 })();
 </script>
@@ -4762,67 +5111,233 @@ window.DEPOUILLEMENT = (function () {
 
     var codes = Object.keys(parCode).sort();
     if (!codes.length) {
-      afficher('<p class="mut">Aucune convention exploitable dans ce ZIP.</p>'
+      _lignes = [];
+      afficher('<p class="mut">Aucune convention reçue pour l\'instant.</p>'
         + (illisibles.length ? '<p class="hint">' + illisibles.length + " fichier(s) sans données lisibles.</p>" : ""));
       return;
     }
 
     var nbComplets = 0;
-    var rows = codes.map(function (code) {
+    var datesOff = (window.__datesOffNiveau && window.__datesOffNiveau()) || [];
+    function courtes(ent) {
+      var ds = (ent && ent.dates) || [];
+      if (ds.length) return ds.map(function (d) { var x = new Date(String(d) + "T12:00:00"); return isNaN(x.getTime()) ? d : x.toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "2-digit" }); }).join(", ");
+      if (ent && (ent.date_debut || ent.date_fin)) return (ent.date_debut ? frd(ent.date_debut) : "?") + " au " + (ent.date_fin ? frd(ent.date_fin) : "?");
+      return "—";
+    }
+    var lignes = codes.map(function (code) {
       var g = parCode[code], v = g.volets;
       var el = _resolver(code) || {};
-      var nom = ((el.prenom || "") + " " + (el.nom || "")).trim() || (v.ENTREPRISE && v.ENTREPRISE.data.eleve) || (v.PARENTS && v.PARENTS.data.eleve) || (v.ETABLISSEMENT && v.ETABLISSEMENT.data.eleve) || "—";
-      var ent = v.ENTREPRISE ? v.ENTREPRISE.data.champs : {};
-      var complet = ROLES.every(function (r) { return v[r]; });
+      var nom = ((el.prenom || "") + " " + (el.nom || "")).trim() || (v.ENTREPRISE && v.ENTREPRISE.data.eleve) || (v.PARENTS && v.PARENTS.data.eleve) || "—";
+      var ent = v.ENTREPRISE ? v.ENTREPRISE.data.champs || {} : {};
+      var ent2 = v.ENTREPRISE_2 ? v.ENTREPRISE_2.data.champs || {} : {};
+      // Second lieu (D72, D77) : attendu quand l'entreprise 1 n'accueille l'élève que certains jours.
+      var secondAttendu = ent.accueil === "partiel" || !!v.ENTREPRISE_2 || !!v.PARENTS_2;
+      var conv1 = !!(v.ENTREPRISE && v.PARENTS), conv2 = !!(v.ENTREPRISE_2 && v.PARENTS_2);
+      var complet = conv1 && (!secondAttendu || conv2);
       if (complet) nbComplets++;
-
-      function cell(role) {
-        if (v[role]) return '<span class="ok-pill">✓ ' + dToStr(v[role].date) + "</span>";
-        return '<span class="ko-pill">manquant</span>';
+      function pill(r, lib) { return v[r] ? '<span class="ok-pill" title="Reçue le ' + esc(dToStr(v[r].date)) + '">✓ ' + lib + '</span>' : '<span class="ko-pill">' + lib + ' manquante</span>'; }
+      var etats = [];
+      if (v.ATTESTATION) {
+        var at = v.ATTESTATION.data.champs || {};
+        etats.push('<span class="ok-pill" title="Attestation transmise par le parent lui-même.">La famille a bien attesté que son enfant n\'a qu\'un seul lieu de stage (le ' + esc(dToStr(v.ATTESTATION.date)) + (at.nom ? ', par ' + esc(at.nom) : '') + ')</span>');
+        if (secondAttendu) etats.push('<span class="ko-pill" title="Contradiction à vérifier avec la famille et l\'entreprise.">⚠ Attestation « un seul lieu » alors qu\'une entreprise n\'accueille l\'élève que certains jours</span>');
       }
-      var dates = (ent.date_debut || ent.date_fin)
-        ? ((ent.date_debut ? frd(ent.date_debut) : "?") + " → " + (ent.date_fin ? frd(ent.date_fin) : "?")) : "—";
-
-      return "<tr" + (complet ? "" : ' class="incomplet"') + ">"
+      if (secondAttendu && !v.ENTREPRISE_2) etats.push('<span class="warn-pill" title="L\'entreprise 1 accueille l\'élève seulement certains jours : une seconde entreprise doit remplir sa convention avec le même lien.">Second lieu attendu</span>');
+      // Jours de la séquence non couverts, ou couverts deux fois (dates officielles saisies dans le panneau, D89)
+      if (datesOff.length && (ent.dates || ent2.dates)) {
+        var d1 = ent.dates || [], d2 = ent2.dates || [];
+        var manque = datesOff.filter(function (d) { return d1.indexOf(d) < 0 && d2.indexOf(d) < 0; });
+        var double = datesOff.filter(function (d) { return d1.indexOf(d) >= 0 && d2.indexOf(d) >= 0; });
+        if (manque.length) etats.push('<span class="warn-pill">Jour(s) non couvert(s) : ' + esc(manque.map(frd).join(", ")) + '</span>');
+        if (double.length) etats.push('<span class="ko-pill">Jour(s) couvert(s) deux fois : ' + esc(double.map(frd).join(", ")) + '</span>');
+      }
+      var cellLieu2 = secondAttendu ? (pill("ENTREPRISE_2", "entreprise") + " " + pill("PARENTS_2", "parents")) : '<span class="mut">—</span>';
+      var entreprises = esc(ent.raison_sociale || "—") + (ent.siret ? '<br><span class="mut">SIRET ' + esc(ent.siret) + "</span>" : "")
+        + (v.ENTREPRISE_2 ? '<br><b>Lieu 2 :</b> ' + esc(ent2.raison_sociale || "—") : "");
+      var dates = courtes(ent) + (v.ENTREPRISE_2 ? '<br><b>Lieu 2 :</b> ' + courtes(ent2) : "");
+      var recu = 0; Object.keys(v).forEach(function (r) { if (v[r] && v[r].date && v[r].date.getTime) recu = Math.max(recu, v[r].date.getTime()); });
+      var tr = "<tr" + (complet ? "" : ' class="incomplet"') + ">"
+        + '<td><input type="checkbox" class="cconv" data-cconv="' + esc(code) + '"' + (FILTRE.coches[code] ? " checked" : "") + ' title="Cocher cet élève pour les actions de la sélection (conventions, PDF unique, adresses)."></td>'
         + "<td><b>" + esc(code) + "</b></td>"
         + "<td>" + esc(nom) + (el.classe ? '<br><span class="mut">' + esc(el.classe) + "</span>" : "") + "</td>"
         + "<td>" + esc(el.tuteur || "—") + "</td>"
-        + "<td>" + esc(ent.raison_sociale || "—") + (ent.siret ? '<br><span class="mut">SIRET ' + esc(ent.siret) + "</span>" : "") + "</td>"
-        + "<td>" + esc(dates) + "</td>"
-        + "<td>" + cell("ENTREPRISE") + "</td>"
-        + "<td>" + cell("PARENTS") + "</td>"
-        + "<td>" + cell("ETABLISSEMENT") + "</td>"
-        + '<td><button class="mini" onclick="window.DEPOUILLEMENT.genConvention(\'' + esc(code) + '\')" title="Generer la convention complete assemblee (3 volets + horodatage) pour cet eleve">Convention</button>'
+        + "<td>" + entreprises + "</td>"
+        + "<td>" + dates + "</td>"
+        + "<td>" + pill("ENTREPRISE", "entreprise") + " " + pill("PARENTS", "parents") + (etats.length ? '<div class="etats">' + etats.join(" ") + "</div>" : "") + "</td>"
+        + "<td>" + cellLieu2 + "</td>"
+        + '<td><button class="mini" onclick="window.DEPOUILLEMENT.genConvention(\'' + esc(code) + '\')" title="Fabrique la convention complète du premier lieu de stage (PDF).">Convention' + (secondAttendu ? " 1" : "") + '</button>'
+        + (v.ENTREPRISE_2 ? ' <button class="mini" onclick="window.DEPOUILLEMENT.genConvention(\'' + esc(code) + '\', 2)" title="Fabrique la convention complète du second lieu de stage (PDF).">Convention 2</button>' : "")
         + ' <button class="mini" title="Préparer l\'envoi aux 3 parties" onclick="window.DEPOUILLEMENT.envoyer(\'' + esc(code) + '\')">✉</button>'
-        + ' <button class="mini danger" title="Supprimer cette convention (efface les données Firebase)" onclick="window.__supprimerConvention && window.__supprimerConvention(\'' + esc(code) + '\')">🗑</button></td>'
+        + ((window.__estAdmin && window.__estAdmin()) ? ' <button class="mini danger" title="Archive puis supprime toutes les parties reçues de cet élève. Réservé à l\'administrateur." onclick="window.__supprimerConvention && window.__supprimerConvention(\'' + esc(code) + '\')">🗑</button>' : "") + '</td>'
         + "</tr>";
-    }).join("");
+      // Nom de tri : nom de famille d'abord. Sans la liste d'élèves sur ce poste, on le retrouve dans le nom transmis
+      // (« Prénom NOM » : les mots en capitales forment le nom de famille).
+      var nomTri = ((el.nom || "") + " " + (el.prenom || "")).trim();
+      if (!nomTri) { var mots = String(nom || "").split(/\s+/), cap = mots.filter(function (w) { return w.length > 1 && w === w.toUpperCase(); }); nomTri = cap.concat(mots.filter(function (w) { return cap.indexOf(w) < 0; })).join(" "); }
+      return { code: code, tr: tr, classe: el.classe || "", nom: nomTri, recu: recu,
+        complet: complet, sansEnt: !v.ENTREPRISE, sansPar: !v.PARENTS, secondManquant: secondAttendu && !v.ENTREPRISE_2, deux: !!(v.ENTREPRISE_2 || v.PARENTS_2),
+        emails: { ent: [ent.email, ent2.email].filter(Boolean), par: [v.PARENTS && (v.PARENTS.data.champs || {}).email, v.PARENTS_2 && (v.PARENTS_2.data.champs || {}).email].filter(Boolean) } };
+    });
+    _lignes = lignes; _nbComplets = nbComplets; _illisibles = illisibles.length;
+    _dernier = { codes: codes, parCode: parCode };
+    afficherTable();
+  }
 
+  // ===== Livraison B : filtres, tri, sélection, ZIP, PDF unique, adresses (D70, D71, D87, D88) =====
+  var FILTRE = { classe: "", etat: "", du: "", au: "", tri: "recent", coches: {} };
+  var _lignes = [], _nbComplets = 0, _illisibles = 0;
+  function isoJour(t) { var d = new Date(t); return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); }
+  function lignesFiltrees() {
+    var dem = (window.__demandesCodes && window.__demandesCodes()) || [];
+    var r = _lignes.filter(function (l) {
+      if (FILTRE.classe && l.classe !== FILTRE.classe) return false;
+      if (FILTRE.etat === "complet" && !l.complet) return false;
+      if (FILTRE.etat === "incomplet" && l.complet) return false;
+      if (FILTRE.etat === "sans-ent" && !l.sansEnt) return false;
+      if (FILTRE.etat === "sans-par" && !l.sansPar) return false;
+      if (FILTRE.etat === "second" && !l.secondManquant) return false;
+      if (FILTRE.etat === "deux" && !l.deux) return false;
+      if (FILTRE.etat === "demande" && dem.indexOf(l.code) < 0) return false;
+      var j = l.recu ? isoJour(l.recu) : "";
+      if (FILTRE.du && (!j || j < FILTRE.du)) return false;
+      if (FILTRE.au && (!j || j > FILTRE.au)) return false;
+      return true;
+    });
+    var cmpNom = function (a, b) { return a.nom.localeCompare(b.nom, "fr", { sensitivity: "base" }); };
+    r.sort(function (a, b) {
+      if (FILTRE.tri === "ancien") return (a.recu || 0) - (b.recu || 0);
+      if (FILTRE.tri === "nom") return cmpNom(a, b);
+      if (FILTRE.tri === "classe") return a.classe.localeCompare(b.classe, "fr") || cmpNom(a, b);
+      return (b.recu || 0) - (a.recu || 0);
+    });
+    return r;
+  }
+  function periodeRapide(q) {
+    var d = new Date(); d.setHours(12, 0, 0, 0);
+    if (q === "jour") { FILTRE.du = FILTRE.au = isoJour(d); }
+    else if (q === "semaine") { var l = new Date(d); l.setDate(d.getDate() - ((d.getDay() + 6) % 7)); var di = new Date(l); di.setDate(l.getDate() + 6); FILTRE.du = isoJour(l); FILTRE.au = isoJour(di); }
+    else if (q === "mois") { FILTRE.du = isoJour(new Date(d.getFullYear(), d.getMonth(), 1, 12)); FILTRE.au = isoJour(new Date(d.getFullYear(), d.getMonth() + 1, 0, 12)); }
+    else { FILTRE.du = FILTRE.au = ""; }
+    afficherTable();
+  }
+  function afficherTable() {
+    var vis = lignesFiltrees();
+    var classes = {}; _lignes.forEach(function (l) { if (l.classe) classes[l.classe] = 1; });
+    var tousCoches = vis.length && vis.every(function (l) { return FILTRE.coches[l.code]; });
+    var nbC = _lignes.filter(function (l) { return FILTRE.coches[l.code]; }).length;
+    var opt = function (v, lib, cur) { return '<option value="' + v + '"' + (cur === v ? " selected" : "") + '>' + lib + '</option>'; };
+    var barre = '<div class="selecteur" id="barre-conv">'
+      + '<div class="sel-ligne">'
+      + '<label title="N\'afficher que les élèves de cette classe.">Classe <select id="fc-classe">' + opt("", "Toutes", FILTRE.classe) + Object.keys(classes).sort().map(function (c) { return opt(esc(c), esc(c), FILTRE.classe); }).join("") + '</select></label>'
+      + '<label title="N\'afficher que les élèves dans cet état.">État <select id="fc-etat">' + opt("", "Tous", FILTRE.etat) + opt("complet", "Complets", FILTRE.etat) + opt("incomplet", "Incomplets", FILTRE.etat)
+      + opt("sans-ent", "Partie entreprise manquante", FILTRE.etat) + opt("sans-par", "Partie parents manquante", FILTRE.etat) + opt("second", "Second lieu attendu", FILTRE.etat) + opt("deux", "Deux lieux de stage", FILTRE.etat) + opt("demande", "Demande de refaire en attente", FILTRE.etat) + '</select></label>'
+      + '<label title="Ordre d\'affichage.">Tri <select id="fc-tri">' + opt("recent", "Réception : plus récente d\'abord", FILTRE.tri) + opt("ancien", "Réception : plus ancienne d\'abord", FILTRE.tri) + opt("nom", "Nom", FILTRE.tri) + opt("classe", "Classe, puis nom", FILTRE.tri) + '</select></label></div>'
+      + '<div class="sel-ligne"><span title="Date de réception de la partie la plus récente de l\'élève.">Reçues entre le</span> <input type="date" id="fc-du" value="' + esc(FILTRE.du) + '" title="Début de la période (incluse)."> <span>et le</span> <input type="date" id="fc-au" value="' + esc(FILTRE.au) + '" title="Fin de la période (incluse).">'
+      + '<button class="btn ghost sm" type="button" data-per="jour" title="Conventions reçues aujourd\'hui.">Aujourd\'hui</button>'
+      + '<button class="btn ghost sm" type="button" data-per="semaine" title="Conventions reçues cette semaine (lundi à dimanche).">Cette semaine</button>'
+      + '<button class="btn ghost sm" type="button" data-per="mois" title="Conventions reçues ce mois-ci.">Ce mois</button>'
+      + '<button class="btn ghost sm" type="button" data-per="" title="Retirer le filtre de dates.">Toutes les dates</button>'
+      + '<span class="sel-compte" id="fc-compte">' + vis.length + ' affiché(s) · ' + nbC + ' coché(s)</span></div>'
+      + '<div class="sel-ligne">'
+      + '<button class="btn sm" type="button" id="fc-pdf" title="Un élève coché : son PDF. Deux fichiers ou plus (plusieurs élèves, ou un élève à deux lieux) : un ZIP, un PDF par convention.">📄 Conventions des élèves cochés</button>'
+      + '<button class="btn ghost sm" type="button" id="fc-unique" title="Un seul PDF réunissant toutes les conventions des élèves cochés, l\'une après l\'autre : pratique pour le secrétariat.">🗂 PDF unique (secrétariat)</button>'
+      + '<button class="btn ghost sm" type="button" id="fc-mails" title="Affiche les adresses mail des élèves cochés (parents, entreprises ou les deux), à copier.">✉ Adresses mail</button></div></div>';
     var html = '<div class="recap-tete">'
-      + "<b>" + codes.length + "</b> élève(s) · <b>" + nbComplets + "</b> dossier(s) complet(s) · <b>"
-      + (codes.length - nbComplets) + "</b> incomplet(s)"
-      + (illisibles.length ? ' · <span class="mut">' + illisibles.length + " fichier(s) ignoré(s)</span>" : "")
-      + "</div>"
+      + "<b>" + _lignes.length + "</b> élève(s) · <b>" + _nbComplets + "</b> dossier(s) complet(s) · <b>" + (_lignes.length - _nbComplets) + "</b> incomplet(s)"
+      + (_illisibles ? ' · <span class="mut">' + _illisibles + " fichier(s) ignoré(s)</span>" : "") + "</div>"
+      + barre
       + '<div class="tablewrap"><table><thead><tr>'
+      + '<th><input type="checkbox" id="fc-tout"' + (tousCoches ? " checked" : "") + ' title="Coche (ou décoche) tous les élèves affichés : par exemple toute une classe filtrée."></th>'
       + "<th>Code</th><th>Élève</th><th>Tuteur</th><th>Entreprise</th><th>Dates</th>"
-      + "<th>Entreprise</th><th>Parents</th><th>Établis.</th><th>PDF</th>"
-      + "</tr></thead><tbody>" + rows + "</tbody></table></div>"
+      + "<th>Parties reçues</th><th>Second lieu</th><th>PDF</th>"
+      + "</tr></thead><tbody>" + (vis.length ? vis.map(function (l) { return l.tr; }).join("") : '<tr><td colspan="9" class="vide">Aucun élève ne correspond à ces filtres.</td></tr>') + "</tbody></table></div>"
       + '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">'
       + '<button class="btn sm" onclick="window.DEPOUILLEMENT.genFichesTuteurs()" title="Un PDF par tuteur, listant ses eleves et le detail de leurs stages">📋 Fiches tuteurs (PDF)</button>'
       + '<button class="btn ghost sm" onclick="window.DEPOUILLEMENT.exportCSV()" title="Telecharger le tableau recapitulatif au format tableur (.csv)">Exporter le récap (.csv)</button>'
-      + '<button class="btn ghost sm" onclick="window.DEPOUILLEMENT.genToutes()" title="Produire en une seule fois toutes les conventions completes assemblees">Générer toutes les conventions complètes</button>'
-      + ' <button class="btn ghost sm danger" onclick="window.__viderConventions && window.__viderConventions()" title="Supprimer toutes les conventions reçues de cet espace (efface les données Firebase)">🗑 Vider les conventions reçues</button>'
+      + '<button class="btn ghost sm" onclick="window.DEPOUILLEMENT.genToutes()" title="Fabrique toutes les conventions complètes, second lieu compris.">Générer toutes les conventions complètes</button>'
+      + ((window.__estEspaceTest && window.__estEspaceTest()) ? ' <button class="btn ghost sm danger" onclick="window.__viderConventions && window.__viderConventions()" title="Supprime toutes les conventions de l\'espace de test.">🗑 Vider les conventions de test</button>' : "")
       + "</div>";
     afficher(html);
-    _dernier = { codes: codes, parCode: parCode };
+    // Les cases reflètent toujours la sélection en cours, même après un changement de filtre ou de tri.
+    document.querySelectorAll(".cconv").forEach(function (c) { c.checked = !!FILTRE.coches[c.getAttribute("data-cconv")]; });
+    var q = function (id) { return document.getElementById(id); };
+    ["fc-classe", "fc-etat", "fc-tri"].forEach(function (id) { var e = q(id); if (e) e.addEventListener("change", function () { FILTRE[id.slice(3)] = e.value; afficherTable(); }); });
+    ["fc-du", "fc-au"].forEach(function (id) { var e = q(id); if (e) e.addEventListener("change", function () { FILTRE[id.slice(3)] = e.value; afficherTable(); }); });
+    document.querySelectorAll("#barre-conv [data-per]").forEach(function (b) { b.addEventListener("click", function () { periodeRapide(b.getAttribute("data-per")); }); });
+    // Cocher ne redessine pas le tableau : seuls le compteur et la case d'en-tête suivent.
+    function majCoches() {
+      var n = _lignes.filter(function (l) { return FILTRE.coches[l.code]; }).length;
+      if (q("fc-compte")) q("fc-compte").textContent = vis.length + " affiché(s) · " + n + " coché(s)";
+      if (q("fc-tout")) q("fc-tout").checked = !!vis.length && vis.every(function (l) { return FILTRE.coches[l.code]; });
+    }
+    document.querySelectorAll(".cconv").forEach(function (c) { c.addEventListener("change", function () { FILTRE.coches[c.getAttribute("data-cconv")] = c.checked; majCoches(); }); });
+    if (q("fc-tout")) q("fc-tout").addEventListener("change", function () {
+      var on = q("fc-tout").checked;
+      vis.forEach(function (l) { FILTRE.coches[l.code] = on; });
+      document.querySelectorAll(".cconv").forEach(function (c) { c.checked = !!FILTRE.coches[c.getAttribute("data-cconv")]; });
+      majCoches();
+    });
+    if (q("fc-pdf")) q("fc-pdf").addEventListener("click", conventionsCochees);
+    if (q("fc-unique")) q("fc-unique").addEventListener("click", pdfUnique);
+    if (q("fc-mails")) q("fc-mails").addEventListener("click", adressesCochees);
   }
+  function cochees() { return _lignes.filter(function (l) { return FILTRE.coches[l.code]; }); }
+  function conventionsDe(l) {
+    var v = _dernier.parCode[l.code].volets, out = [];
+    if (v.ENTREPRISE || v.PARENTS) out.push(compilPour(l.code));
+    if (v.ENTREPRISE_2 || v.PARENTS_2) out.push(compilPour(l.code, 2));
+    return out.filter(Boolean);
+  }
+  function telecharger(blob, nom) { var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = nom; document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 2000); }
+  // Un fichier : son PDF ; deux fichiers ou plus : un ZIP (D70).
+  function conventionsCochees() {
+    var ls = cochees(); if (!ls.length) { toastDep("Cochez au moins un élève."); return; }
+    var os = []; ls.forEach(function (l) { os = os.concat(conventionsDe(l)); });
+    if (!os.length) { toastDep("Aucune convention pour les élèves cochés."); return; }
+    if (os.length === 1) { window.SIGNATAIRE.genererConventionComplete(os[0]); return; }
+    if (!window.JSZip) { toastDep("Fabrication du ZIP impossible sur ce navigateur."); return; }
+    var zip = new window.JSZip();
+    os.forEach(function (o) { var f = window.SIGNATAIRE.genererConventionComplete(o, "fichier"); zip.file(f.nom, f.blob); });
+    var classe = FILTRE.classe && ls.every(function (l) { return l.classe === FILTRE.classe; }) ? FILTRE.classe.replace(/\s+/g, "_") : ls.length + "_eleves";
+    zip.generateAsync({ type: "blob" }).then(function (b) { telecharger(b, ((os[0] && os[0].annee === "demo") ? "TEST_DEMO_" : "") + "Conventions_" + classe + ".zip"); toastDep(os.length + " convention(s) dans le ZIP."); });
+  }
+  function pdfUnique() {
+    var ls = cochees(); if (!ls.length) { toastDep("Cochez au moins un élève."); return; }
+    var os = []; ls.forEach(function (l) { os = os.concat(conventionsDe(l)); });
+    if (!os.length) { toastDep("Aucune convention pour les élèves cochés."); return; }
+    window.SIGNATAIRE.genererConventionsUnique(os, ((os[0] && os[0].annee === "demo") ? "TEST_DEMO_" : "") + "Conventions_secretariat_" + os.length + ".pdf");
+  }
+  function adressesCochees() {
+    var ls = cochees(); if (!ls.length) { toastDep("Cochez au moins un élève."); return; }
+    var corps = document.getElementById("modal-corps"), titre = document.getElementById("modal-titre");
+    titre.textContent = "Adresses mail — " + ls.length + " élève(s) coché(s)";
+    function liste(qui) { var t = []; ls.forEach(function (l) { if (qui !== "ent") t = t.concat(l.emails.par); if (qui !== "par") t = t.concat(l.emails.ent); }); return t.map(function (x) { return String(x).trim(); }).filter(function (x, i, a) { return /^[^\s@;,]+@[^\s@;,]+\.[^\s@;,]+$/.test(x) && a.indexOf(x) === i; }); }
+    function rendu(qui) {
+      var t = liste(qui);
+      corps.innerHTML = '<div class="sel-ligne" style="margin-bottom:8px">'
+        + ["par", "ent", "tous"].map(function (k) { return '<label><input type="radio" name="fc-qui" value="' + k + '"' + (k === qui ? " checked" : "") + '> ' + { par: "Parents", ent: "Entreprises", tous: "Les deux" }[k] + '</label>'; }).join(" ")
+        + '</div><textarea id="fc-liste" rows="6" style="width:100%;box-sizing:border-box" readonly>' + esc(t.join("; ")) + '</textarea>'
+        + '<p class="hint">' + t.length + ' adresse(s), séparées par des points-virgules : à coller en copie cachée.</p>'
+        + '<div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap"><button class="btn sm" id="fc-copier" type="button" title="Copie les adresses, à coller dans un message.">Copier</button>'
+        + '<button class="btn ghost sm" id="fc-csv" type="button" title="Dernière sortie : les mêmes adresses dans un fichier tableur (.csv).">Télécharger (.csv)</button></div>';
+      corps.querySelectorAll('input[name="fc-qui"]').forEach(function (r) { r.addEventListener("change", function () { rendu(r.value); }); });
+      document.getElementById("fc-copier").addEventListener("click", function () { try { navigator.clipboard.writeText(t.join("; ")).then(function () { toastDep("Adresses copiées."); }); } catch (e) {} });
+      document.getElementById("fc-csv").addEventListener("click", function () { telecharger(new Blob(["\ufeffadresse\n" + t.join("\n")], { type: "text/csv" }), "Adresses_" + t.length + ".csv"); });
+    }
+    rendu("tous");
+    document.getElementById("modal").hidden = false;
+  }
+  function toastDep(m) { var t = document.getElementById("toast"); if (!t) { alert(m); return; } t.textContent = m; t.className = "toast ok"; t.hidden = false; clearTimeout(toastDep._t); toastDep._t = setTimeout(function () { t.hidden = true; }, 3500); }
+
 
   function frd(v) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v || "")); return m ? (m[3] + "/" + m[2] + "/" + m[1]) : v; }
 
   // Reconstruit les données des 3 volets d'un élève pour générer la convention tissée
-  function compilPour(code) {
+  function compilPour(code, n) {
     if (!_dernier || !_dernier.parCode[code]) return null;
-    var v = _dernier.parCode[code].volets;
+    var v0 = _dernier.parCode[code].volets, v = v0;
+    if (n === 2) v = { ENTREPRISE: v0.ENTREPRISE_2, PARENTS: v0.PARENTS_2, ETABLISSEMENT: v0.ETABLISSEMENT };
     var el = _resolver(code) || {};
     function champs(role) { return v[role] ? (v[role].data.champs || {}) : {}; }
     function preuve(role) { if (!v[role]) return null; var d = v[role].data; var h = d.hash || ""; return { ts: d.ts || "", depot: dToStr(v[role].date), hash: h ? h.slice(0, 24) + "…" : "" }; }
@@ -4840,19 +5355,24 @@ window.DEPOUILLEMENT = (function () {
       nomEleve: nom, naissance: el.naissance || "", code: code, annee: pick("annee"),
       data: { ENTREPRISE: champs("ENTREPRISE"), PARENTS: champs("PARENTS"), ETABLISSEMENT: champs("ETABLISSEMENT") },
       sigs: sigs,
-      preuves: { ENTREPRISE: preuve("ENTREPRISE"), PARENTS: preuve("PARENTS"), ETABLISSEMENT: preuve("ETABLISSEMENT") }
+      preuves: { ENTREPRISE: preuve("ENTREPRISE"), PARENTS: preuve("PARENTS"), ETABLISSEMENT: preuve("ETABLISSEMENT") },
+      lieu: n === 2 ? 2 : 1
     };
   }
 
-  function genConvention(code) {
-    var o = compilPour(code);
+  function genConvention(code, n) {
+    var o = compilPour(code, n);
     if (!o) { afficher('<p class="err-txt">Données indisponibles pour ' + esc(code) + ".</p>"); return; }
     if (window.SIGNATAIRE && window.SIGNATAIRE.genererConventionComplete) window.SIGNATAIRE.genererConventionComplete(o);
   }
 
   function genToutes() {
     if (!_dernier) return;
-    _dernier.codes.forEach(function (code, i) { setTimeout(function () { genConvention(code); }, i * 500); });
+    var k = 0;
+    _dernier.codes.forEach(function (code) {
+      setTimeout(function () { genConvention(code); }, (k++) * 500);
+      if (_dernier.parCode[code].volets.ENTREPRISE_2) setTimeout(function () { genConvention(code, 2); }, (k++) * 500);
+    });
   }
 
   // Une fiche imprimable par enseignant tuteur : ses élèves + contacts des entreprises
@@ -4959,7 +5479,7 @@ window.DEPOUILLEMENT = (function () {
   function afficher(html) { var z = $("depouille-resultats"); if (z) z.innerHTML = html; }
 
   function nbRecues() { return (_dernier && _dernier.codes) ? _dernier.codes.length : 0; }
-  return { init: init, importerZip: importerZip, exportCSV: exportCSV, genConvention: genConvention, genToutes: genToutes, envoyer: envoyer, genFichesTuteurs: genFichesTuteurs, injecterTest: injecterTest, nbRecues: nbRecues };
+  return { init: init, importerZip: importerZip, exportCSV: exportCSV, genConvention: genConvention, rafraichir: function () { if (_lignes.length) afficherTable(); }, voletsDe: function (code) { return (_dernier && _dernier.parCode[code]) ? _dernier.parCode[code].volets : {}; }, genToutes: genToutes, envoyer: envoyer, genFichesTuteurs: genFichesTuteurs, injecterTest: injecterTest, nbRecues: nbRecues };
 })();
 </script>
 <script>/* =====================================================================
@@ -5623,7 +6143,7 @@ window.DEPOUILLEMENT = (function () {
     var atg = $("admin-toggle");
     if (atg) atg.addEventListener("change", function () {
       var c = $("admin-corps"); if (c) c.hidden = !atg.checked;
-      if (atg.checked) { renderAdminChamps(); majDiag(); }
+      if (atg.checked) { renderAdminChamps(); majDiag(); renderAdminDates(); }
     });
     var ace = $("admin-chef-email");
     if (ace) ace.addEventListener("blur", function () {
@@ -5723,6 +6243,7 @@ window.DEPOUILLEMENT = (function () {
     majEtapes();
     majVerrouSignature();
     renderNouveautes();
+    chargerDatesOfficielles(); renderAdminDates();
 
     // Repli des listes (tuteurs, élèves)
     document.querySelectorAll(".pli").forEach(function (b) {
@@ -5900,20 +6421,20 @@ window.DEPOUILLEMENT = (function () {
     $("compte-eleves").textContent = els.length;
     var st = $("sans-tuteur");
     if (st) { var sans = els.filter(function (e) { return !e.tuteur; }).length; st.textContent = (els.length && sans) ? " · " + sans + " sans tuteur" : ""; }
-    var g2 = estActif("groupe2");
-    renderSelecteur(g2);
+    var g2 = estActif("groupe2"), sel = true;   // sélecteur pour tous (D69) ; codes personnels en sommeil (g2)
+    renderSelecteur(sel);
     var th = $("eleves-thead");
-    if (th) th.innerHTML = "<tr>" + (g2 ? '<th style="width:28px"></th>' : "") + "<th>Code</th><th>Élève</th><th>Tuteur</th><th>Liens &amp; QR</th></tr>";
-    if (!els.length) { $("eleves-body").innerHTML = '<tr><td colspan="' + (g2 ? 5 : 4) + '" class="vide">Aucun élève importé pour le ' + STATE.niveauActif + ".</td></tr>"; renderDocsButtons(); return; }
+    if (th) th.innerHTML = "<tr>" + (sel ? '<th style="width:28px"></th>' : "") + "<th>Code</th><th>Élève</th><th>Tuteur</th><th>Liens &amp; QR</th></tr>";
+    if (!els.length) { $("eleves-body").innerHTML = '<tr><td colspan="' + (sel ? 5 : 4) + '" class="vide">Aucun élève importé pour le ' + STATE.niveauActif + ".</td></tr>"; renderDocsButtons(); return; }
     // Vue : en mode normal, la liste telle quelle ; avec le sélecteur (groupe 2), filtrée par classe et triée.
     var vue = els.map(function (el, i) { return { el: el, i: i }; });
-    if (g2) vue = vueSelecteur(vue);
+    if (sel) vue = vueSelecteur(vue);
     var html = "";
     vue.forEach(function (v) {
       var el = v.el, i = v.i;
       var nomComplet = (el.prenom + " " + el.nom).trim() || "—";
       html += "<tr>";
-      if (g2) html += '<td><input type="checkbox" data-coche="' + esc(el.code) + '"' + (SEL.coches[el.code] ? " checked" : "") + ' title="Cocher cet élève pour l\'inclure dans les documents de la sélection (QR codes, codes personnels)."></td>';
+      if (sel) html += '<td><input type="checkbox" data-coche="' + esc(el.code) + '"' + (SEL.coches[el.code] ? " checked" : "") + ' title="Cocher cet élève pour l\'inclure dans les documents de la sélection (QR codes, codes personnels)."></td>';
       html += "<td>" + esc(el.code) + "</td>";
       html += "<td>" + esc(nomComplet) + "<br><span class=\"mut\">" + esc(el.classe) + "</span></td>";
       html += "<td><select data-tut=\"" + i + "\"><option value=\"\">—</option>" +
@@ -6163,9 +6684,9 @@ window.DEPOUILLEMENT = (function () {
       + '<button class="btn ghost sm" id="sel-rien" type="button" title="Décocher tous les élèves, affichés ou non.">Tout décocher</button>'
       + '<span class="sel-compte" id="sel-compte"></span></div>'
       + '<div class="sel-ligne">'
-      + '<button class="btn sm" id="sel-doc" type="button" title="Fabrique le document de distribution (QR codes et liens) des élèves cochés, à imprimer.">📄 QR codes de la sélection</button>'
-      + '<button class="btn sm" id="sel-codes" type="button" title="Fabrique la planche des codes personnels des élèves cochés, à imprimer et découper. Les codes manquants sont créés, puis ne changent plus.">🔑 Codes personnels de la sélection</button>'
-      + '<span class="hint" style="margin:0">Espace de test : fonctions en préparation.</span></div>';
+      + '<button class="btn sm" id="sel-doc" type="button" title="Fabrique le document de distribution (QR codes et liens) des seuls élèves cochés, à imprimer.">📄 QR codes des élèves cochés</button>'
+      + (estActif("groupe2") ? '<button class="btn sm" id="sel-codes" type="button" title="Fabrique la planche des codes personnels des élèves cochés, à imprimer et découper. Les codes manquants sont créés, puis ne changent plus.">🔑 Codes personnels de la sélection</button>'
+        + '<span class="hint" style="margin:0">Codes personnels : en préparation (espace de test).</span>' : "") + '</div>';
     $("sel-classe").addEventListener("change", function () { SEL.classe = this.value; renderEleves(); });
     $("sel-tri").addEventListener("change", function () { SEL.tri = this.value; renderEleves(); });
     $("sel-tout").addEventListener("click", function () { vueSelecteur((nv().eleves || []).map(function (e, i) { return { el: e, i: i }; })).forEach(function (v) { SEL.coches[v.el.code] = true; }); renderEleves(); });
@@ -6174,7 +6695,7 @@ window.DEPOUILLEMENT = (function () {
       var els = selectionCourante(); if (!els.length) { toast("Cochez au moins un élève.", true); return; }
       assurerCle(espaceAnnee()).then(function () { genererDocumentEleves(els, "Sélection de " + els.length + " élève(s)", "Selection"); });
     });
-    $("sel-codes").addEventListener("click", function () {
+    if ($("sel-codes")) $("sel-codes").addEventListener("click", function () {
       var els = selectionCourante(); if (!els.length) { toast("Cochez au moins un élève.", true); return; }
       assurerCodes(els).then(function (map) { if (map) planchesCodes(els, map); });
     });
@@ -6598,7 +7119,24 @@ window.DEPOUILLEMENT = (function () {
   // Une entrée par version mise en ligne, la plus récente en tête. Dates et versions relevées dans l'historique
   // des envois sur GitHub ; descriptions reconstituées. À COMPLÉTER À CHAQUE LIVRAISON (consigne 8 en tête du fichier).
   var NOUVEAUTES = [
-    { date: "24/09/2026", heure: "", auteur: "Paul Meney", version: "v2026.09.24·g2-codes", points: [
+    { date: "24/09/2026", heure: "", auteur: "Paul Meney", version: "v2026.09.24·tri-conventions", points: [
+      "Conventions reçues : filtres par classe et par état (complets, incomplets, partie manquante, second lieu attendu, deux lieux, demande de refaire en attente).",
+      "Filtres de dates : « reçues entre le … et le … », et en un clic aujourd'hui, cette semaine, ce mois.",
+      "Tri par date de réception (la plus récente ou la plus ancienne d'abord), par nom ou par classe.",
+      "Cases à cocher, dont une qui coche tous les élèves affichés (par exemple une classe). Un élève coché : son PDF ; plusieurs : un ZIP, un PDF par convention.",
+      "Un PDF unique réunissant les conventions cochées, pour le secrétariat.",
+      "Les adresses mail des élèves cochés (parents, entreprises ou les deux), à copier ; le tableur en dernier recours."
+    ] },
+    { date: "24/09/2026", heure: "", auteur: "Paul Meney", version: "v2026.09.24·deux-lieux", points: [
+      "Correction : le sélecteur d'élèves de l'étape 3, réservé par erreur au mode test dans la version précédente, est disponible pour tous. « QR codes des élèves cochés » fabrique les QR des seuls élèves cochés.",
+      "Deux lieux de stage : un élève peut faire son stage dans deux entreprises. Les liens et QR codes ne changent pas : la seconde entreprise ouvre le même lien et choisit « Je suis le second lieu de stage de l'élève ». La console affiche alors deux conventions, chacune avec son PDF.",
+      "L'entreprise indique si elle accueille l'élève tout le stage ou seulement certains jours, en cochant les dates officielles. La console signale un second lieu attendu, et les jours non couverts ou couverts deux fois.",
+      "Une partie envoyée est définitive : plus rien ne peut l'écraser. Pour corriger, la famille ou l'entreprise rouvre son lien et demande à refaire, avec une raison ; la demande arrive à l'étape 6, et seul l'administrateur libère la place, après l'avoir archivée.",
+      "Les parents signent aussi la convention du second lieu (en réutilisant, sur le même appareil, les informations de la première), ou attestent que leur enfant n'a qu'un seul lieu de stage.",
+      "Dans le panneau d'administration : les dates officielles de la séquence, en 4e et en 3e.",
+      "Le PDF écrit les dates en toutes lettres, sans flèche."
+    ] },
+    { date: "24/09/2026", heure: "10:20", auteur: "Paul Meney", version: "v2026.09.24·g2-codes", points: [
       "En préparation, visible seulement en mode test : un sélecteur d'élèves à l'étape 3 (par classe, triés, à cocher), pour fabriquer les QR codes d'une sélection.",
       "En préparation, visible seulement en mode test : les codes personnels des familles, sur une planche à découper ou en coupon par élève. Ils serviront à pré-remplir la convention des parents."
     ] },
@@ -6972,6 +7510,54 @@ window.DEPOUILLEMENT = (function () {
   var HIST_MAX = 5;
   var _hist = {};           // { cle: [versions précédentes] }
   var _contenusVersion = 0;
+  window.__estAdmin = function () { return estAdmin(); };
+  window.__estEspaceTest = function () { return STATE.niveauActif === "demo"; };
+  var _datesOff = { "4e": [], "3e": [] };
+  window.__datesOffNiveau = function () { var n = STATE.niveauActif === "3e" ? "3e" : "4e"; return _datesOff[n] || []; };
+  function chargerDatesOfficielles() {
+    if (!window.FB || !window.FB.lireDatesOfficielles) return;
+    ["4e", "3e"].forEach(function (n) {
+      window.FB.lireDatesOfficielles(STATE.annee, n).then(function (l) { _datesOff[n] = (l || []).filter(Boolean).sort(); renderAdminDates(); }).catch(function () {});
+    });
+  }
+  // Panneau d'administration : dates officielles de la séquence (D89), écrites aussi dans l'espace de test.
+  function renderAdminDates() {
+    var z = $("admin-dates"); if (!z) return;
+    z.innerHTML = ["4e", "3e"].map(function (n) {
+      var l = (_datesSaisie && _datesSaisie[n]) || _datesOff[n] || [];
+      return '<div class="adm-dates" data-niv="' + n + '"><b>' + n + '</b> '
+        + (l.length ? l : [""]).map(function (d) { return '<input type="date" class="admin-in adm-date" value="' + esc(d) + '" style="width:auto;display:inline-block;margin:3px 4px 3px 0">'; }).join("")
+        + '<button class="btn ghost sm" type="button" onclick="window.__admAjouterDate(\'' + n + '\')" title="Ajouter une date officielle de la séquence.">+ date</button></div>';
+    }).join("")
+      + '<button class="btn sm" type="button" onclick="window.__admEnregistrerDates()" title="Enregistre les dates officielles : les entreprises les verront à cocher, la console s\'en sert pour signaler les jours non couverts.">Enregistrer les dates</button>';
+  }
+  window.__admAjouterDate = function (n) {
+    var brut = lireAdminDates(true); brut[n] = (brut[n] || []).concat([""]);
+    _datesSaisie = brut; renderAdminDates();
+  };
+  var _datesSaisie = null;
+  // brut = true : toutes les cases, vides comprises (pendant la saisie) ; sinon seules les dates remplies, triées.
+  function lireAdminDates(brut) {
+    var o = {};
+    document.querySelectorAll("#admin-dates .adm-dates").forEach(function (b) {
+      var n = b.getAttribute("data-niv"), l = [];
+      b.querySelectorAll(".adm-date").forEach(function (i) { l.push(i.value || ""); });
+      o[n] = brut ? l : l.filter(function (d, k) { return d && l.indexOf(d) === k; }).sort();
+    });
+    if (!brut) { Object.keys(o).forEach(function (n) { _datesOff[n] = o[n]; }); _datesSaisie = null; }
+    return o;
+  }
+  window.__admEnregistrerDates = function () {
+    if (!estAdmin()) { toast("Réservé à l'administrateur.", true); return; }
+    lireAdminDates();
+    var t = [];
+    ["4e", "3e"].forEach(function (n) {
+      t.push(window.FB.ecrireDatesOfficielles(STATE.annee, n, _datesOff[n]));
+      t.push(window.FB.ecrireDatesOfficielles("demo", n, _datesOff[n]));
+    });
+    Promise.all(t).then(function () { renderAdminDates(); journal("admin", "a enregistré les dates officielles de la séquence"); toast("Dates officielles enregistrées."); })
+      .catch(function () { toast("Échec : les dates n'ont pas été enregistrées.", true); });
+  };
   function estAdmin() {
     var u = window.FB && window.FB.utilisateur && window.FB.utilisateur();
     var mail = ((u && u.email) || "").toLowerCase().trim();
@@ -7412,8 +7998,17 @@ window.DEPOUILLEMENT = (function () {
   }
   function show(id, on) { var e = $(id); if (e) e.hidden = !on; }
 
+  var _statutsPoses = {};
   function surSnapshot(val) {
     var cle = STATE.cles[espaceAnnee()];
+    if (window.FB && window.FB.utilisateur && window.FB.utilisateur() && window.FB.marquerStatut) {
+      Object.keys(val || {}).forEach(function (c) {
+        Object.keys(val[c] || {}).forEach(function (r) {
+          var k = espaceAnnee() + "|" + c + "|" + r, p = val[c][r];
+          if (p && p.ct && !p.e && !_statutsPoses[k]) { _statutsPoses[k] = 1; window.FB.marquerStatut(espaceAnnee(), c, r).catch(function () { delete _statutsPoses[k]; }); }
+        });
+      });
+    }
     if (!window.CRYPTO || !window.CRYPTO.dispo || !cle) { if (window.DEPOUILLEMENT) DEPOUILLEMENT.injecterTest([]); return; }
     var taches = [];
     Object.keys(val || {}).forEach(function (codeEnc) {
@@ -7430,8 +8025,100 @@ window.DEPOUILLEMENT = (function () {
     });
     Promise.all(taches).then(function (res) { if (window.DEPOUILLEMENT) DEPOUILLEMENT.injecterTest(res.filter(Boolean)); });
   }
-  function demarrerEcoute() { arreterEcoute(); if (!window.FB || !window.FB.dispo) return; _unsubEcoute = window.FB.ecouter(espaceAnnee(), surSnapshot); }
-  function arreterEcoute() { if (_unsubEcoute) { try { _unsubEcoute(); } catch (e) {} _unsubEcoute = null; } }
+  var _unsubDemandes = null, _demandes = [];
+  function demarrerEcoute() {
+    arreterEcoute(); if (!window.FB || !window.FB.dispo) return;
+    _unsubEcoute = window.FB.ecouter(espaceAnnee(), surSnapshot);
+    if (window.FB.ecouterDemandes) _unsubDemandes = window.FB.ecouterDemandes(espaceAnnee(), surDemandes);
+  }
+  function arreterEcoute() {
+    if (_unsubEcoute) { try { _unsubEcoute(); } catch (e) {} _unsubEcoute = null; }
+    if (_unsubDemandes) { try { _unsubDemandes(); } catch (e) {} _unsubDemandes = null; }
+  }
+  // ---- Demandes de refaire (D78, D80, D81) : chiffrées ; l'établissement lit, puis libère la place (archive d'abord).
+  function surDemandes(val) {
+    var cle = STATE.cles[espaceAnnee()];
+    if (!window.CRYPTO || !cle) { _demandes = []; renderDemandes(); return; }
+    var t = [];
+    Object.keys(val || {}).forEach(function (c) {
+      Object.keys(val[c] || {}).forEach(function (pl) {
+        var p = val[c][pl]; if (!p || !p.ct) return;
+        t.push(window.CRYPTO.dechiffrer(cle, p).then(function (o) { return { code: c, place: pl, ts: p.ts || 0, o: o || {} }; }).catch(function () { return { code: c, place: pl, ts: p.ts || 0, o: {} }; }));
+      });
+    });
+    Promise.all(t).then(function (l) {
+      var avant = _demandes.length; _demandes = l.sort(function (a, b) { return b.ts - a.ts; });
+      renderDemandes(); if (window.DEPOUILLEMENT && window.DEPOUILLEMENT.rafraichir) window.DEPOUILLEMENT.rafraichir();
+      if (_demandes.length > avant && avant >= 0 && _demandes.length) toast(_demandes.length + " demande(s) de refaire en attente (étape 6).");
+    });
+  }
+  function voletsDe(code) {
+    var d = window.DEPOUILLEMENT && window.DEPOUILLEMENT.voletsDe ? window.DEPOUILLEMENT.voletsDe(code) : null;
+    return d || {};
+  }
+  window.__demandesCodes = function () { return _demandes.map(function (d) { return d.code; }); };
+  function renderDemandes() {
+    var z = $("demandes-refaire"); if (!z) return;
+    var carte = z.closest("section.carte"), h2 = carte && carte.querySelector("h2");
+    if (h2) {
+      var b = h2.querySelector(".pastille-dem");
+      if (!b) { b = document.createElement("span"); b.className = "pastille-dem"; b.title = "Demandes de refaire en attente"; var ref = h2.querySelector(".etape-tag"); h2.insertBefore(b, ref || null); }
+      b.textContent = _demandes.length; b.hidden = !_demandes.length;
+    }
+    if (!_demandes.length) { z.innerHTML = ""; return; }
+    var admin = estAdmin();
+    var h = '<div class="demandes"><div class="demandes-t">🔁 ' + _demandes.length + ' demande(s) de refaire en attente</div>';
+    _demandes.forEach(function (d, i) {
+      var o = d.o || {}, v = voletsDe(d.code);
+      var qui = o.qui === "entreprise" ? "L'entreprise" : "La famille";
+      var quoi = d.place === "PARENTS_2" ? "sa partie de la seconde convention" : (o.qui === "entreprise" ? "sa convention" : "sa partie");
+      h += '<div class="demande"><div><b>' + esc(qui) + (o.entreprise ? " « " + esc(o.entreprise) + " »" : "") + '</b> de ' + esc(o.eleve || d.code) + ' (' + esc(d.code) + ') souhaite refaire ' + quoi + '.</div>'
+        + '<div class="mut">Le ' + esc(new Date(d.ts || Date.now()).toLocaleString("fr-FR")) + ' — raison : « ' + esc(o.raison || "") + ' »</div>';
+      if (admin) {
+        var places = o.qui === "entreprise" ? ["ENTREPRISE", "ENTREPRISE_2"] : [d.place];
+        h += '<div class="demande-actions">';
+        places.forEach(function (pl) {
+          if (!v[pl]) return;
+          var nomPl = pl === "ENTREPRISE" ? "de l'entreprise du lieu 1" : pl === "ENTREPRISE_2" ? "de l'entreprise du lieu 2" : pl === "PARENTS_2" ? "des parents (seconde convention)" : "des parents";
+          var lib = (v[pl].data && v[pl].data.champs && v[pl].data.champs.raison_sociale) ? " (" + v[pl].data.champs.raison_sociale + ")" : "";
+          h += '<button class="btn ghost sm danger" onclick="window.__libererPlace(' + i + ',\'' + pl + '\')" title="Archive la partie ' + esc(nomPl) + esc(lib) + ', puis la supprime : le lien redevient utilisable comme au premier jour. La demande est close.">Supprimer la partie ' + esc(nomPl) + esc(lib) + '</button>';
+        });
+        h += '<button class="btn ghost sm" onclick="window.__refuserDemande(' + i + ')" title="Clôt la demande sans rien supprimer (elle est archivée).">Clore sans supprimer</button></div>';
+      } else h += '<div class="hint" style="margin:4px 0 0">Seul l\'administrateur peut libérer la place.</div>';
+      h += '</div>';
+    });
+    z.innerHTML = h + '</div>';
+  }
+  // Archive d'abord, suppression ensuite ; le message n'apparaît qu'une fois le serveur d'accord (D24, D81).
+  function archiverPuis(code, place, motif, demande) {
+    var esp = espaceAnnee(), auteur = auteurCourant();
+    return window.FB.lirePlace(esp, code, place).then(function (rec) {
+      if (!rec) return null;
+      return window.FB.ecrireArchive(esp, { quoi: "partie", code: code, place: place, motif: motif, auteur: auteur, ts: Date.now(), contenu: rec, demande: demande || null })
+        .then(function () { return window.FB.supprimerPlace(esp, code, place); })
+        .then(function () { return rec; });
+    });
+  }
+  window.__libererPlace = function (i, place) {
+    var d = _demandes[i]; if (!d || !estAdmin()) return;
+    if (!confirm("Supprimer cette partie pour permettre de la refaire ?\n\nElle est d'abord archivée ; le lien redevient ensuite utilisable comme au premier jour.")) return;
+    archiverPuis(d.code, place, "demande de refaire : " + ((d.o || {}).raison || ""), { place: d.place, o: d.o, ts: d.ts })
+      .then(function (rec) {
+        return window.FB.supprimerDemande(espaceAnnee(), d.code, d.place).then(function () {
+          journal("suppression", "a libéré la partie " + place + " de " + d.code + " (demande de refaire)");
+          toast(rec ? "Partie archivée puis supprimée : le lien est de nouveau utilisable." : "Partie déjà absente : la demande est close.");
+        });
+      })
+      .catch(function () { toast("Suppression annulée : l'archivage n'a pas pu être confirmé.", true); });
+  };
+  window.__refuserDemande = function (i) {
+    var d = _demandes[i]; if (!d || !estAdmin()) return;
+    if (!confirm("Clore cette demande sans rien supprimer ?")) return;
+    window.FB.ecrireArchive(espaceAnnee(), { quoi: "demande close", code: d.code, place: d.place, auteur: auteurCourant(), ts: Date.now(), demande: { o: d.o, ts: d.ts } })
+      .then(function () { return window.FB.supprimerDemande(espaceAnnee(), d.code, d.place); })
+      .then(function () { journal("suppression", "a clos sans suppression une demande de refaire (" + d.code + ")"); toast("Demande close."); })
+      .catch(function () { toast("Échec : la demande n'a pas été close.", true); });
+  };
 
   function majAuthConsole() {
     var mc = $("mode-console"); if (!mc) return;
@@ -7503,14 +8190,18 @@ window.DEPOUILLEMENT = (function () {
   }
   window.__supprimerConvention = function (code) {
     if (!window.FB || !window.FB.dispo) { toast("Service indisponible.", true); return; }
-    if (!confirm("Supprimer la convention de « " + code + " » ?\n\nLes données chiffrées seront définitivement effacées de Firebase.")) return;
-    window.FB.supprimer(espaceAnnee(), code).then(function () { journal("suppression", "a supprimé la convention de " + code); toast("Convention supprimée."); })
-      .catch(function (e) { toast("Échec de la suppression : " + (e && e.message ? e.message : "réessayez"), true); });
+    if (!estAdmin()) { toast("Suppression réservée à l'administrateur.", true); return; }
+    if (!confirm("Supprimer toutes les parties reçues de « " + code + " » ?\n\nChaque partie est d'abord archivée ; si l'archivage échoue, rien n'est supprimé.")) return;
+    var pl = (window.FB.PLACES || ["ENTREPRISE", "PARENTS"]);
+    pl.reduce(function (pr, place) { return pr.then(function () { return archiverPuis(code, place, "suppression par l'administrateur"); }); }, Promise.resolve())
+      .then(function () { journal("suppression", "a supprimé (après archivage) les parties reçues de " + code); toast("Parties archivées puis supprimées."); })
+      .catch(function () { toast("Suppression interrompue : l'archivage n'a pas pu être confirmé.", true); });
   };
   window.__viderConventions = function () {
     if (!window.FB || !window.FB.dispo) { toast("Service indisponible.", true); return; }
     var esp = espaceAnnee();
-    var libelle = esp === "demo" ? "toutes les conventions de TEST" : "TOUTES les conventions reçues pour l'année " + esp;
+    if (esp !== "demo") { toast("Réservé à l'espace de test.", true); return; }
+    var libelle = "toutes les conventions de TEST";
     if (!confirm("Supprimer " + libelle + " ?\n\nCette action efface définitivement les nœuds Firebase correspondants et ne peut pas être annulée.")) return;
     window.FB.viderEspace(esp).then(function () { toast("Conventions supprimées."); })
       .catch(function (e) { toast("Échec : " + (e && e.message ? e.message : "réessayez"), true); });
