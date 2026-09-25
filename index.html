@@ -30,6 +30,9 @@
     statut « e » est lisible depuis un lien ; demandes/<année>/<élève>/<place> ; archive/<année> ;
     dates_officielles/<année>/<niveau> (écrites aussi dans l'espace de test « demo »).
     Les règles Firebase correspondantes doivent être publiées AVANT le site.
+ 4 ter. Pause (D92, 24/09/2026) : nœud « pause » { fin, message, auteur, ts }, lisible par tous, écrit par
+    l'administrateur ; les règles refusent tout envoi sans compte hors espace de test tant que pause.fin est à venir.
+    Toute nouvelle écriture des familles ou des entreprises doit reprendre cette condition dans ses règles.
  5. Mails : le script d'essai installé sur monsieurmeney@gmail.com est à SUPPRIMER
     le jour où le script est installé sur l'adresse officielle du collège (D61, Q7).
  6. Ne JAMAIS renuméroter un code élève : il est imprimé sur les liens et les QR
@@ -182,6 +185,7 @@
   #sig-step .champ input[type=text], #sig-step .champ textarea{width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid var(--ligne);border-radius:8px;font:inherit}
   #sig-step .radio{display:block;margin:6px 0;cursor:pointer}
   #sig-step label.chk{display:block;margin:6px 0;cursor:pointer}
+  .bandeau-pause{margin:0 0 12px;padding:10px 14px;border-radius:10px;background:#fff4dc;border:1px solid #f0d49a;color:#6b4700;font-size:14px}
   .demandes{margin:0 0 14px;padding:10px 12px;border:1px solid #e6c9ce;background:#fbf3f4;border-radius:10px}
   .demandes-t{font-weight:700;color:var(--bordeaux,#7a2e3a);margin-bottom:6px}
   .demande{padding:8px 0;border-top:1px solid #efd9dc;font-size:13.5px}
@@ -650,6 +654,12 @@
         </div>
 
         <div class="admin-bloc">
+          <h4>Mise en pause du site (familles et entreprises)</h4>
+          <p class="hint" style="margin-top:0">Pendant la pause, les liens des familles et des entreprises affichent le message ci-dessous, et le serveur refuse tout envoi. Rien de ce qui est déjà reçu n'est touché. L'espace de test reste ouvert. La reprise est automatique à l'échéance.</p>
+          <div id="admin-pause"></div>
+        </div>
+
+        <div class="admin-bloc">
           <h4>Dates officielles de la séquence (année en cours)</h4>
           <p class="hint" style="margin-top:0">Les entreprises cochent parmi ces dates celles où elles accueillent l'élève ; la console s'en sert pour signaler les jours non couverts ou couverts deux fois.</p>
           <div id="admin-dates"></div>
@@ -763,7 +773,7 @@
 
 <div id="toast" class="toast" hidden></div>
 <button id="btn-valider-collab" hidden onclick="window.__ouvrirValidation && window.__ouvrirValidation()">✓ Valider mes modifications (0)</button>
-<div class="app-version">v2026.09.24·tri-conventions</div>
+<div class="app-version">v2026.09.24·pause</div>
 
 <script>
 /* ===== Configuration : système de transmission ====================
@@ -888,6 +898,14 @@ window.FB = (function () {
   // Archive (D24, D81) : copie chiffrée, telle quelle, de ce qui est supprimé.
   function ecrireArchive(annee, rec) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("archive/" + encodeCle(annee)).push(rec); }
   function lirePlace(annee, code, place) { if (!dispo) return Promise.resolve(null); return db.ref("conventions/" + encodeCle(annee) + "/" + encodeCle(code) + "/" + encodeCle(place)).once("value").then(function (s) { return s.val(); }); }
+  // Pause du site pour les familles et les entreprises (D92) : { fin: horodatage, message, auteur, ts }.
+  function lirePause() { if (!dispo) return Promise.resolve(null); return db.ref("pause").once("value").then(function (s) { return s.val(); }); }
+  function ecrirePause(o) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("pause").set(o || null); }
+  function ecouterPause(cb) {
+    if (!dispo) return function () {};
+    var ref = db.ref("pause"), h = ref.on("value", function (s) { cb(s.val()); }, function () { cb(null); });
+    return function () { try { ref.off("value", h); } catch (e) {} };
+  }
   // Dates officielles de la séquence (D89) : lisibles depuis un lien (rien de personnel), écrites par l'administrateur.
   function lireDatesOfficielles(annee, niveau) { if (!dispo) return Promise.resolve([]); return db.ref("dates_officielles/" + encodeCle(annee) + "/" + encodeCle(niveau)).once("value").then(function (s) { var v = s.val(); return Array.isArray(v) ? v : (v ? Object.keys(v).map(function (k) { return v[k]; }) : []); }); }
   function ecrireDatesOfficielles(annee, niveau, liste) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("dates_officielles/" + encodeCle(annee) + "/" + encodeCle(niveau)).set(liste && liste.length ? liste : null); }
@@ -981,7 +999,7 @@ window.FB = (function () {
   function deconnecter() { if (dispo) try { auth.signOut(); } catch (e) {} }
   function onAuth(cb) { if (dispo) auth.onAuthStateChanged(cb); else cb(null); }
   function utilisateur() { return (dispo && auth && auth.currentUser) || null; }
-  return { dispo: dispo, ecrireConvention: ecrireConvention, ecouter: ecouter, supprimer: supprimer, viderEspace: viderEspace, lireSel: lireSel, ecrireSel: ecrireSel, lireCleAnnee: lireCleAnnee, ecrireCleAnnee: ecrireCleAnnee, lireCanari: lireCanari, ecrireCanari: ecrireCanari, ecouterCollab: ecouterCollab, ecrireCollab: ecrireCollab, journalPush: journalPush, journalEcouter: journalEcouter, journalPurger: journalPurger, lireEtat: lireEtat, ecrireEtat: ecrireEtat, presenceAnnoncer: presenceAnnoncer, presenceMaj: presenceMaj, presencePartir: presencePartir, presenceEcouter: presenceEcouter, lireContenus: lireContenus, ecrireContenus: ecrireContenus, lireCodes: lireCodes, ecrireCodes: ecrireCodes, ecrireVerif: ecrireVerif, PLACES: PLACES, lireStatuts: lireStatuts, marquerStatut: marquerStatut, supprimerPlace: supprimerPlace, ecrireDemande: ecrireDemande, ecouterDemandes: ecouterDemandes, supprimerDemande: supprimerDemande, ecrireArchive: ecrireArchive, lirePlace: lirePlace, lireDatesOfficielles: lireDatesOfficielles, ecrireDatesOfficielles: ecrireDatesOfficielles, lireSignature: lireSignature, ecrireSignature: ecrireSignature, ecouterSignature: ecouterSignature, lireChefEmail: lireChefEmail, ecrireChefEmail: ecrireChefEmail, ecouterChefEmail: ecouterChefEmail, remarquePush: remarquePush, remarqueMaj: remarqueMaj, remarqueSupprimer: remarqueSupprimer, remarquesEcouter: remarquesEcouter, connecter: connecter, deconnecter: deconnecter, onAuth: onAuth, utilisateur: utilisateur };
+  return { dispo: dispo, ecrireConvention: ecrireConvention, ecouter: ecouter, supprimer: supprimer, viderEspace: viderEspace, lireSel: lireSel, ecrireSel: ecrireSel, lireCleAnnee: lireCleAnnee, ecrireCleAnnee: ecrireCleAnnee, lireCanari: lireCanari, ecrireCanari: ecrireCanari, ecouterCollab: ecouterCollab, ecrireCollab: ecrireCollab, journalPush: journalPush, journalEcouter: journalEcouter, journalPurger: journalPurger, lireEtat: lireEtat, ecrireEtat: ecrireEtat, presenceAnnoncer: presenceAnnoncer, presenceMaj: presenceMaj, presencePartir: presencePartir, presenceEcouter: presenceEcouter, lireContenus: lireContenus, ecrireContenus: ecrireContenus, lireCodes: lireCodes, ecrireCodes: ecrireCodes, ecrireVerif: ecrireVerif, PLACES: PLACES, lireStatuts: lireStatuts, marquerStatut: marquerStatut, supprimerPlace: supprimerPlace, ecrireDemande: ecrireDemande, ecouterDemandes: ecouterDemandes, supprimerDemande: supprimerDemande, ecrireArchive: ecrireArchive, lirePlace: lirePlace, lireDatesOfficielles: lireDatesOfficielles, ecrireDatesOfficielles: ecrireDatesOfficielles, lirePause: lirePause, ecrirePause: ecrirePause, ecouterPause: ecouterPause, lireSignature: lireSignature, ecrireSignature: ecrireSignature, ecouterSignature: ecouterSignature, lireChefEmail: lireChefEmail, ecrireChefEmail: ecrireChefEmail, ecouterChefEmail: ecouterChefEmail, remarquePush: remarquePush, remarqueMaj: remarqueMaj, remarqueSupprimer: remarqueSupprimer, remarquesEcouter: remarquesEcouter, connecter: connecter, deconnecter: deconnecter, onAuth: onAuth, utilisateur: utilisateur };
 })();
 </script>
 <script>
@@ -3983,11 +4001,29 @@ window.SIGNATAIRE = (function () {
   // La porte (le lien) ne change pas. À l'ouverture, l'app lit le seul statut d'envoi des places de l'élève,
   // puis oriente : place libre → parcours habituel ; place prise → choix (second lieu, refaire, attestation).
   function niveauDuCode(code) { var d = String(code || "").charAt(0); return d === "3" ? "3e" : "4e"; }
+  var MESSAGE_PAUSE_DEFAUT = "Le site des conventions de stage est fermé quelques jours pour une mise à jour. Il rouvrira le {date}.\nRien ne presse : le stage a lieu en mars, et votre lien comme votre QR code restent valables.\nSi vous aviez commencé à remplir votre convention sur cet appareil, vos informations sont conservées.\nSi vous avez déjà envoyé votre partie, vous n'avez rien à faire pour l'instant.";
+  window.__MESSAGE_PAUSE_DEFAUT = MESSAGE_PAUSE_DEFAUT;
+  function dateLongue(t) {
+    var d = new Date(t); if (isNaN(d.getTime())) return "";
+    return d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) + " à " + d.getHours() + " h " + ("0" + d.getMinutes()).slice(-2);
+  }
+  window.__dateLongue = dateLongue;
+  function pauseActive(p) { return !!(p && p.fin && p.fin > Date.now() && CTX.annee !== "demo"); }
+  function montrerMaintenance(p) {
+    CTX._pause = p; CTX.steps = [{ type: "maintenance" }]; CTX.stepIndex = 0; renderStep();
+  }
+  function htmlMaintenance() {
+    var p = CTX._pause || {}, txt = String(p.message || MESSAGE_PAUSE_DEFAUT).replace(/\{date\}/g, dateLongue(p.fin));
+    return '<h3 class="serif">Site en maintenance</h3>'
+      + '<div class="encadre-conseil" style="white-space:pre-line">' + esc(txt) + '</div>';
+  }
   function verifierPorte() {
     var fini = false;
     var dates = window.FB.lireDatesOfficielles ? window.FB.lireDatesOfficielles(CTX.annee, niveauDuCode(CTX.code)).catch(function () { return []; }) : Promise.resolve([]);
-    Promise.all([window.FB.lireStatuts(CTX.annee, CTX.code), dates]).then(function (r) {
+    var pause = window.FB.lirePause ? window.FB.lirePause().catch(function () { return null; }) : Promise.resolve(null);
+    Promise.all([window.FB.lireStatuts(CTX.annee, CTX.code), dates, pause]).then(function (r) {
       fini = true; CTX.statut = r[0] || {}; CTX.datesOff = (r[1] || []).filter(Boolean).sort();
+      if (pauseActive(r[2])) { montrerMaintenance(r[2]); return; }
       orienter();
     }).catch(function () {
       // Statut illisible (réseau) : on ne bloque pas. Si la place est prise, le serveur refusera l'envoi et l'app orientera alors.
@@ -4097,9 +4133,14 @@ window.SIGNATAIRE = (function () {
     window.CRYPTO.chiffrer(CTX.cle, objet).then(function (paquet) { return window.FB.ecrireDemande(CTX.annee, CTX.code, place, paquet); })
       .then(function () { CTX.steps = [{ type: "demande-ok" }]; CTX.stepIndex = 0; renderStep(); })
       .catch(function (e) {
-        if (estRefus(e)) { CTX.steps = [{ type: "demande-deja" }]; CTX.stepIndex = 0; renderStep(); return; }
+        if (estRefus(e)) { siPauseSinon(function () { CTX.steps = [{ type: "demande-deja" }]; CTX.stepIndex = 0; renderStep(); }); return; }
         toast("L'envoi de la demande a échoué : vérifiez votre connexion et réessayez.", true);
       });
+  }
+  // Un refus du serveur pendant la pause affiche la maintenance ; sinon on poursuit avec le cas prévu.
+  function siPauseSinon(suite) {
+    if (!window.FB || !window.FB.lirePause) { suite(); return; }
+    window.FB.lirePause().then(function (p) { if (pauseActive(p)) montrerMaintenance(p); else suite(); }).catch(suite);
   }
   function estRefus(e) { return /PERMISSION_DENIED/i.test(String((e && (e.code || e.message)) || "")); }
   function retourPorte() { CTX.steps = [{ type: "place-prise" }]; CTX.stepIndex = 0; renderStep(); }
@@ -4123,7 +4164,7 @@ window.SIGNATAIRE = (function () {
     window.CRYPTO.chiffrer(CTX.cle, objet).then(function (paquet) { return window.FB.ecrireConvention(CTX.annee, CTX.code, "ATTESTATION", paquet); })
       .then(function () { if (CTX.statut) CTX.statut.ATTESTATION = true; CTX.steps = [{ type: "attestation-ok" }]; CTX.stepIndex = 0; renderStep(); })
       .catch(function (e) {
-        if (estRefus(e)) { toast("Une attestation a déjà été transmise pour cet élève.", true); return; }
+        if (estRefus(e)) { siPauseSinon(function () { toast("Une attestation a déjà été transmise pour cet élève.", true); }); return; }
         toast("L'envoi a échoué : vérifiez votre connexion et réessayez.", true);
       });
   }
@@ -4238,7 +4279,7 @@ window.SIGNATAIRE = (function () {
   function majProgression() {
     var prog = $("sig-prog"); if (!prog) return;
     var st = CTX.steps[CTX.stepIndex];
-    if (!st || ["intro", "fin", "choix-role", "reprise", "porte", "place-prise", "reutiliser", "demande", "demande-ok", "demande-deja", "attestation", "attestation-ok", "fin-retour"].indexOf(st.type) >= 0) { prog.hidden = true; return; }
+    if (!st || ["intro", "fin", "choix-role", "reprise", "porte", "maintenance", "place-prise", "reutiliser", "demande", "demande-ok", "demande-deja", "attestation", "attestation-ok", "fin-retour"].indexOf(st.type) >= 0) { prog.hidden = true; return; }
     prog.hidden = false;
     var liste = etapesContenu(), n = liste.length, cur = liste.indexOf(st) + 1;
     $("sig-prog-fill").style.width = Math.round(cur / n * 100) + "%";
@@ -4252,6 +4293,7 @@ window.SIGNATAIRE = (function () {
   function renderStep() {
     var st = CTX.steps[CTX.stepIndex], box = $("sig-step");
     if (st.type === "porte") box.innerHTML = htmlPorte();
+    else if (st.type === "maintenance") box.innerHTML = htmlMaintenance();
     else if (st.type === "place-prise") box.innerHTML = htmlPlacePrise();
     else if (st.type === "reutiliser") box.innerHTML = htmlReutiliser();
     else if (st.type === "demande") box.innerHTML = htmlDemande();
@@ -4569,14 +4611,16 @@ window.SIGNATAIRE = (function () {
         })
         .catch(function (e) {
           if (btn) { btn.disabled = false; btn.textContent = "Envoyer ma convention"; }
-          if (estRefus(e)) {
-            // Place déjà prise (règle serveur) : rien n'est écrasé ; on garde ce qui est rempli et on oriente.
+          if (!estRefus(e)) { toast("L'envoi a échoué : " + (e && e.message ? e.message : "vérifiez votre connexion et réessayez"), true); return; }
+          // Envoi refusé par le serveur : soit le site est en pause (page ouverte avant la pause), soit la place est prise.
+          // Dans les deux cas rien n'est perdu : ce qui est rempli reste sur l'appareil.
+          var placePrise = function () {
             CTX.pretAEnvoyer = true;
             var suite = function () { CTX.statut = CTX.statut || {}; CTX.statut[place] = true; CTX.steps = [{ type: "place-prise" }]; CTX.stepIndex = 0; renderStep(); };
             window.FB.lireStatuts(CTX.annee, CTX.code).then(function (st) { CTX.statut = st; suite(); }).catch(suite);
-            return;
-          }
-          toast("L'envoi a échoué : " + (e && e.message ? e.message : "vérifiez votre connexion et réessayez"), true);
+          };
+          if (!window.FB.lirePause) { placePrise(); return; }
+          window.FB.lirePause().then(function (p) { if (pauseActive(p)) montrerMaintenance(p); else placePrise(); }).catch(placePrise);
         });
     });
   }
@@ -6143,7 +6187,7 @@ window.DEPOUILLEMENT = (function () {
     var atg = $("admin-toggle");
     if (atg) atg.addEventListener("change", function () {
       var c = $("admin-corps"); if (c) c.hidden = !atg.checked;
-      if (atg.checked) { renderAdminChamps(); majDiag(); renderAdminDates(); }
+      if (atg.checked) { renderAdminChamps(); majDiag(); renderAdminDates(); renderAdminPause(); }
     });
     var ace = $("admin-chef-email");
     if (ace) ace.addEventListener("blur", function () {
@@ -6243,7 +6287,7 @@ window.DEPOUILLEMENT = (function () {
     majEtapes();
     majVerrouSignature();
     renderNouveautes();
-    chargerDatesOfficielles(); renderAdminDates();
+    chargerDatesOfficielles(); renderAdminDates(); demarrerPause();
 
     // Repli des listes (tuteurs, élèves)
     document.querySelectorAll(".pli").forEach(function (b) {
@@ -7119,7 +7163,11 @@ window.DEPOUILLEMENT = (function () {
   // Une entrée par version mise en ligne, la plus récente en tête. Dates et versions relevées dans l'historique
   // des envois sur GitHub ; descriptions reconstituées. À COMPLÉTER À CHAQUE LIVRAISON (consigne 8 en tête du fichier).
   var NOUVEAUTES = [
-    { date: "24/09/2026", heure: "", auteur: "Paul Meney", version: "v2026.09.24·tri-conventions", points: [
+    { date: "24/09/2026", heure: "", auteur: "Paul Meney", version: "v2026.09.24·pause", points: [
+      "Mise en pause du site pour les familles et les entreprises, jusqu'à une date choisie dans le panneau d'administration : leurs liens affichent un message de maintenance, et le serveur refuse tout envoi. La reprise est automatique à l'échéance.",
+      "Un bandeau prévient toute l'équipe pendant la pause. L'espace de test reste ouvert."
+    ] },
+    { date: "24/09/2026", heure: "18:01", auteur: "Paul Meney", version: "v2026.09.24·tri-conventions", points: [
       "Conventions reçues : filtres par classe et par état (complets, incomplets, partie manquante, second lieu attendu, deux lieux, demande de refaire en attente).",
       "Filtres de dates : « reçues entre le … et le … », et en un clic aujourd'hui, cette semaine, ce mois.",
       "Tri par date de réception (la plus récente ou la plus ancienne d'abord), par nom ou par classe.",
@@ -7127,7 +7175,7 @@ window.DEPOUILLEMENT = (function () {
       "Un PDF unique réunissant les conventions cochées, pour le secrétariat.",
       "Les adresses mail des élèves cochés (parents, entreprises ou les deux), à copier ; le tableur en dernier recours."
     ] },
-    { date: "24/09/2026", heure: "", auteur: "Paul Meney", version: "v2026.09.24·deux-lieux", points: [
+    { date: "24/09/2026", heure: "18:01", auteur: "Paul Meney", version: "v2026.09.24·deux-lieux", points: [
       "Correction : le sélecteur d'élèves de l'étape 3, réservé par erreur au mode test dans la version précédente, est disponible pour tous. « QR codes des élèves cochés » fabrique les QR des seuls élèves cochés.",
       "Deux lieux de stage : un élève peut faire son stage dans deux entreprises. Les liens et QR codes ne changent pas : la seconde entreprise ouvre le même lien et choisit « Je suis le second lieu de stage de l'élève ». La console affiche alors deux conventions, chacune avec son PDF.",
       "L'entreprise indique si elle accueille l'élève tout le stage ou seulement certains jours, en cochant les dates officielles. La console signale un second lieu attendu, et les jours non couverts ou couverts deux fois.",
@@ -7511,6 +7559,59 @@ window.DEPOUILLEMENT = (function () {
   var _hist = {};           // { cle: [versions précédentes] }
   var _contenusVersion = 0;
   window.__estAdmin = function () { return estAdmin(); };
+  // ===== Pause du site (D92) =====
+  var _pause = null, _unsubPause = null, _pauseMinuteur = null;
+  function pauseEnCours() { return !!(_pause && _pause.fin && _pause.fin > Date.now()); }
+  function majBandeauPause() {
+    var b = $("bandeau-pause");
+    if (!b) {
+      var ref = document.querySelector("#mode-console .bandeau-partage, #mode-console [id^=bandeau]");
+      b = document.createElement("div"); b.id = "bandeau-pause"; b.className = "bandeau-pause";
+      var hote = $("mode-console"); if (hote) hote.insertBefore(b, hote.firstChild);
+    }
+    var on = pauseEnCours();
+    b.hidden = !on;
+    if (on) b.innerHTML = "⏸ <b>Site en pause pour les familles et les entreprises</b> jusqu'au " + esc(window.__dateLongue(_pause.fin)) + ". Les envois sont refusés ; l'espace de test reste ouvert.";
+    renderAdminPause();
+  }
+  function versLocal(t) { var d = new Date(t); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); }
+  function renderAdminPause() {
+    var z = $("admin-pause"); if (!z) return;
+    var on = pauseEnCours();
+    var defFin = on ? _pause.fin : (function () { var d = new Date(); d.setDate(d.getDate() + 7); d.setHours(8, 0, 0, 0); return d.getTime(); })();
+    var msg = (on && _pause.message) || window.__MESSAGE_PAUSE_DEFAUT || "";
+    z.innerHTML = (on ? '<p style="margin:0 0 8px"><b>En pause</b> jusqu\'au ' + esc(window.__dateLongue(_pause.fin)) + '.</p>' : '<p style="margin:0 0 8px">Le site est <b>ouvert</b>.</p>')
+      + '<label class="admin-lbl">En pause jusqu\'au <input type="datetime-local" id="pause-fin" class="admin-in" style="width:auto;display:inline-block" value="' + versLocal(defFin) + '" title="Date et heure de réouverture automatique."></label>'
+      + '<label class="admin-lbl" style="display:block;margin-top:8px">Message affiché aux familles et aux entreprises ({date} = date de réouverture)'
+      + '<textarea id="pause-msg" class="admin-in" rows="5" title="Texte affiché à l\'ouverture des liens pendant la pause. {date} est remplacé par la date de réouverture.">' + esc(msg) + '</textarea></label>'
+      + '<p class="hint" id="pause-apercu" style="white-space:pre-line"></p>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      + '<button class="btn sm" type="button" id="pause-go" title="Ferme le site aux familles et aux entreprises jusqu\'à la date choisie : leurs liens affichent le message, et le serveur refuse les envois.">' + (on ? "Modifier la pause" : "Mettre en pause") + '</button>'
+      + (on ? '<button class="btn ghost sm" type="button" id="pause-fin-maintenant" title="Rouvre le site tout de suite, sans attendre la date prévue.">Reprendre maintenant</button>' : "")
+      + '</div>';
+    var ap = function () { var f = new Date($("pause-fin").value).getTime(); $("pause-apercu").textContent = "Aperçu : " + String($("pause-msg").value).replace(/\{date\}/g, isNaN(f) ? "…" : window.__dateLongue(f)); };
+    $("pause-fin").addEventListener("input", ap); $("pause-msg").addEventListener("input", ap); ap();
+    $("pause-go").addEventListener("click", function () {
+      if (!estAdmin()) { toast("Réservé à l'administrateur.", true); return; }
+      var f = new Date($("pause-fin").value).getTime();
+      if (isNaN(f) || f <= Date.now()) { toast("Choisissez une date de réouverture dans le futur.", true); return; }
+      if (!confirm("Mettre le site en pause jusqu'au " + window.__dateLongue(f) + " ?\n\nLes familles et les entreprises verront le message, et ne pourront plus rien envoyer.")) return;
+      window.FB.ecrirePause({ fin: f, message: $("pause-msg").value, auteur: auteurCourant(), ts: Date.now() })
+        .then(function () { journal("admin", "a mis le site en pause jusqu'au " + window.__dateLongue(f)); toast("Site en pause jusqu'au " + window.__dateLongue(f) + "."); })
+        .catch(function () { toast("Échec : la pause n'a pas été enregistrée. Le site reste ouvert.", true); });
+    });
+    if ($("pause-fin-maintenant")) $("pause-fin-maintenant").addEventListener("click", function () {
+      if (!estAdmin()) return;
+      if (!confirm("Rouvrir le site tout de suite aux familles et aux entreprises ?")) return;
+      window.FB.ecrirePause(null).then(function () { journal("admin", "a rouvert le site (fin de la pause)"); toast("Site rouvert."); })
+        .catch(function () { toast("Échec : le site reste en pause.", true); });
+    });
+  }
+  function demarrerPause() {
+    if (_unsubPause || !window.FB || !window.FB.ecouterPause) return;
+    _unsubPause = window.FB.ecouterPause(function (p) { _pause = p; majBandeauPause(); });
+    if (!_pauseMinuteur) _pauseMinuteur = setInterval(majBandeauPause, 60000);   // reprise automatique visible sans recharger
+  }
   window.__estEspaceTest = function () { return STATE.niveauActif === "demo"; };
   var _datesOff = { "4e": [], "3e": [] };
   window.__datesOffNiveau = function () { var n = STATE.niveauActif === "3e" ? "3e" : "4e"; return _datesOff[n] || []; };
