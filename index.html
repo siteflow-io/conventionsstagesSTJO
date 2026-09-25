@@ -44,6 +44,9 @@
     renseigner l'heure de mise en ligne de la précédente d'après l'historique GitHub
     (heure de Paris) ; changer le marqueur de version ; rejouer tous les bancs ;
     vérifier que le mode normal n'a pas changé ; mettre à jour le suivi.
+ 10. Jamais de redessin qui efface une saisie en cours (erreur répétée, signalée par Paul le 25/09) :
+    tout redessin déclenché par une écoute de la base ou un minuteur passe par conserverSaisies(racine,
+    redessiner, mode) ; un enregistrement efface les marques data-saisie (oublierSaisies).
  9. Toute livraison qui engage un envoi sur le site est livrée AVEC son point de retour :
     une copie, identique octet par octet, de la version actuellement en ligne (D67).
 =====================================================================
@@ -773,7 +776,7 @@
 
 <div id="toast" class="toast" hidden></div>
 <button id="btn-valider-collab" hidden onclick="window.__ouvrirValidation && window.__ouvrirValidation()">✓ Valider mes modifications (0)</button>
-<div class="app-version">v2026.09.24·pause</div>
+<div class="app-version">v2026.09.25·saisies</div>
 
 <script>
 /* ===== Configuration : système de transmission ====================
@@ -4001,7 +4004,7 @@ window.SIGNATAIRE = (function () {
   // La porte (le lien) ne change pas. À l'ouverture, l'app lit le seul statut d'envoi des places de l'élève,
   // puis oriente : place libre → parcours habituel ; place prise → choix (second lieu, refaire, attestation).
   function niveauDuCode(code) { var d = String(code || "").charAt(0); return d === "3" ? "3e" : "4e"; }
-  var MESSAGE_PAUSE_DEFAUT = "Le site des conventions de stage est fermé quelques jours pour une mise à jour. Il rouvrira le {date}.\nRien ne presse : le stage a lieu en mars, et votre lien comme votre QR code restent valables.\nSi vous aviez commencé à remplir votre convention sur cet appareil, vos informations sont conservées.\nSi vous avez déjà envoyé votre partie, vous n'avez rien à faire pour l'instant.";
+  var MESSAGE_PAUSE_DEFAUT = "Le site des conventions de stage est fermé pour une mise à jour. Il rouvrira le {date}.\nVotre lien et votre QR code restent valables.\nSi vous aviez commencé à remplir votre convention sur cet appareil, vos informations sont conservées.\nSi vous avez déjà envoyé votre partie, vous n'avez rien à faire : le collège vous recontactera si un complément est nécessaire.";
   window.__MESSAGE_PAUSE_DEFAUT = MESSAGE_PAUSE_DEFAUT;
   function dateLongue(t) {
     var d = new Date(t); if (isNaN(d.getTime())) return "";
@@ -5520,7 +5523,10 @@ window.DEPOUILLEMENT = (function () {
     setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 100);
   }
 
-  function afficher(html) { var z = $("depouille-resultats"); if (z) z.innerHTML = html; }
+  function afficher(html) {
+    var go = function () { var z = $("depouille-resultats"); if (z) z.innerHTML = html; };
+    if (window.__conserverSaisies) window.__conserverSaisies("depouille-resultats", go, "focus"); else go();
+  }
 
   function nbRecues() { return (_dernier && _dernier.codes) ? _dernier.codes.length : 0; }
   return { init: init, importerZip: importerZip, exportCSV: exportCSV, genConvention: genConvention, rafraichir: function () { if (_lignes.length) afficherTable(); }, voletsDe: function (code) { return (_dernier && _dernier.parCode[code]) ? _dernier.parCode[code].volets : {}; }, genToutes: genToutes, envoyer: envoyer, genFichesTuteurs: genFichesTuteurs, injecterTest: injecterTest, nbRecues: nbRecues };
@@ -6155,7 +6161,7 @@ window.DEPOUILLEMENT = (function () {
       var id = b.closest("[data-rq]").getAttribute("data-rq");
       var item = b.closest("[data-rq]"), act = b.getAttribute("data-rq-act");
       if (act === "repondre") { var f = item.querySelector(".rq-form"); if (f) { f.hidden = !f.hidden; if (!f.hidden) f.querySelector("textarea").focus(); } }
-      else if (act === "valider") { enregistrerReponse(id, item.querySelector(".rq-rep-saisie").value); }
+      else if (act === "valider") { var ta = item.querySelector(".rq-rep-saisie"); if (ta && ta.dataset) delete ta.dataset.saisie; enregistrerReponse(id, ta.value); }
       else if (act === "annuler") { item.querySelector(".rq-form").hidden = true; }
       else if (act === "suppr") {
         if (!confirm("Supprimer définitivement cette remarque ?")) return;
@@ -6229,6 +6235,7 @@ window.DEPOUILLEMENT = (function () {
         }
       });
       zoneAdmin.addEventListener("blur", function (e) {
+        if (window.__enRedessin) return;   // champ retiré par un redessin : pas un vrai « je quitte le champ »
         var el = e.target.closest ? e.target.closest("[data-edit]") : null;
         if (!el) return;
         var cle = el.getAttribute("data-edit");
@@ -7163,7 +7170,11 @@ window.DEPOUILLEMENT = (function () {
   // Une entrée par version mise en ligne, la plus récente en tête. Dates et versions relevées dans l'historique
   // des envois sur GitHub ; descriptions reconstituées. À COMPLÉTER À CHAQUE LIVRAISON (consigne 8 en tête du fichier).
   var NOUVEAUTES = [
-    { date: "24/09/2026", heure: "", auteur: "Paul Meney", version: "v2026.09.24·pause", points: [
+    { date: "25/09/2026", heure: "", auteur: "Paul Meney", version: "v2026.09.25·saisies", points: [
+      "Correction : une saisie en cours n'est plus effacée par les mises à jour automatiques de la page — panneau de pause, dates officielles, réponse à une remarque, identité et articles, dates de filtre des conventions reçues.",
+      "Message de pause par défaut revu, plus sobre."
+    ] },
+    { date: "25/09/2026", heure: "06:38", auteur: "Paul Meney", version: "v2026.09.24·pause", points: [
       "Mise en pause du site pour les familles et les entreprises, jusqu'à une date choisie dans le panneau d'administration : leurs liens affichent un message de maintenance, et le serveur refuse tout envoi. La reprise est automatique à l'échéance.",
       "Un bandeau prévient toute l'équipe pendant la pause. L'espace de test reste ouvert."
     ] },
@@ -7457,7 +7468,8 @@ window.DEPOUILLEMENT = (function () {
     });
   }
   var _rqFiltre = "toutes";
-  function renderRemarques() {
+  function renderRemarques() { conserverSaisies("carte-remarques", renderRemarquesBrut, "saisie"); }
+  function renderRemarquesBrut() {
     var box = $("rq-liste"); if (!box) return;
     var admin = estAdmin();
     var fz = $("rq-filtres"); if (fz) fz.hidden = !admin;   // le filtre de modération est réservé à l'administrateur
@@ -7558,6 +7570,50 @@ window.DEPOUILLEMENT = (function () {
   var HIST_MAX = 5;
   var _hist = {};           // { cle: [versions précédentes] }
   var _contenusVersion = 0;
+
+  // ===== Garde-fou des saisies (consigne 10 en tête du fichier) =====
+  // Un redessin automatique (écoute de la base, minuteur) ne doit jamais effacer ce que la personne est en train
+  // d'écrire. mode "focus" : le champ où l'on écrit est gardé (curseur compris) ; mode "saisie" : en plus, tout
+  // champ modifié et pas encore enregistré (marqué data-saisie) est gardé, jusqu'à ce que son enregistrement l'efface.
+  function champsDe(r) { return r ? Array.prototype.slice.call(r.querySelectorAll("input, textarea, select, [contenteditable]")) : []; }
+  function cleChamp(el, r) {
+    if (el.id) return "#" + el.id;
+    if (el.getAttribute("data-edit")) return "edit:" + el.getAttribute("data-edit");
+    var a = el.parentElement && el.parentElement.closest("[data-rq],[data-cle],[data-niv],[data-cconv]");
+    var ancre = a ? Object.keys(a.dataset).sort().map(function (k) { return k + "=" + a.dataset[k]; }).join(",") : "";
+    var sel = el.tagName + "|" + (el.className || "") + "|" + (el.getAttribute("name") || "");
+    var freres = champsDe(a || r).filter(function (x) { return x.tagName + "|" + (x.className || "") + "|" + (x.getAttribute("name") || "") === sel; });
+    return ancre + "|" + sel + "|" + freres.indexOf(el);
+  }
+  function valeur(el) { return el.isContentEditable ? el.innerHTML : (el.type === "checkbox" || el.type === "radio") ? el.checked : el.value; }
+  function poser(el, v) { if (el.isContentEditable) el.innerHTML = v; else if (el.type === "checkbox" || el.type === "radio") el.checked = v; else el.value = v; }
+  function conserverSaisies(racine, redessiner, mode) {
+    var r = typeof racine === "string" ? $(racine) : racine;
+    var actif = document.activeElement, gardes = [];
+    champsDe(r).forEach(function (el) {
+      var enCours = el === actif, modifie = mode === "saisie" && el.dataset && el.dataset.saisie === "1";
+      if (!enCours && !modifie) return;
+      var g = { cle: cleChamp(el, r), v: valeur(el), focus: enCours, modifie: modifie };
+      try { g.a = el.selectionStart; g.b = el.selectionEnd; } catch (e) {}
+      gardes.push(g);
+    });
+    // Pendant le redessin, le champ où l'on écrit est retiré de la page : cela ne doit pas l'enregistrer à moitié
+    // (l'enregistrement se fera quand la personne quittera réellement le champ).
+    window.__enRedessin = true;
+    try { redessiner(); } finally { window.__enRedessin = false; }
+    if (!gardes.length) return;
+    r = typeof racine === "string" ? $(racine) : racine;
+    var parCle = {}; champsDe(r).forEach(function (el) { parCle[cleChamp(el, r)] = el; });
+    gardes.forEach(function (g) {
+      var el = parCle[g.cle]; if (!el) return;
+      poser(el, g.v); if (g.modifie || g.focus) el.dataset.saisie = "1";
+      if (g.focus) { try { el.focus(); if (g.a != null) el.setSelectionRange(g.a, g.b); } catch (e) {} }
+    });
+  }
+  function oublierSaisies(racine) { champsDe(typeof racine === "string" ? $(racine) : racine).forEach(function (el) { if (el.dataset) delete el.dataset.saisie; }); }
+  window.__conserverSaisies = conserverSaisies;
+  document.addEventListener("input", function (e) { var t = e.target; if (t && t.dataset && (t.matches("input, textarea, select") || t.isContentEditable)) t.dataset.saisie = "1"; }, true);
+
   window.__estAdmin = function () { return estAdmin(); };
   // ===== Pause du site (D92) =====
   var _pause = null, _unsubPause = null, _pauseMinuteur = null;
@@ -7572,10 +7628,11 @@ window.DEPOUILLEMENT = (function () {
     var on = pauseEnCours();
     b.hidden = !on;
     if (on) b.innerHTML = "⏸ <b>Site en pause pour les familles et les entreprises</b> jusqu'au " + esc(window.__dateLongue(_pause.fin)) + ". Les envois sont refusés ; l'espace de test reste ouvert.";
-    renderAdminPause();
+    conserverSaisies("admin-pause", renderAdminPauseBrut, "saisie");
   }
   function versLocal(t) { var d = new Date(t); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); }
-  function renderAdminPause() {
+  function renderAdminPause() { conserverSaisies("admin-pause", renderAdminPauseBrut, "saisie"); }
+  function renderAdminPauseBrut() {
     var z = $("admin-pause"); if (!z) return;
     var on = pauseEnCours();
     var defFin = on ? _pause.fin : (function () { var d = new Date(); d.setDate(d.getDate() + 7); d.setHours(8, 0, 0, 0); return d.getTime(); })();
@@ -7597,13 +7654,13 @@ window.DEPOUILLEMENT = (function () {
       if (isNaN(f) || f <= Date.now()) { toast("Choisissez une date de réouverture dans le futur.", true); return; }
       if (!confirm("Mettre le site en pause jusqu'au " + window.__dateLongue(f) + " ?\n\nLes familles et les entreprises verront le message, et ne pourront plus rien envoyer.")) return;
       window.FB.ecrirePause({ fin: f, message: $("pause-msg").value, auteur: auteurCourant(), ts: Date.now() })
-        .then(function () { journal("admin", "a mis le site en pause jusqu'au " + window.__dateLongue(f)); toast("Site en pause jusqu'au " + window.__dateLongue(f) + "."); })
+        .then(function () { oublierSaisies("admin-pause"); renderAdminPause(); journal("admin", "a mis le site en pause jusqu'au " + window.__dateLongue(f)); toast("Site en pause jusqu'au " + window.__dateLongue(f) + "."); })
         .catch(function () { toast("Échec : la pause n'a pas été enregistrée. Le site reste ouvert.", true); });
     });
     if ($("pause-fin-maintenant")) $("pause-fin-maintenant").addEventListener("click", function () {
       if (!estAdmin()) return;
       if (!confirm("Rouvrir le site tout de suite aux familles et aux entreprises ?")) return;
-      window.FB.ecrirePause(null).then(function () { journal("admin", "a rouvert le site (fin de la pause)"); toast("Site rouvert."); })
+      window.FB.ecrirePause(null).then(function () { oublierSaisies("admin-pause"); renderAdminPause(); journal("admin", "a rouvert le site (fin de la pause)"); toast("Site rouvert."); })
         .catch(function () { toast("Échec : le site reste en pause.", true); });
     });
   }
@@ -7622,7 +7679,8 @@ window.DEPOUILLEMENT = (function () {
     });
   }
   // Panneau d'administration : dates officielles de la séquence (D89), écrites aussi dans l'espace de test.
-  function renderAdminDates() {
+  function renderAdminDates() { conserverSaisies("admin-dates", renderAdminDatesBrut, "saisie"); }
+  function renderAdminDatesBrut() {
     var z = $("admin-dates"); if (!z) return;
     z.innerHTML = ["4e", "3e"].map(function (n) {
       var l = (_datesSaisie && _datesSaisie[n]) || _datesOff[n] || [];
@@ -7634,7 +7692,7 @@ window.DEPOUILLEMENT = (function () {
   }
   window.__admAjouterDate = function (n) {
     var brut = lireAdminDates(true); brut[n] = (brut[n] || []).concat([""]);
-    _datesSaisie = brut; renderAdminDates();
+    _datesSaisie = brut; oublierSaisies("admin-dates"); renderAdminDatesBrut();
   };
   var _datesSaisie = null;
   // brut = true : toutes les cases, vides comprises (pendant la saisie) ; sinon seules les dates remplies, triées.
@@ -7656,7 +7714,7 @@ window.DEPOUILLEMENT = (function () {
       t.push(window.FB.ecrireDatesOfficielles(STATE.annee, n, _datesOff[n]));
       t.push(window.FB.ecrireDatesOfficielles("demo", n, _datesOff[n]));
     });
-    Promise.all(t).then(function () { renderAdminDates(); journal("admin", "a enregistré les dates officielles de la séquence"); toast("Dates officielles enregistrées."); })
+    Promise.all(t).then(function () { oublierSaisies("admin-dates"); renderAdminDates(); journal("admin", "a enregistré les dates officielles de la séquence"); toast("Dates officielles enregistrées."); })
       .catch(function () { toast("Échec : les dates n'ont pas été enregistrées.", true); });
   };
   function estAdmin() {
@@ -7744,7 +7802,8 @@ window.DEPOUILLEMENT = (function () {
     }
     return h + '</div>';
   }
-  function renderAdminChamps() {
+  function renderAdminChamps() { conserverSaisies("admin-corps", renderAdminChampsBrut, "focus"); }
+  function renderAdminChampsBrut() {
     var be = $("admin-etab"); if (!be) return;
     var champsEtab = [["nom", "Nom de l'établissement"], ["chef", "Chef d'établissement"], ["adresse", "Adresse"], ["ville", "Code postal et ville"], ["tel", "Téléphone"]];
     be.innerHTML = champsEtab.map(function (c) { return champHTML(c[0], c[1], false); }).join("");
