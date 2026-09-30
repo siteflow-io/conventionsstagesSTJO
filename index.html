@@ -5216,6 +5216,10 @@ window.SIGNATAIRE = (function () {
   window.__texteDates = texteDates;
   function rendreConventionTissee(doc, o) {
     var M = 12, W = 210, PAGEH = 297, y = 0;
+    // Une convention provisoire porte un avertissement au bas de chaque page : on lui réserve sa place
+    // avant d'écrire quoi que ce soit, sinon il recouvrirait le texte.
+    var DEC_AVERT = o.provisoire ? 13 : 0;
+    PAGEH -= DEC_AVERT;
     var manuscrite = poserPoliceManuscrite(doc);
     function saut(h) { if (y + h > PAGEH - 14) { doc.addPage(); y = 20; } }
     var ent = o.data.ENTREPRISE || {}, par = o.data.PARENTS || {}, etab = o.data.ETABLISSEMENT || {}, sigs = o.sigs || {};
@@ -5467,21 +5471,53 @@ window.SIGNATAIRE = (function () {
     dessinerSignatures();
 
     // La signalétique est déjà portée par le pied de page de chaque feuille : rien à répéter ici.
-    piedConv(doc, M, W);
+    piedConv(doc, M, W, DEC_AVERT);
+    if (o.provisoire) bandeauProvisoire(doc, M, W);
   }
 
   // Pied de page officiel : la signalétique du collège, répétée au bas de chaque page, avec la pagination.
-  function piedConv(doc, M, W) {
+  // Avertissement porté par une convention dont une partie n'a pas encore été complétée ni resignée.
+  // Ce n'est pas le texte qui est périmé — il est à jour — mais les signatures : elles ont été
+  // apposées sous une version antérieure, et des informations manquent encore.
+  var AVERTISSEMENT = "Document provisoire : les signataires n'ont pas encore approuvé ce texte et des informations manquent. Ne pas transmettre.";
+  function bandeauProvisoire(doc, M, W) {
+    var n = doc.internal.getNumberOfPages();
+    for (var i = 1; i <= n; i++) {
+      doc.setPage(i);
+      var H = doc.internal.pageSize.getHeight();
+      // filigrane en diagonale : dessiné en transparence pour que le texte reste lisible dessous
+      var transp = false;
+      try {
+        if (doc.GState && doc.setGState) {
+          doc.saveGraphicsState(); doc.setGState(new doc.GState({ opacity: 0.22 })); transp = true;
+        }
+      } catch (e) { transp = false; }
+      doc.setFont("helvetica", "bold"); doc.setFontSize(74);
+      doc.setTextColor(transp ? 150 : 236, transp ? 22 : 206, transp ? 40 : 210);
+      doc.text("PROVISOIRE", W / 2, H / 2 + 24, { align: "center", angle: 32 });
+      if (transp) { try { doc.restoreGraphicsState(); } catch (e) {} }
+      // bandeau au bas de chaque page : l'avertissement doit se voir même en diagonale d'un bureau
+      var hb = 11;
+      doc.setFillColor(155, 28, 44); doc.rect(0, H - hb, W, hb, "F");
+      doc.setFont("helvetica", "bold"); doc.setFontSize(8.2); doc.setTextColor(255);
+      doc.text("Document provisoire — ne pas transmettre.", M, H - hb + 4.4);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(7.4);
+      doc.text("Les signataires n'ont pas encore approuvé ce texte et des informations manquent.", M, H - hb + 8.4);
+      doc.setTextColor(33);
+    }
+  }
+  function piedConv(doc, M, W, dec) {
+    dec = dec || 0;
     var e = CONTENUS.etab || {}, n = doc.internal.getNumberOfPages();
     var l1 = e.nom + " — " + e.adresse + ", " + e.ville;
     var l2 = "Téléphone : " + e.tel + " — " + (e.email || "secretariat@stjosephdoue.fr") + (e.site ? " — " + e.site : "");
     for (var i = 1; i <= n; i++) {
       doc.setPage(i);
-      doc.setDrawColor(184, 146, 63); doc.setLineWidth(0.4); doc.line(M, 281, W - M, 281);
+      doc.setDrawColor(184, 146, 63); doc.setLineWidth(0.4); doc.line(M, 281 - dec, W - M, 281 - dec);
       doc.setFont("helvetica", "normal"); doc.setFontSize(7.4); doc.setTextColor(120);
-      doc.text(l1, M, 285);
-      doc.text(l2, M, 288.6);
-      doc.text("Page " + i + " sur " + n, W - M, 288.6, { align: "right" });
+      doc.text(l1, M, 285 - dec);
+      doc.text(l2, M, 288.6 - dec);
+      doc.text("Page " + i + " sur " + n, W - M, 288.6 - dec, { align: "right" });
     }
     doc.setPage(n); doc.setTextColor(33);
   }
@@ -5498,7 +5534,7 @@ function nomConvention(o) {
     }
     var cl = propre(o.classe || (window.__classeDe ? window.__classeDe(o.code) : "") || "Classe");
     var nom = propre(o.nomEleve || o.eleve || "eleve");
-    return (o.annee === "demo" ? "TEST_" : "") + cl + "_" + nom + "_" + (o.code || "eleve")
+    return (o.annee === "demo" ? "TEST_" : "") + (o.provisoire ? "PROVISOIRE_" : "") + cl + "_" + nom + "_" + (o.code || "eleve")
       + (o.lieu === 2 ? "_lieu2" : "") + ".pdf";
 }
   function genererConventionComplete(o, mode) {
@@ -6006,9 +6042,10 @@ window.DEPOUILLEMENT = (function () {
       + '<div class="cv-bloc"><h5>Parties reçues</h5><div>' + l.parties.map(esc).join("<br>") + '</div></div>'
       + '<div class="cv-bloc"><h5>À vérifier</h5><div>' + (l.aVerifier.length ? l.aVerifier.map(function (t) { return "⚠ " + esc(t); }).join("<br>") : '<span class="mut">Rien à signaler.</span>') + '</div></div></div>';
     h += '<div class="cv-actions">'
-      + (l.aConv1 ? '<button class="btn sm" type="button" onclick="window.DEPOUILLEMENT.genConvention(\'' + c + '\')" title="Fabrique la convention complète' + (l.deux ? " du premier lieu" : "") + ' (PDF).">Convention' + (l.deux ? " 1" : "") + ' (PDF)</button>' : "")
-      + (l.aConv2 ? '<button class="btn sm" type="button" onclick="window.DEPOUILLEMENT.genConvention(\'' + c + '\', 2)" title="Fabrique la convention complète du second lieu de stage (PDF).">Convention 2 (PDF)</button>' : "")
-      + '<button class="btn ghost sm" type="button" onclick="window.DEPOUILLEMENT.envoyer(\'' + c + '\')" title="Ouvre votre messagerie avec les adresses et l\'objet prêts ; vous joignez le PDF.">✉ Préparer l\'envoi</button>'
+      + (l.aConv1 ? '<button class="btn ghost sm" type="button" onclick="window.DEPOUILLEMENT.voirConvention(\'' + c + '\')" title="Ouvre la convention à l\'écran, sans l\'enregistrer sur votre appareil.">👁 Visualiser</button>' : "")
+      + (l.aConv1 ? '<button class="btn sm" type="button" onclick="window.DEPOUILLEMENT.genConvention(\'' + c + '\')" title="' + (l.aCompleter ? "Document provisoire : une partie reste à compléter et à resigner. Ne pas le transmettre." : "Fabrique la convention complète" + (l.deux ? " du premier lieu" : "") + " (PDF).") + '">' + (l.aCompleter ? "Aperçu provisoire" : "Convention" + (l.deux ? " 1" : "") + " (PDF)") + '</button>' : "")
+      + (l.aConv2 ? '<button class="btn sm" type="button" onclick="window.DEPOUILLEMENT.genConvention(\'' + c + '\', 2)" title="' + (l.aCompleter ? "Document provisoire : une partie reste à compléter et à resigner. Ne pas le transmettre." : "Fabrique la convention complète du second lieu de stage (PDF).") + '">' + (l.aCompleter ? "Aperçu provisoire 2" : "Convention 2 (PDF)") + '</button>' : "")
+      + '<button class="btn ghost sm" type="button" onclick="window.DEPOUILLEMENT.envoyer(\'' + c + '\')"' + (l.aCompleter ? " disabled" : "") + ' title="' + (l.aCompleter ? "Impossible tant qu\'une partie n\'a pas été complétée et resignée : la convention n\'est pas à jour." : "Ouvre votre messagerie avec les adresses et l\'objet prêts ; vous joignez le PDF.") + '">✉ Préparer l\'envoi</button>'
       + (admin && l.aAttest ? '<button class="btn ghost sm danger" type="button" onclick="window.__retirerAttestation && window.__retirerAttestation(\'' + c + '\')" title="Archive puis retire l\'attestation « un seul lieu » de cette famille. Réservé à l\'administrateur.">Retirer l\'attestation</button><button class="btn ghost sm cv-i" type="button" data-info="' + c + '" title="Quand utiliser « Retirer l\'attestation » ?">i</button>' : "")
       + (admin ? '<button class="btn ghost sm danger" type="button" onclick="window.__supprimerConvention && window.__supprimerConvention(\'' + c + '\')" title="Archive puis supprime toutes les parties reçues de cet élève. Réservé à l\'administrateur.">🗑 Supprimer…</button>' : "")
       + '</div>';
@@ -6114,6 +6151,7 @@ window.DEPOUILLEMENT = (function () {
       sigs: sigs,
       preuves: { ENTREPRISE: preuve("ENTREPRISE"), PARENTS: preuve("PARENTS"), ETABLISSEMENT: preuve("ETABLISSEMENT") },
       lieu: n === 2 ? 2 : 1,
+      provisoire: ["ENTREPRISE", "ENTREPRISE_2", "PARENTS", "PARENTS_2"].some(function (b) { return v[b] && v[b].aCompleter; }),
       tuteur: el.tuteur || ""   // enseignant tuteur affecté à l'élève (étape 2) : référent de l'annexe et du bloc du collège
     };
   }
@@ -6124,6 +6162,25 @@ window.DEPOUILLEMENT = (function () {
     if (window.SIGNATAIRE && window.SIGNATAIRE.genererConventionComplete) window.SIGNATAIRE.genererConventionComplete(o);
   }
 
+  // Voir la convention à l'écran plutôt que de la télécharger : elle s'ouvre dans une fenêtre,
+  // et le fichier n'atterrit pas dans les téléchargements tant qu'on n'a pas cliqué « Télécharger ».
+  var _urlVue = null;
+  function voirConvention(code, n) {
+    var o = compilPour(code, n);
+    if (!o) { afficher('<p class="err-txt">Données indisponibles pour ' + esc(code) + ".</p>"); return; }
+    if (!(window.SIGNATAIRE && window.SIGNATAIRE.genererConventionComplete)) return;
+    var r = window.SIGNATAIRE.genererConventionComplete(o, "fichier");
+    if (!r || !r.blob) return;
+    if (_urlVue) { try { URL.revokeObjectURL(_urlVue); } catch (e) {} }
+    _urlVue = URL.createObjectURL(r.blob);
+    var corps = document.getElementById("modal-corps"), titre = document.getElementById("modal-titre");
+    titre.textContent = (o.provisoire ? "Aperçu provisoire — " : "Convention — ") + (o.nomEleve || code) + (n === 2 ? " (second lieu)" : "");
+    corps.innerHTML = '<iframe id="vue-conv" src="' + _urlVue + '" style="width:100%;height:70vh;border:1px solid var(--ligne);border-radius:8px;background:#fff"></iframe>'
+      + '<div class="sel-ligne" style="margin-top:10px;justify-content:flex-end;gap:8px">'
+      + '<a class="btn ghost sm" href="' + _urlVue + '" download="' + esc(r.nom) + '" title="Enregistre ce document sur votre appareil.">⇩ Télécharger</a>'
+      + '<button class="btn bord sm" type="button" onclick="window.__fermerModal()" title="Ferme cette fenêtre. Rien n\'est enregistré.">Fermer</button></div>';
+    document.getElementById("modal").hidden = false;
+  }
   function genToutes() {
     if (!_dernier) return;
     var k = 0;
@@ -6240,7 +6297,7 @@ window.DEPOUILLEMENT = (function () {
   }
 
   function nbRecues() { return (_dernier && _dernier.codes) ? _dernier.codes.length : 0; }
-  return { init: init, importerZip: importerZip, exportCSV: exportCSV, genConvention: genConvention, rafraichir: function () { if (_lignes.length) afficherTable(); }, voletsDe: function (code) { return (_dernier && _dernier.parCode[code]) ? _dernier.parCode[code].volets : {}; }, genToutes: genToutes, envoyer: envoyer, genFichesTuteurs: genFichesTuteurs, injecterTest: injecterTest, nbRecues: nbRecues };
+  return { init: init, importerZip: importerZip, exportCSV: exportCSV, genConvention: genConvention, voirConvention: voirConvention, rafraichir: function () { if (_lignes.length) afficherTable(); }, voletsDe: function (code) { return (_dernier && _dernier.parCode[code]) ? _dernier.parCode[code].volets : {}; }, genToutes: genToutes, envoyer: envoyer, genFichesTuteurs: genFichesTuteurs, injecterTest: injecterTest, nbRecues: nbRecues };
 })();
 </script>
 <script>/* =====================================================================
