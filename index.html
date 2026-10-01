@@ -816,7 +816,7 @@
 
 <div id="toast" class="toast" hidden></div>
 <button id="btn-valider-collab" hidden title="Ouvre la liste de vos modifications de textes, pour les valider ou les abandonner une par une." onclick="window.__ouvrirValidation && window.__ouvrirValidation()">✓ Valider mes modifications (0)</button>
-<div class="app-version">v2026.09.28·code</div>
+<div class="app-version">v2026.10.01·convention</div>
 
 <script>
 /* ===== Configuration : système de transmission ====================
@@ -5366,8 +5366,8 @@ window.SIGNATAIRE = (function () {
     sousTitre("L'élève et sa famille");
     ligne("Élève", o.nomEleve + (o.naissance ? " (né(e) le " + o.naissance + ")" : ""));
     if (par.resp_nom) ligne("Responsable légal", par.resp_nom + (par.lien ? " (" + par.lien + ")" : "") + (par.statut ? " — " + par.statut + (par.statut === "Autre" && par.statut_precision ? " : " + par.statut_precision : "") : ""));
-    if (par.adresse) ligne("Adresse du responsable", par.adresse);
-    if (par.tel || par.email) ligne("Coordonnées du responsable", [par.tel, par.email].filter(Boolean).join(" · "));
+    if (par.adresse) ligne("Adresse", par.adresse);
+    if (par.tel || par.email) ligne("Coordonnées", [par.tel, par.email].filter(Boolean).join(" · "));
     if (par.urgence) ligne("En cas d'urgence", String(par.urgence).replace(/\n/g, "  ·  "));
 
 
@@ -5530,13 +5530,15 @@ window.SIGNATAIRE = (function () {
         var pv = o.preuves || {};
     blocSig("Le chef d'entreprise", [ent.chef_nom, ent.tel], ent.fait_a, sigs.ENTREPRISE, pv.ENTREPRISE);
     blocSig("Les représentants légaux de l'élève",
-      [(par.resp_nom || "") + (par.lien ? " (" + par.lien + ")" : ""), par.statut || ""],
+      [(par.resp_nom || "") + (par.lien ? " (" + par.lien + ")" : "") + (par.tel ? " — " + par.tel : ""), par.statut || ""],
       par.fait_a, sigs.PARENTS, pv.PARENTS);
     // Mme Chrétien signe une fois pour toutes ; elle est toujours le dernier signataire (D5) :
     // sa date est la plus récente entre la partie entreprise, la partie parents et sa propre signature.
     var tsEtab = [pv.ENTREPRISE && pv.ENTREPRISE.ts, pv.PARENTS && pv.PARENTS.ts, o.sigEtabTs]
       .filter(Boolean).map(function (t) { return new Date(t).getTime(); }).filter(function (n) { return !isNaN(n); });
-    var dateEtab = tsEtab.length ? new Date(Math.max.apply(null, tsEtab)).toISOString() : "";
+    // Elle signe toujours en dernier : on date sa signature dix minutes après la dernière reçue,
+    // faute de quoi elle n'aurait ni heure ni date sous son empreinte.
+    var dateEtab = tsEtab.length ? new Date(Math.max.apply(null, tsEtab) + 10 * 60000).toISOString() : "";
     blocSig("Le chef d'établissement", [CONTENUS.etab.chef + (CONTENUS.etab.tel_chef ? " — " + CONTENUS.etab.tel_chef : ""), (etab.enseignant_suivi || o.tuteur) ? "Enseignant chargé du suivi : " + (etab.enseignant_suivi || o.tuteur) : ""],
       etab.fait_a, sigs.ETABLISSEMENT, pv.ETABLISSEMENT, dateEtab);
     dessinerSignatures();
@@ -6266,7 +6268,11 @@ window.DEPOUILLEMENT = (function () {
         (pv.ENTREPRISE || {}).hash || "", (pv.PARENTS || {}).hash || "", o.sigEtabTs || ""]);
       return window.SIGNATAIRE.empreinteDe(matiere).then(function (h) {
         o.preuves = o.preuves || {};
-        o.preuves.ETABLISSEMENT = Object.assign({}, o.preuves.ETABLISSEMENT, { hash: h, ts: o.sigEtabTs || "" });
+        var pvv = o.preuves || {};
+        var der = [pvv.ENTREPRISE && pvv.ENTREPRISE.ts, pvv.PARENTS && pvv.PARENTS.ts]
+          .filter(Boolean).map(function (t) { return new Date(t).getTime(); }).filter(function (n) { return !isNaN(n); });
+        var tsEtab = der.length ? new Date(Math.max.apply(null, der) + 10 * 60000).toISOString() : (o.sigEtabTs || "");
+        o.preuves.ETABLISSEMENT = Object.assign({}, o.preuves.ETABLISSEMENT, { hash: h, ts: tsEtab });
         return o;
       }).catch(function () { return o; });
     } catch (e) { return Promise.resolve(o); }
@@ -8062,6 +8068,18 @@ window.DEPOUILLEMENT = (function () {
   // Une entrée par version mise en ligne, la plus récente en tête. Dates et versions relevées dans l'historique
   // des envois sur GitHub ; descriptions reconstituées. À COMPLÉTER À CHAQUE LIVRAISON (consigne 8 en tête du fichier).
   var NOUVEAUTES = [
+    { date: "01/10/2026", heure: "", auteur: "Paul Meney", version: "v2026.10.01·convention", points: [
+      "Texte de la convention : les dix articles du modèle officiel, validés par Mme Chrétien le 29 septembre, avec la délibération du conseil de direction du 1er octobre 2026, l'assurance collective de la Mutuelle Saint-Christophe et les deux téléphones du collège à l'article 9.",
+      "Annexe financière : hébergement, restauration, transport et assurance, dans les termes du modèle officiel.",
+      "La convention imprimée change d'allure : logo du collège en tête, signalétique et numéro de page en bas de chaque feuille, encadrés par section, entreprise et signataire d'un côté, élève et famille de l'autre, articles sur deux colonnes justifiées.",
+      "Durée du stage : l'article 10 annonce le nombre de journées que vous avez enregistrées comme dates officielles pour le niveau de l'élève. Sans dates saisies, il garde les cinq jours du texte officiel.",
+      "Conventions reçues : un stage trop court est signalé — « Cet élève n'a que 1 journée couverte sur les 5 prévues : il lui faut un second lieu d'accueil ou des journées supplémentaires. »",
+      "« Visualiser » : la convention s'ouvre en grand à l'écran, sans rien déposer dans vos téléchargements. Le bouton « Télécharger » reste là si vous la voulez vraiment.",
+      "Tant qu'une partie n'a pas été complétée et resignée, la convention porte un filigrane « PROVISOIRE » et un bandeau rouge, son fichier s'appelle PROVISOIRE_…, et « Préparer l'envoi » est inactif.",
+      "Modifier un article vous demande désormais si le changement exige une nouvelle signature. Si oui, les conventions déjà signées repassent « à compléter ».",
+      "Signature de la cheffe d'établissement : elle porte son empreinte, calculée sur la convention assemblée, et sa date, fixée dix minutes après la dernière signature reçue.",
+      "Toutes les commandes de l'application portent une infobulle : les boutons, les champs, les listes et les cases."
+    ] },
     { date: "28/09/2026", heure: "", auteur: "Paul Meney", version: "v2026.09.28·code", points: [
       "Code de la famille (espace de test) : quand un code a été fabriqué pour un élève, son lien parents demande d'abord ce code. Au bout de cinq essais, l'application ouvre d'elle-même la convention sans code : personne n'est jamais bloqué.",
       "Conventions reçues : « Le parent a utilisé le code remis par le collège » ou non, dans le détail de l'élève ; un envoi sans code apparaît aussi dans « À vérifier », avec son filtre."
