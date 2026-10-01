@@ -5247,7 +5247,7 @@ window.SIGNATAIRE = (function () {
     var DEC_AVERT = o.provisoire ? 13 : 0;
     PAGEH -= DEC_AVERT;
     var manuscrite = poserPoliceManuscrite(doc);
-    function saut(h) { if (y + h > PAGEH - 14) { doc.addPage(); y = 20; } }
+    function saut(h) { if (y + h > PAGEH - 20) { doc.addPage(); y = 20; } }
     var ent = o.data.ENTREPRISE || {}, par = o.data.PARENTS || {}, etab = o.data.ETABLISSEMENT || {}, sigs = o.sigs || {};
 
     enteteConv(doc, M, W, "Doué-en-Anjou — Convention de séquence d'observation en milieu professionnel");
@@ -5282,9 +5282,9 @@ window.SIGNATAIRE = (function () {
     // Un trait fin qui sépare deux groupes dans le même encadré.
     function separationSection() {
       fermerColonnes();
-      y += 1.5; saut(6);
+      y += 2.4; saut(8);
       doc.setDrawColor(224, 228, 235); doc.setLineWidth(0.3); doc.line(M, y, W - M, y);
-      y += 1.5;
+      y += 3.4;
       ouvrirColonnes();
     }
     function debutSection(titre) {
@@ -5302,11 +5302,11 @@ window.SIGNATAIRE = (function () {
       if (page === _cadre.page) doc.rect(M - 3, _cadre.y0, W - 2 * M + 6, (y - 1.2) - _cadre.y0);
       else {
         doc.setPage(_cadre.page);
-        doc.rect(M - 3, _cadre.y0, W - 2 * M + 6, (PAGEH - 14) - _cadre.y0);
+        doc.rect(M - 3, _cadre.y0, W - 2 * M + 6, (PAGEH - 20) - _cadre.y0);
         doc.setPage(page);
         doc.rect(M - 3, 16, W - 2 * M + 6, (y + 2.5) - 16);
       }
-      _cadre = null; y += 5.8;
+      _cadre = null; y += 5.0;
     }
     function ligne(label, val) { FILE.push([label, (val == null || val === "") ? "—" : String(val)]); }
     function ligneLarge(label, val) {
@@ -5318,7 +5318,7 @@ window.SIGNATAIRE = (function () {
       doc.setFont("helvetica", "normal");
       var vv = doc.splitTextToSize(val, W - 2 * M - 36);
       var n = Math.max(lab.length, vv.length), h = n * 4.7 + 1.8;
-      if (y + h > PAGEH - 12) { doc.addPage(); y = 20; }
+      if (y + h > PAGEH - 20) { doc.addPage(); y = 20; }
       doc.setFont("helvetica", "bold"); doc.text(lab, M, y);
       doc.setFont("helvetica", "normal"); doc.text(vv, M + 36, y);
       y += h;
@@ -5339,7 +5339,7 @@ window.SIGNATAIRE = (function () {
           hauteur = Math.max(hauteur, Math.max(lab.length, vv.length) * 4.7);
           dessins.push([k, lab, vv]);
         }
-        if (y + hauteur > PAGEH - 12) { doc.addPage(); y = 20; }
+        if (y + hauteur > PAGEH - 20) { doc.addPage(); y = 20; }
         dessins.forEach(function (d) {
           doc.setFontSize(9.6);
           doc.setFont("helvetica", "bold"); doc.text(d[1], XL[d[0]], y);
@@ -5393,7 +5393,7 @@ window.SIGNATAIRE = (function () {
     doc.text("Articles de la convention", M, y); y += 6; doc.setTextColor(33);
     // Deux colonnes où le texte COULE : une ligne remplit la colonne de gauche, puis celle de droite,
     // puis la feuille suivante. Aucun blanc n'est laissé en bas d'une colonne.
-    var COLG = 6, LCOL = (W - 2 * M - COLG) / 2, BAS = PAGEH - 14;
+    var COLG = 6, LCOL = (W - 2 * M - COLG) / 2, BAS = PAGEH - 20;
     var col = 0, yCol = [y, y], xCol = [M, M + LCOL + COLG];
     var flux = [];
     ARTICLES.forEach(function (a, iA) {
@@ -5403,7 +5403,7 @@ window.SIGNATAIRE = (function () {
       flux.push({ t: "", h: 0.9, esp: true });
       doc.setFont("helvetica", "normal"); doc.setFontSize(9.1);
       var lignes = doc.splitTextToSize(String(a.c).replace(/\{\{duree\}\}/g, dureePrevue(o)), LCOL);
-      lignes.forEach(function (l, k) { flux.push({ t: l, h: 3.55, justifier: k < lignes.length - 1 }); });
+      lignes.forEach(function (l, k) { flux.push({ t: l, h: 3.38, justifier: k < lignes.length - 1 }); });
     });
     // Équilibrage : on simule d'abord le remplissage pour savoir où commence la dernière feuille, puis on
     // partage à parts égales ce qu'il y reste entre les deux colonnes. Sans cela, la colonne de droite
@@ -5470,7 +5470,7 @@ window.SIGNATAIRE = (function () {
     var SIGS = [];
     function blocSig(titre, infos, faitA, sig, preuve, dateTs) { SIGS.push([titre, infos, faitA, sig, preuve, dateTs]); }
     function dessinerSignatures() {
-      var GS = 5, LS = (W - 2 * M - 2 * GS) / 3, CW = LS, CH = 13, PAD = 1.2;
+      var GS = 5, LS = (W - 2 * M - 2 * GS) / 3, CW = LS, CH = 12, PAD = 1.1;
       // hauteur commune : celle du bloc le plus haut, pour que les trois cadres s'alignent
       var hTitre = 4.4, hInfos = 0;
       SIGS.forEach(function (b) {
@@ -5480,7 +5480,7 @@ window.SIGNATAIRE = (function () {
         hInfos = Math.max(hInfos, n * 3.7);
       });
       var hHaut = hTitre + hInfos + 4.2;
-      saut(hHaut + CH + 4);
+      saut(hHaut + CH + 3);
       var yDep = y;
       SIGS.forEach(function (b, k) {
         var x = M + k * (LS + GS), titre = b[0], infos = b[1], faitA = b[2], sig = b[3], preuve = b[4], dateTs = b[5];
@@ -5523,7 +5523,7 @@ window.SIGNATAIRE = (function () {
           doc.setTextColor(33);
         }
       });
-      y = yDep + hHaut + CH + 8;
+      y = yDep + hHaut + CH + 6;
       SIGS = [];
     }
 
