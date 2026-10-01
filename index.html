@@ -70,12 +70,12 @@
   /* En-tête */
   header.top{background:linear-gradient(180deg,var(--nuit),var(--nuit-2));color:#fff;
     border-bottom:3px solid var(--or)}
-  .top-in{max-width:1000px;margin:0 auto;padding:18px 22px;display:flex;align-items:center;gap:16px}
+  .top-in{max-width:none;margin:0;padding:14px 22px;display:flex;align-items:center;gap:16px}
   .ecusson{flex:0 0 auto}
   .top h1{margin:0;font-size:21px;letter-spacing:.01em;color:#fff}
   .top .sous{margin:2px 0 0;font-size:13px;color:#c7d0dd}
 
-  main{max-width:1000px;margin:0 auto;padding:22px}
+  main{max-width:none;margin:0;padding:0 0 30px}
   .barre{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:18px}
   .niveaux{display:flex;gap:4px;background:#fff;border:1px solid var(--ligne);border-radius:9px;padding:3px}
   .niveaux button{border:0;background:transparent;font:inherit;font-weight:600;padding:7px 16px;border-radius:6px;cursor:pointer;color:var(--mut)}
@@ -188,6 +188,14 @@
   #sig-step .champ input[type=text], #sig-step .champ textarea{width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid var(--ligne);border-radius:8px;font:inherit}
   #sig-step .radio{display:block;margin:6px 0;cursor:pointer}
   #sig-step label.chk{display:block;margin:6px 0;cursor:pointer}
+  .onglets{background:var(--nuit-2);border-top:1px solid rgba(255,255,255,.08)}
+  .onglets-in{max-width:none;margin:0;padding:0 22px;display:flex;gap:4px}
+  .onglet{position:relative;border:0;background:none;color:#c7d0e2;font:600 14px system-ui;padding:13px 20px;cursor:pointer;border-bottom:3px solid transparent}
+  .onglet:hover{color:#fff;background:rgba(255,255,255,.05)}
+  .onglet.on{color:#fff;border-bottom-color:var(--or);background:rgba(255,255,255,.08)}
+  .ong-pastille{display:inline-block;min-width:19px;height:19px;line-height:19px;border-radius:999px;background:#c0392b;color:#fff;font:700 11.5px system-ui;text-align:center;margin-left:7px;padding:0 5px;vertical-align:1px}
+  main > .carte{border:0;border-bottom:1px solid var(--ligne);border-radius:0;margin:0}
+  .hors-onglet{display:none!important}
   .bandeau-pause{margin:0 0 12px;padding:10px 14px;border-radius:10px;background:#fff4dc;border:1px solid #f0d49a;color:#6b4700;font-size:14px}
   .cv-liste{margin-top:6px}
   .cv-ligne{display:grid;grid-template-columns:28px 1.6fr 1.6fr 1.1fr 1.3fr 110px;align-items:center;gap:12px;padding:12px 10px;border-top:1px solid var(--ligne);font-size:14px}
@@ -510,7 +518,14 @@
     </div>
   </header>
 
-  <main>
+  <nav class="onglets" id="onglets-console" hidden>
+  <div class="onglets-in">
+    <button class="onglet on" type="button" data-ong="suivi" title="La liste des conventions reçues, leur avancement et ce qui attend une action.">Suivi des conventions</button>
+    <button class="onglet" type="button" data-ong="reglages" title="Les élèves, les tuteurs, les liens, la signature, les textes et l'administration.">Réglages</button>
+    <button class="onglet" type="button" data-ong="nouveautes" title="Le journal des mises en ligne : ce qui a changé, et à quelle date.">Nouveautés<span class="ong-pastille" id="ong-pastille" hidden></span></button>
+  </div>
+</nav>
+<main>
     <div id="bandeau-mode" class="bandeau-mode"></div>
     <div id="presence-barre" class="presence-barre" hidden></div>
     <div id="flux-direct" class="flux-direct" hidden></div>
@@ -555,7 +570,7 @@
     </section>
 
     <!-- 1 · Import -->
-    <section class="carte">
+    <section class="carte" id="carte-import">
       <h2><span class="num">1</span> Importer la liste des élèves</h2>
       <span class="btn bord file-btn" title="Importer la liste des élèves depuis un export École Directe ou un tableur (.xlsx, .csv, .ods)">Choisir un fichier Excel…<input id="file-eleves" type="file" accept=".xlsx,.xls,.csv,.ods"></span>
       <p class="hint">Export École Directe ou tableur. Les codes élèves manquants sont générés automatiquement. Rien ne quitte l'appareil.</p>
@@ -568,7 +583,7 @@
     </section>
 
     <!-- 2 · Tuteurs -->
-    <section class="carte">
+    <section class="carte" id="carte-tuteurs">
       <h2><span class="num">2</span> Enseignants tuteurs &amp; attribution
         <span class="compte-slot" style="margin-left:auto">
           <span class="compte-pill"><b id="compte-tuteurs">0</b> tuteur(s)</span>
@@ -595,7 +610,7 @@
     </section>
 
     <!-- 3 · Élèves -->
-    <section class="carte">
+    <section class="carte" id="carte-liens">
       <h2><span class="num">3</span> Élèves, liens &amp; QR
         <span class="compte-slot" style="margin-left:auto">
           <span class="compte-pill"><b id="compte-eleves">0</b> élève(s)<span id="sans-tuteur" class="sans-tut"></span></span>
@@ -644,7 +659,7 @@
     </section>
 
     <!-- 4 · Conventions reçues -->
-    <section class="carte">
+    <section class="carte" id="carte-conv">
       <h2><span class="num">6</span> Conventions reçues</h2>
       <div id="demandes-refaire"></div>
       <p class="hint" id="dep-info-direct" style="margin-top:0">Les conventions transmises par les familles s'affichent ici automatiquement, regroupées par élève.</p>
@@ -6765,6 +6780,7 @@ window.DEPOUILLEMENT = (function () {
       $("mode-signataire").hidden = true;
       $("mode-console").hidden = false;
       initConsole();
+      if (window.__brancherOnglets) window.__brancherOnglets();
     }
   }
 
@@ -8188,6 +8204,75 @@ window.DEPOUILLEMENT = (function () {
   }
   window.__vuNotif = function () { lsSet(LS_VU, String(Date.now())); var b = $("notif-collab"); if (b) b.hidden = true; };
 
+  // ---- Les trois onglets de la console ---------------------------------
+  // Suivi des conventions, Réglages, Nouveautés : chaque carte est rangée dans l'un d'eux.
+  var ONGLETS = {
+    suivi: ["carte-conv"],
+    reglages: ["carte-import", "carte-tuteurs", "carte-liens", "carte-etab", "carte-missions",
+               "carte-journal", "carte-remarques", "carte-admin", "carte-confid"],
+    nouveautes: ["carte-nouveautes"]
+  };
+  var LS_ONG = "sj_onglet";
+  function montrerOnglet(nom) {
+    if (!ONGLETS[nom]) nom = "suivi";
+    // Le banc travaille sur toutes les cartes à la fois ; un essai dédié vérifie le rangement réel.
+    if (window.__sansOnglets) {
+      Object.keys(ONGLETS).forEach(function (k) {
+        ONGLETS[k].forEach(function (id) { var e = $(id); if (e) e.classList.remove("hors-onglet"); });
+      });
+      return;
+    }
+    Object.keys(ONGLETS).forEach(function (k) {
+      ONGLETS[k].forEach(function (id) { var e = $(id); if (e) e.classList.toggle("hors-onglet", k !== nom); });
+    });
+    document.querySelectorAll("#onglets-console .onglet").forEach(function (b) {
+      b.className = "onglet" + (b.getAttribute("data-ong") === nom ? " on" : "");
+    });
+    try { lsSet(LS_ONG, nom); } catch (e) {}
+    if (nom === "nouveautes") marquerNouveautesLues();
+  }
+  // La pastille compte les versions mises en ligne depuis la dernière lecture, pour chaque personne.
+  var LS_NOUV_VU = "sj_nouv_vu";
+  function nbNouveautesNonLues() {
+    try {
+      var vu = lsGet(LS_NOUV_VU) || "";
+      if (!vu) {
+        // Première visite : on ne signale que les versions récentes, pas tout l'historique.
+        var lim = Date.now() - 7 * 864e5;
+        return (window.NOUVEAUTES || []).filter(function (v) {
+          var p = String(v.date || "").split("/");
+          return p.length === 3 && new Date(+p[2], +p[1] - 1, +p[0]).getTime() >= lim;
+        }).length;
+      }
+      var i = (window.NOUVEAUTES || []).findIndex(function (v) { return v.version === vu; });
+      return i < 0 ? Math.min((window.NOUVEAUTES || []).length, 9) : i;
+    } catch (e) { return 0; }
+  }
+  function majPastilleNouveautes() {
+    var p = $("ong-pastille"); if (!p) return;
+    var n = nbNouveautesNonLues();
+    p.textContent = n; p.hidden = !n;
+  }
+  function marquerNouveautesLues() {
+    try {
+      var v = (window.NOUVEAUTES || [])[0];
+      if (v) lsSet(LS_NOUV_VU, v.version);
+    } catch (e) {}
+    majPastilleNouveautes();
+  }
+  window.__montrerOnglet = montrerOnglet;
+  window.__majPastilleNouveautes = majPastilleNouveautes;
+  function brancherOnglets() {
+    var nav = $("onglets-console"); if (!nav) return;
+    nav.hidden = false;
+    nav.querySelectorAll(".onglet").forEach(function (b) {
+      b.addEventListener("click", function () { montrerOnglet(b.getAttribute("data-ong")); });
+    });
+    majPastilleNouveautes();
+    montrerOnglet(lsGet(LS_ONG) || "suivi");
+  }
+  window.__brancherOnglets = brancherOnglets;
+
   // Le texte des missions est-il encore le remplissage provisoire (lorem ipsum) ?
   function missionsProvisoires(txt) {
     var t = (txt || "").toLowerCase();
@@ -8288,63 +8373,63 @@ window.DEPOUILLEMENT = (function () {
   // Une entrée par version mise en ligne, la plus récente en tête. Dates et versions relevées dans l'historique
   // des envois sur GitHub ; descriptions reconstituées. À COMPLÉTER À CHAQUE LIVRAISON (consigne 8 en tête du fichier).
   var NOUVEAUTES = [
-    { date: "01/10/2026", heure: "", auteur: "Paul Meney", version: "v2026.10.01·convention", points: [
+    { date: "01/10/2026", heure: "13:05", auteur: "Paul Meney", version: "v2026.10.01·convention", points: [
       "La convention imprimée change d'allure : logo du collège en tête, signalétique et numéro de page en bas de chaque feuille, un encadré par section, l'entreprise et son signataire d'un côté, l'élève et sa famille de l'autre, et les articles sur deux colonnes justifiées.",
       "Signature de la cheffe d'établissement : elle porte désormais son empreinte, calculée sur la convention assemblée, et sa date, fixée dix minutes après la dernière signature reçue.",
       "Le téléphone des parents figure sous leur signature, comme pour les deux autres signataires."
     ] },
-    { date: "01/10/2026", heure: "", auteur: "Paul Meney", version: "v2026.10.01·duree", points: [
+    { date: "01/10/2026", heure: "11:17", auteur: "Paul Meney", version: "v2026.10.01·duree", points: [
       "Durée du stage : l'article 10 annonce le nombre de journées que vous avez enregistrées comme dates officielles pour le niveau de l'élève. Sans dates saisies, il garde les cinq jours du texte officiel.",
       "Conventions reçues : un stage trop court est signalé — « Cet élève n'a que 1 journée couverte sur les 5 prévues : il lui faut un second lieu d'accueil ou des journées supplémentaires. » Le compte additionne les deux lieux de stage.",
       "Modifier un article vous demande si le changement exige une nouvelle signature. Si oui, les conventions déjà signées repassent « à compléter »."
     ] },
-    { date: "30/09/2026", heure: "", auteur: "Paul Meney", version: "v2026.09.30·provisoire", points: [
+    { date: "30/09/2026", heure: "17:09", auteur: "Paul Meney", version: "v2026.09.30·provisoire", points: [
       "« Visualiser » : la convention s'ouvre en grand à l'écran, sans rien déposer dans vos téléchargements. Le bouton « Télécharger » reste là si vous la voulez vraiment.",
       "Tant qu'une partie n'a pas été complétée et resignée, la convention porte un filigrane « PROVISOIRE » et un bandeau rouge, son fichier s'appelle PROVISOIRE_…, et « Préparer l'envoi » est inactif.",
       "L'avertissement dit ce qui cloche vraiment : les signataires n'ont pas encore approuvé ce texte et des informations manquent."
     ] },
-    { date: "29/09/2026", heure: "", auteur: "Paul Meney", version: "v2026.09.29·texte-officiel", points: [
+    { date: "29/09/2026", heure: "18:58", auteur: "Paul Meney", version: "v2026.09.29·texte-officiel", points: [
       "Le texte de la convention est celui du modèle officiel, validé par Mme Chrétien : dix articles, les textes de référence, et la délibération du conseil de direction du 1er octobre 2026.",
       "Assurance : le collège a souscrit une assurance collective auprès de la Mutuelle Saint-Christophe, contrat n° 0000002510637904, qui couvre tous les élèves pendant la séquence, qu'ils disposent ou non d'une assurance personnelle.",
       "Article 9 : les difficultés et les absences se signalent au 02.41.59.16.89, ou sur le téléphone de la cheffe d'établissement au 07.43.36.81.97.",
       "Annexe financière : hébergement, restauration, transport et assurance, dans les termes du modèle officiel."
     ] },
-    { date: "29/09/2026", heure: "", auteur: "Paul Meney", version: "v2026.09.29·infobulles", points: [
+    { date: "29/09/2026", heure: "15:40", auteur: "Paul Meney", version: "v2026.09.29·infobulles", points: [
       "Toutes les commandes de l'application portent une infobulle : les 132 boutons, les 29 champs de formulaire, les listes, les cases et les zones de texte.",
       "Trois boutons étaient cassés par une infobulle mal placée — « Vu » sur les nouveautés, « Valider mes modifications », et les boutons de l'aperçu. Corrigé, et le banc échoue désormais si cela se reproduit."
     ] },
-    { date: "29/09/2026", heure: "", auteur: "Paul Meney", version: "v2026.09.29·familles", points: [
+    { date: "29/09/2026", heure: "08:30", auteur: "Paul Meney", version: "v2026.09.29·familles", points: [
       "Côté familles : « envoyer votre convention » remplace « générer », qui ne parlait à personne.",
       "Les sigles sont expliqués : le PAI est le projet d'accueil individualisé établi avec le collège quand un enfant a un problème de santé, le PAP le plan d'accompagnement personnalisé pour les troubles des apprentissages, le PPS le projet personnalisé de scolarisation en situation de handicap.",
       "Trousse d'urgence : une famille qui ne sait pas répondre peut le dire, et expliquer la situation en toutes lettres.",
       "Le code remis par le collège est mis en sommeil : les familles n'en ont plus besoin. Le mécanisme reste en place et visible dans l'espace de test."
     ] },
-    { date: "28/09/2026", heure: "", auteur: "Paul Meney", version: "v2026.09.28·horaires", points: [
+    { date: "28/09/2026", heure: "12:54", auteur: "Paul Meney", version: "v2026.09.28·horaires", points: [
       "Formulaire de l'entreprise : les horaires jour par jour, avec un bouton pour copier les mêmes horaires sur toutes les journées.",
       "Alertes en direct : plus de 7 heures dans la journée, ou plus de 5 heures d'affilée sans pause. La source est citée — modèle officiel, circulaire du 21 novembre 2025, Bulletin officiel n° 47.",
       "Convention imprimée : une annexe pédagogique avec les activités prévues, les horaires jour par jour et l'enseignant référent.",
       "Correction : la convention affichait « Tuteur : undefined » quand la partie entreprise manquait encore."
     ] },
-    { date: "28/09/2026", heure: "", auteur: "Paul Meney", version: "v2026.09.28·code", points: [
+    { date: "28/09/2026", heure: "21:12", auteur: "Paul Meney", version: "v2026.09.28·code", points: [
       "Code de la famille (espace de test) : quand un code a été fabriqué pour un élève, son lien parents demande d'abord ce code. Au bout de cinq essais, l'application ouvre d'elle-même la convention sans code : personne n'est jamais bloqué.",
       "Conventions reçues : « Le parent a utilisé le code remis par le collège » ou non, dans le détail de l'élève ; un envoi sans code apparaît aussi dans « À vérifier », avec son filtre."
     ] },
-    { date: "28/09/2026", heure: "", auteur: "Paul Meney", version: "v2026.09.28·completer", points: [
+    { date: "28/09/2026", heure: "19:42", auteur: "Paul Meney", version: "v2026.09.28·completer", points: [
       "« Compléter ma convention » : une famille ou une entreprise qui a envoyé sa partie avant les nouvelles rubriques rouvre son lien, ne remplit que ce qui manque et signe de nouveau. Son premier envoi est conservé tel quel.",
       "Console : un état « À compléter » et son filtre ; dans le détail, « reçue le … · complétée le … ». La convention imprimée réunit l'envoi d'origine et son complément, avec la nouvelle signature."
     ] },
-    { date: "28/09/2026", heure: "", auteur: "Paul Meney", version: "v2026.09.28·parents", points: [
+    { date: "28/09/2026", heure: "17:09", auteur: "Paul Meney", version: "v2026.09.28·parents", points: [
       "Parents : le statut du signataire (parent exerçant l'autorité parentale, tuteur légal, autre), les contacts d'urgence en liste (+ Ajouter), et la santé dans les termes du modèle officiel (PAI, trousse d'urgence, aménagements PAI, PAP ou PPS).",
       "Console : un PAI, des aménagements ou un signataire « Autre » apparaissent dans « À vérifier ». Convention imprimée : responsable légal et ses coordonnées, PAI et aménagements dans l'annexe pédagogique.",
       "Écran de vérification : les jours, horaires, statut, urgences et santé y figurent, et « Modifier » renvoie au bon écran."
     ] },
-    { date: "28/09/2026", heure: "", auteur: "Paul Meney", version: "v2026.09.28·entreprise", points: [
+    { date: "28/09/2026", heure: "20:34", auteur: "Paul Meney", version: "v2026.09.28·entreprise", points: [
       "Entreprise : horaires jour par jour pour chaque date cochée, avec « Copier ces horaires sur tous les jours » et des alertes qui ne bloquent pas, d'après les repères du modèle officiel de convention auquel renvoie la circulaire du 21 novembre 2025 (BO n° 47) : 7 heures par jour et 35 heures par semaine au plus, pause de 30 minutes dès 4 h 30, aucune présence avant 6 h ni après 20 h, 14 heures de repos entre deux journées.",
       "Entreprise : fonction du tuteur, activités prévues, nom et fonction du représentant qui signe ; alerte si le représentant porte le nom de l'élève.",
       "Console : l'adresse de l'entreprise identique à celle des parents, le représentant au nom de l'élève et les horaires hors limites apparaissent dans « À vérifier ».",
       "Convention imprimée : rubrique « Annexe pédagogique » (activités prévues, horaires jour par jour, enseignant référent)."
     ] },
-    { date: "26/09/2026", heure: "", auteur: "Paul Meney", version: "v2026.09.26·liste-aeree", points: [
+    { date: "26/09/2026", heure: "08:32", auteur: "Paul Meney", version: "v2026.09.26·liste-aeree", points: [
       "Conventions reçues : une ligne par élève, avec un seul état coloré ; tout le détail se déplie à la demande — parties reçues, points à vérifier en phrases entières, conventions, historique.",
       "Historique de chaque convention, replié par partie : réception, demandes de refaire, parties archivées puis supprimées.",
       "Quand une famille atteste un seul lieu alors que l'entreprise n'accueille l'élève que certains jours, la console l'explique et propose « Retirer l'attestation » (réservé à l'administrateur, avec son « i »).",
@@ -8453,6 +8538,7 @@ window.DEPOUILLEMENT = (function () {
       "Mise en ligne de l'application sur le site du collège."
     ] }
   ];
+  window.NOUVEAUTES = NOUVEAUTES;
   function renderNouveautes() {
     var t = $("nouv-tete"), l = $("nouv-liste"); if (!t || !l) return;
     var nbPoints = NOUVEAUTES.reduce(function (a, v) { return a + v.points.length; }, 0);
