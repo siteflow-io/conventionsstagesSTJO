@@ -914,7 +914,7 @@ window.FB = (function () {
     var ref = db.ref("conventions/" + encodeCle(annee) + "/" + encodeCle(code) + "/" + encodeCle(role));
     // « e » : seule marque lisible depuis un lien (statut d'envoi, D82). Une place remplie ne se remplace plus
     // depuis un lien (règle serveur, D78) : seul l'établissement la libère, après archivage.
-    return ref.set({ iv: paquet.iv, ct: paquet.ct, v: paquet.v || 1, ts: window.firebase.database.ServerValue.TIMESTAMP, e: true, f: VERSION_FORMULAIRE });
+    return ref.set({ iv: paquet.iv, ct: paquet.ct, v: paquet.v || 1, ts: window.firebase.database.ServerValue.TIMESTAMP, e: true, f: VERSION_FORMULAIRE, tv: (window.__versionTextes || 0) });
   }
   // Version du formulaire (« Compléter ma convention », Q86) : 2 = rubriques du modèle officiel (horaires jour par
   // jour, activités, fonctions, statut du signataire, urgences, santé). Lisible depuis un lien, comme le statut
@@ -1014,6 +1014,10 @@ window.FB = (function () {
   // Un code existe-t-il pour cet élève ? Un simple oui/non, lisible depuis un lien : sans lui, une famille sans
   // code verrait un écran qui ne la concerne pas. L'empreinte, elle, ne se lit jamais en liste : on ne peut que
   // demander « cette empreinte-là existe-t-elle ? », c'est-à-dire essayer un code qu'on a déjà tapé.
+  // Version du texte de la convention : elle n'augmente que si l'établissement déclare qu'une modification
+  // demande une nouvelle signature. Les conventions signées sous une version antérieure passent « à compléter ».
+  function lireVersionTextes() { if (!dispo) return Promise.resolve(0); return db.ref("textes_version").once("value").then(function (s) { return +s.val() || 0; }).catch(function () { return 0; }); }
+  function ecrireVersionTextes(n) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("textes_version").set(n); }
   function ecrireCodeActif(annee, code) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("codes_actifs/" + encodeCle(annee) + "/" + encodeCle(code)).set(true); }
   function lireCodeActif(annee, code) { if (!dispo) return Promise.resolve(false); return db.ref("codes_actifs/" + encodeCle(annee) + "/" + encodeCle(code)).once("value").then(function (s) { return !!s.val(); }).catch(function () { return false; }); }
   function testerEmpreinte(annee, code, empreinte) { if (!dispo) return Promise.resolve(false); return db.ref("verif/" + encodeCle(annee) + "/" + encodeCle(code) + "/" + empreinte).once("value").then(function (s) { return s.val() === true; }).catch(function () { return false; }); }
@@ -1061,7 +1065,7 @@ window.FB = (function () {
   function deconnecter() { if (dispo) try { auth.signOut(); } catch (e) {} }
   function onAuth(cb) { if (dispo) auth.onAuthStateChanged(cb); else cb(null); }
   function utilisateur() { return (dispo && auth && auth.currentUser) || null; }
-  return { dispo: dispo, ecrireConvention: ecrireConvention, ecouter: ecouter, supprimer: supprimer, viderEspace: viderEspace, lireSel: lireSel, ecrireSel: ecrireSel, lireCleAnnee: lireCleAnnee, ecrireCleAnnee: ecrireCleAnnee, lireCanari: lireCanari, ecrireCanari: ecrireCanari, ecouterCollab: ecouterCollab, ecrireCollab: ecrireCollab, journalPush: journalPush, journalEcouter: journalEcouter, journalPurger: journalPurger, lireEtat: lireEtat, ecrireEtat: ecrireEtat, presenceAnnoncer: presenceAnnoncer, presenceMaj: presenceMaj, presencePartir: presencePartir, presenceEcouter: presenceEcouter, lireContenus: lireContenus, ecrireContenus: ecrireContenus, lireCodes: lireCodes, ecrireCodes: ecrireCodes, ecrireVerif: ecrireVerif, ecrireCodeActif: ecrireCodeActif, lireCodeActif: lireCodeActif, testerEmpreinte: testerEmpreinte, PLACES: PLACES, COMPLEMENTS: COMPLEMENTS, lireStatuts: lireStatuts, marquerStatut: marquerStatut, supprimerPlace: supprimerPlace, ecrireDemande: ecrireDemande, ecouterDemandes: ecouterDemandes, supprimerDemande: supprimerDemande, ecrireArchive: ecrireArchive, ecouterArchive: ecouterArchive, lirePlace: lirePlace, lireDatesOfficielles: lireDatesOfficielles, ecrireDatesOfficielles: ecrireDatesOfficielles, lirePause: lirePause, ecrirePause: ecrirePause, ecouterPause: ecouterPause, lireSignature: lireSignature, ecrireSignature: ecrireSignature, ecouterSignature: ecouterSignature, lireChefEmail: lireChefEmail, ecrireChefEmail: ecrireChefEmail, ecouterChefEmail: ecouterChefEmail, remarquePush: remarquePush, remarqueMaj: remarqueMaj, remarqueSupprimer: remarqueSupprimer, remarquesEcouter: remarquesEcouter, connecter: connecter, deconnecter: deconnecter, onAuth: onAuth, utilisateur: utilisateur };
+  return { dispo: dispo, ecrireConvention: ecrireConvention, ecouter: ecouter, supprimer: supprimer, viderEspace: viderEspace, lireSel: lireSel, ecrireSel: ecrireSel, lireCleAnnee: lireCleAnnee, ecrireCleAnnee: ecrireCleAnnee, lireCanari: lireCanari, ecrireCanari: ecrireCanari, ecouterCollab: ecouterCollab, ecrireCollab: ecrireCollab, journalPush: journalPush, journalEcouter: journalEcouter, journalPurger: journalPurger, lireEtat: lireEtat, ecrireEtat: ecrireEtat, presenceAnnoncer: presenceAnnoncer, presenceMaj: presenceMaj, presencePartir: presencePartir, presenceEcouter: presenceEcouter, lireContenus: lireContenus, ecrireContenus: ecrireContenus, lireCodes: lireCodes, ecrireCodes: ecrireCodes, ecrireVerif: ecrireVerif, lireVersionTextes: lireVersionTextes, ecrireVersionTextes: ecrireVersionTextes, ecrireCodeActif: ecrireCodeActif, lireCodeActif: lireCodeActif, testerEmpreinte: testerEmpreinte, PLACES: PLACES, COMPLEMENTS: COMPLEMENTS, lireStatuts: lireStatuts, marquerStatut: marquerStatut, supprimerPlace: supprimerPlace, ecrireDemande: ecrireDemande, ecouterDemandes: ecouterDemandes, supprimerDemande: supprimerDemande, ecrireArchive: ecrireArchive, ecouterArchive: ecouterArchive, lirePlace: lirePlace, lireDatesOfficielles: lireDatesOfficielles, ecrireDatesOfficielles: ecrireDatesOfficielles, lirePause: lirePause, ecrirePause: ecrirePause, ecouterPause: ecouterPause, lireSignature: lireSignature, ecrireSignature: ecrireSignature, ecouterSignature: ecouterSignature, lireChefEmail: lireChefEmail, ecrireChefEmail: ecrireChefEmail, ecouterChefEmail: ecouterChefEmail, remarquePush: remarquePush, remarqueMaj: remarqueMaj, remarqueSupprimer: remarqueSupprimer, remarquesEcouter: remarquesEcouter, connecter: connecter, deconnecter: deconnecter, onAuth: onAuth, utilisateur: utilisateur };
 })();
 </script>
 <script>
@@ -4101,6 +4105,7 @@ window.SIGNATAIRE = (function () {
     var dates = window.FB.lireDatesOfficielles ? window.FB.lireDatesOfficielles(CTX.annee, niveauDuCode(CTX.code)).catch(function () { return []; }) : Promise.resolve([]);
     var pause = window.FB.lirePause ? window.FB.lirePause().catch(function () { return null; }) : Promise.resolve(null);
     var codeA = (CTX.roleLock === "PARENTS" && codeEnService() && window.FB.lireCodeActif) ? window.FB.lireCodeActif(CTX.annee, CTX.code).catch(function () { return false; }) : Promise.resolve(false);
+    if (window.FB.lireVersionTextes) window.FB.lireVersionTextes().then(function (n) { window.__versionTextes = n; }).catch(function () {});
     Promise.all([window.FB.lireStatuts(CTX.annee, CTX.code), dates, pause, codeA]).then(function (r) {
       fini = true; CTX.statut = r[0] || {}; CTX.datesOff = (r[1] || []).filter(Boolean).sort(); CTX.codeExiste = !!r[3];
       if (pauseActive(r[2])) { montrerMaintenance(r[2]); return; }
@@ -5768,6 +5773,7 @@ function nomConvention(o) {
     fermerConvComplete: fermerConvComplete,
     genererConvCompleteSignee: genererConvCompleteSignee,
     genererConventionComplete: genererConventionComplete,
+    empreinteDe: empreinte,
     genererConventionsUnique: genererConventionsUnique
   };
 })();
@@ -5860,7 +5866,9 @@ window.DEPOUILLEMENT = (function () {
           v[b] = { data: Object.assign({}, d0, { champs: Object.assign({}, d0.champs || {}, dc.champs || {}), signature: dc.signature || d0.signature, hash: dc.hash || d0.hash, ts: dc.ts || d0.ts }),
             date: comp.date, dateOrigine: v[b].date, complement: comp };
         } else if (comp) v[b] = comp;
-        if (v[b] && !v[b].complement && (v[b].data._f || 0) < (window.VERSION_FORMULAIRE || 2)) v[b].aCompleter = true;
+        if (v[b] && !v[b].complement
+            && (((v[b].data._f || 0) < (window.VERSION_FORMULAIRE || 2))
+             || ((v[b].data._tv || 0) < (window.__versionTextes || 0)))) v[b].aCompleter = true;
       });
     });
     var codes = Object.keys(parCode).sort();
@@ -6245,10 +6253,29 @@ window.DEPOUILLEMENT = (function () {
     };
   }
 
+  // Mme Chrétien ne dépose pas de convention depuis un lien : elle n'a donc pas d'empreinte propre.
+  // On calcule celle de la convention assemblée — ce qu'elle valide réellement — et on la pose sous sa signature.
+  function avecEmpreinteEtab(o) {
+    try {
+      // la signature de la cheffe est ajoutée plus loin dans la chaîne : on la cherche là où elle est enregistrée
+      var sigEtab = (o && o.sigs && o.sigs.ETABLISSEMENT) || (window.__etab && (window.__etab() || {}).signature) || "";
+      if (!o || !sigEtab || !window.SIGNATAIRE || !window.SIGNATAIRE.empreinteDe) return Promise.resolve(o);
+      if (!o.sigEtabTs && window.__etab) o.sigEtabTs = (window.__etab() || {}).signatureTs || "";
+      var pv = o.preuves || {};
+      var matiere = JSON.stringify([o.code, o.nomEleve, o.naissance, o.data,
+        (pv.ENTREPRISE || {}).hash || "", (pv.PARENTS || {}).hash || "", o.sigEtabTs || ""]);
+      return window.SIGNATAIRE.empreinteDe(matiere).then(function (h) {
+        o.preuves = o.preuves || {};
+        o.preuves.ETABLISSEMENT = Object.assign({}, o.preuves.ETABLISSEMENT, { hash: h, ts: o.sigEtabTs || "" });
+        return o;
+      }).catch(function () { return o; });
+    } catch (e) { return Promise.resolve(o); }
+  }
   function genConvention(code, n) {
     var o = compilPour(code, n);
     if (!o) { afficher('<p class="err-txt">Données indisponibles pour ' + esc(code) + ".</p>"); return; }
-    if (window.SIGNATAIRE && window.SIGNATAIRE.genererConventionComplete) window.SIGNATAIRE.genererConventionComplete(o);
+    if (!(window.SIGNATAIRE && window.SIGNATAIRE.genererConventionComplete)) return;
+    avecEmpreinteEtab(o).then(function (oo) { window.SIGNATAIRE.genererConventionComplete(oo); });
   }
 
   // Voir la convention à l'écran plutôt que de la télécharger : elle s'ouvre dans une fenêtre,
@@ -6258,6 +6285,9 @@ window.DEPOUILLEMENT = (function () {
     var o = compilPour(code, n);
     if (!o) { afficher('<p class="err-txt">Données indisponibles pour ' + esc(code) + ".</p>"); return; }
     if (!(window.SIGNATAIRE && window.SIGNATAIRE.genererConventionComplete)) return;
+    avecEmpreinteEtab(o).then(function (oo) { montrerConvention(oo, code, n); });
+  }
+  function montrerConvention(o, code, n) {
     var r = window.SIGNATAIRE.genererConventionComplete(o, "fichier");
     if (!r || !r.blob) return;
     if (_urlVue) { try { URL.revokeObjectURL(_urlVue); } catch (e) {} }
@@ -8641,6 +8671,25 @@ window.DEPOUILLEMENT = (function () {
     poserValeur(cle, nouvelle);
     partagerContenus(cle);
     renderAdminChamps();
+    if (/^art[:.]/i.test(String(cle || ""))) demanderResignature(cle);
+  }
+  // Modifier un article, c'est changer ce que les familles et les entreprises ont signé. On demande donc
+  // si le changement touche au fond : si oui, les conventions déjà signées repassent « à compléter ».
+  function demanderResignature(cle) {
+    if (!window.FB || !window.FB.ecrireVersionTextes) return;
+    var ok = window.confirm(
+      "Vous venez de modifier un article de la convention.\n\n"
+      + "Ce changement demande-t-il une nouvelle signature des familles et des entreprises ?\n\n"
+      + "OK : les conventions déjà signées repassent « à compléter » et devront être relues et resignées.\n"
+      + "Annuler : simple correction de forme, rien ne change pour les conventions déjà signées.");
+    if (!ok) return;
+    var nv = (window.__versionTextes || 0) + 1;
+    window.FB.ecrireVersionTextes(nv).then(function () {
+      window.__versionTextes = nv;
+      journal("modif", "a déclaré qu'une modification d'article demande une nouvelle signature : les conventions déjà signées repassent « à compléter »");
+      if (window.DEPOUILLEMENT && window.DEPOUILLEMENT.rafraichir) window.DEPOUILLEMENT.rafraichir();
+      toast("Les conventions déjà signées repassent « à compléter ».");
+    }).catch(function () { toast("La demande de nouvelle signature n'a pas pu être enregistrée.", true); });
   }
   function partagerContenus(cle) {
     if (!_maitre || !window.FB || !window.FB.ecrireContenus) return;
@@ -8996,7 +9045,8 @@ window.DEPOUILLEMENT = (function () {
     h += '<div style="flex:1;min-width:240px"><h4 style="margin:0 0 8px">Modifications récentes des autres</h4>';
     h += recent.length ? recent.map(function (m) { return '<div style="padding:7px 0;border-bottom:1px solid var(--ligne);font-size:13px"><b>' + esc(m.label) + '</b><br><span class="mut">' + esc(m.avantTxt) + ' → ' + esc(m.apresTxt) + '</span></div>'; }).join("") : '<p class="mut">Aucune depuis votre dernier chargement.</p>';
     h += '</div></div>';
-    h += '<div style="margin-top:16px;text-align:right"><button class="btn ghost" onclick="window.__fermerModal()" title="Ferme cette fenêtre sans rien changer.">Annuler</button> <button class="btn bord" onclick="window.__commettreValidation()" title="Applique les modifications cochées : elles deviennent visibles par les familles et les entreprises.">Valider les modifications cochées</button></div>';
+    h += '<div style="margin-top:16px;text-align:right"><button class="btn ghost" onclick="window.__fermerModal()" title="Ferme cette fenêtre sans rien changer.">Annuler</button> <button class="btn bord" onclick="window.__commettreValidation()" title="Applique les modifications cochées : elles deviennent visibles par les familles et les entreprises.">Valider les modifications cochées</button></div>'
+;
     $("modal-titre").textContent = "Valider mes modifications";
     $("modal-corps").innerHTML = h; $("modal").hidden = false;
   }
@@ -9015,6 +9065,15 @@ window.DEPOUILLEMENT = (function () {
     window.CRYPTO.emballerCle(_maitre, JSON.stringify({ niveaux: fin.niveaux, etab: fin.etab })).then(function (p) {
       return window.FB.ecrireEtat({ iv: p.iv, ct: p.ct, v: ctx.vDistant + 1, ts: Date.now() });
     }).then(function () {
+      var resigner = (document.getElementById("val-resigner") || {}).checked;
+      if (resigner && window.FB.ecrireVersionTextes) {
+        var nv = (window.__versionTextes || 0) + 1;
+        window.FB.ecrireVersionTextes(nv).then(function () {
+          window.__versionTextes = nv;
+          journal("modif", "a déclaré qu'une modification du texte demande une nouvelle signature : les conventions déjà signées repassent « à compléter »");
+          if (window.DEPOUILLEMENT && window.DEPOUILLEMENT.rafraichir) window.DEPOUILLEMENT.rafraichir();
+        }).catch(function () { toast("La modification est enregistrée, mais la demande de nouvelle signature n'a pas pu l'être.", true); });
+      }
       journal("modif", retenues.length === 1 ? "a validé une modification" : "a validé " + retenues.length + " modifications",
         retenues.map(function (m) { return { l: m.label, a: m.avantTxt, b: m.apresTxt }; }));
       poserBase({ niveaux: fin.niveaux, etab: fin.etab });
@@ -9068,7 +9127,7 @@ window.DEPOUILLEMENT = (function () {
           var dt = p.ts ? new Date(p.ts) : new Date();
           // La signature dessinée (et la date de naissance) doivent suivre : elles étaient abandonnées ici,
           // d'où des conventions complètes sans aucune signature (défaut U2).
-          return { nom: (obj.code || codeEnc) + "_" + role, date: dt, data: { code: obj.code, role: obj.role || role, eleve: obj.eleve, naissance: obj.naissance || "", annee: espaceAnnee(), champs: obj.champs, hash: obj.hash, ts: dt.toISOString(), signature: obj.signature || obj.sig || "", _f: +p.f || 0, _code: obj.avecCode } };
+          return { nom: (obj.code || codeEnc) + "_" + role, date: dt, data: { code: obj.code, role: obj.role || role, eleve: obj.eleve, naissance: obj.naissance || "", annee: espaceAnnee(), champs: obj.champs, hash: obj.hash, ts: dt.toISOString(), signature: obj.signature || obj.sig || "", _f: +p.f || 0, _tv: +p.tv || 0, _code: obj.avecCode } };
         }).catch(function () { return null; }));
       });
     });
