@@ -196,6 +196,20 @@
   .mq-chip{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12.5px;font-weight:600;white-space:nowrap}
   .mq-ok{background:#e3f4ea;color:#1d6a40}.mq-att{background:#fff1d6;color:#8a5a00}.mq-ko{background:#fbe3e6;color:#9b2335}.mq-dem{background:#ece6fb;color:#5b3fa8}
   .mq-alerte{margin-left:6px;color:#9b2335;font-weight:700}
+  .cv-tuiles{display:flex;gap:8px;margin:0 0 10px;flex-wrap:wrap}
+  .cv-tuile{flex:1;min-width:116px;background:#f7f9fb;border:1px solid var(--ligne);border-radius:10px;padding:8px 11px;cursor:pointer;text-align:left;font:inherit}
+  .cv-tuile:hover{background:#eef3f9;border-color:#c3cfdd}
+  .cv-tuile.on{background:var(--nuit);border-color:var(--nuit)}
+  .cv-tuile .n{display:block;font:700 19px Georgia,serif;color:var(--nuit)}
+  .cv-tuile .t{display:block;font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em}
+  .cv-tuile.on .n,.cv-tuile.on .t{color:#fff}
+  .cv-mchip{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+  .cv-motifs{display:block;margin-top:4px;line-height:1.9}
+  .cv-motif{font-size:12.5px;color:#40495a;margin-right:8px}
+  .cv-motif b{color:#9b2335;font-weight:700}
+  .cv-jauge{height:9px;border-radius:5px;background:#eceff4;border:1px solid #d7dde6;overflow:hidden;width:104px;display:inline-block;vertical-align:middle}
+  .cv-jauge span{display:block;height:100%;border-radius:4px 0 0 4px}
+  .cv-pct{font-size:12px;font-weight:600;color:var(--mut);margin:0 8px 0 6px;vertical-align:middle}
   .cv-det{margin:2px 0 8px 40px;padding:12px 14px;background:#f7f9fb;border:1px solid var(--ligne);border-radius:10px}
   .cv-blocs{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   .cv-bloc h5{margin:0 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut)}
@@ -5996,6 +6010,7 @@ window.DEPOUILLEMENT = (function () {
       return { code: code, affNom: nom, classe: el.classe || "", nom: nomTri, recu: recu, complet: complet, aCompleter: aCompl, sansCode: sansCode,
         sansEnt: !v.ENTREPRISE, sansPar: !v.PARENTS, secondManquant: secondAttendu && !v.ENTREPRISE_2, parents2: !!v.ENTREPRISE_2 && !v.PARENTS_2, deux: !!(v.ENTREPRISE_2 || v.PARENTS_2),
         entreprise: ent.raison_sociale || "", entreprise2: v.ENTREPRISE_2 ? (ent2.raison_sociale || "—") : "", dates: periode(ent), dates2: v.ENTREPRISE_2 ? periode(ent2) : "",
+        jours: nbCouverts, joursPrevus: nbPrevus,
         parties: parties, aVerifier: aVerifier, aConv1: !!(v.ENTREPRISE || v.PARENTS), aConv2: !!(v.ENTREPRISE_2 || v.PARENTS_2), aAttest: !!v.ATTESTATION,
         volets: v, emails: { ent: [ent.email, ent2.email].filter(Boolean), par: [v.PARENTS && (v.PARENTS.data.champs || {}).email, v.PARENTS_2 && (v.PARENTS_2.data.champs || {}).email].filter(Boolean) } };
     });
@@ -6055,12 +6070,21 @@ window.DEPOUILLEMENT = (function () {
       + '<label title="N\'afficher que les élèves dans cet état.">État <select id="fc-etat">' + opt("", "Tous", FILTRE.etat) + opt("complet", "Complets", FILTRE.etat) + opt("incomplet", "Incomplets", FILTRE.etat)
       + opt("sans-ent", "Partie entreprise manquante", FILTRE.etat) + opt("sans-par", "Partie parents manquante", FILTRE.etat) + opt("second", "Second lieu attendu", FILTRE.etat) + opt("deux", "Deux lieux de stage", FILTRE.etat) + opt("demande", "Demande de refaire en attente", FILTRE.etat) + opt("completer", "À compléter (modèle officiel)", FILTRE.etat) + opt("sanscode", "Parents : envoi sans le code du collège", FILTRE.etat) + '</select></label>'
       + '<label title="Ordre d\'affichage.">Tri <select id="fc-tri">' + opt("recent", "Réception : plus récente d\'abord", FILTRE.tri) + opt("ancien", "Réception : plus ancienne d\'abord", FILTRE.tri) + opt("nom", "Nom", FILTRE.tri) + opt("classe", "Classe, puis nom", FILTRE.tri) + '</select></label></div>'
+      + tuilesHTML(_lignes && _lignes.length ? _lignes : vis)
       + '<div class="sel-ligne"><span title="Date de réception de la partie la plus récente de l\'élève.">Reçues entre le</span> <input type="date" id="fc-du" value="' + esc(FILTRE.du) + '" title="Début de la période (incluse)."> <span>et le</span> <input type="date" id="fc-au" value="' + esc(FILTRE.au) + '" title="Fin de la période (incluse).">'
       + '<button class="btn ghost sm" type="button" data-per="jour" title="Conventions reçues aujourd\'hui.">Aujourd\'hui</button>'
       + '<button class="btn ghost sm" type="button" data-per="semaine" title="Conventions reçues cette semaine (lundi à dimanche).">Cette semaine</button>'
       + '<button class="btn ghost sm" type="button" data-per="mois" title="Conventions reçues ce mois-ci.">Ce mois</button>'
       + '<button class="btn ghost sm" type="button" data-per="" title="Retirer le filtre de dates.">Toutes les dates</button>'
-      + '<span class="sel-compte" id="fc-compte">' + vis.length + ' affiché(s) · ' + nbC + ' coché(s)</span></div>'
+      + '<span class="sel-compte" id="fc-compte">' + vis.length + ' affiché(s) · ' + nbC + ' coché(s)</span>'
+      + ' <button class="btn ghost sm" type="button" id="fc-check" title="Une demi-page par élève affiché, à découper et à remettre : ce qu\'il reste à faire pour sa convention.">🖶 Checklists des élèves affichés</button>'
+      + ' <label class="chk" style="display:inline-flex;align-items:center;gap:5px;font-size:12.5px" title="À cocher seulement si la famille ou l\'entreprise a perdu le code reçu. Sans cela, la feuille ne porte aucun code d\'accès."><input type="checkbox" id="fc-qr"> Joindre le code d\'accès</label>'
+      + ' <button class="btn ghost sm" type="button" id="fc-plier" title="' + (vis.length && vis.every(function (l) { return FILTRE.ouverts[l.code]; })
+          ? "Referme le détail de tous les élèves affichés." : "Ouvre le détail des seuls élèves affichés, pas de toute la liste.") + '">'
+        + (vis.length && vis.every(function (l) { return FILTRE.ouverts[l.code]; }) ? "Tout replier" : "Tout déplier (affichés)") + '</button>'
+      + ((FILTRE.classe || FILTRE.etat || FILTRE.du || FILTRE.au)
+         ? ' <button class="btn ghost sm" type="button" id="fc-raz" title="Retire tous les filtres et réaffiche la liste entière.">✕ Tout afficher</button>' : "")
+      + '</div>'
       + '<div class="sel-ligne">'
       + '<button class="btn sm" type="button" id="fc-pdf" title="Un élève coché : son PDF. Deux fichiers ou plus (plusieurs élèves, ou un élève à deux lieux) : un ZIP, un PDF par convention.">📄 Conventions des élèves cochés</button>'
       + '<button class="btn ghost sm" type="button" id="fc-unique" title="Un seul PDF réunissant toutes les conventions des élèves cochés, l\'une après l\'autre : pratique pour le secrétariat.">🗂 PDF unique (secrétariat)</button>'
@@ -6086,6 +6110,27 @@ window.DEPOUILLEMENT = (function () {
     ["fc-classe", "fc-etat", "fc-tri"].forEach(function (id) { var e = q(id); if (e) e.addEventListener("change", function () { FILTRE[id.slice(3)] = e.value; afficherTable(); }); });
     ["fc-du", "fc-au"].forEach(function (id) { var e = q(id); if (e) e.addEventListener("change", function () { FILTRE[id.slice(3)] = e.value; afficherTable(); }); });
     document.querySelectorAll("#barre-conv [data-per]").forEach(function (b) { b.addEventListener("click", function () { periodeRapide(b.getAttribute("data-per")); }); });
+    if (_dernier) _dernier.visibles = (vis || []).map(function (l) { return l.code; });
+    var chk = q("fc-check");
+    if (chk) chk.addEventListener("click", function () { genChecklists(null); });
+    var plier = q("fc-plier");
+    if (plier) plier.addEventListener("click", function () {
+      var aff = (_dernier && _dernier.visibles) || [];
+      var fermer = aff.length && aff.every(function (c) { return FILTRE.ouverts[c]; });
+      aff.forEach(function (c) { if (fermer) delete FILTRE.ouverts[c]; else FILTRE.ouverts[c] = true; });
+      afficherTable();
+    });
+    var raz = q("fc-raz");
+    if (raz) raz.addEventListener("click", function () {
+      FILTRE.classe = ""; FILTRE.etat = ""; FILTRE.q = ""; FILTRE.du = ""; FILTRE.au = ""; afficherTable();
+    });
+    // Les quatre raccourcis en tête : un clic pose le filtre, un second le retire.
+    document.querySelectorAll("#barre-conv [data-racc]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var v = b.getAttribute("data-racc");
+        FILTRE.etat = (FILTRE.etat === v) ? "" : v; afficherTable();
+      });
+    });
     // Cocher ne redessine pas le tableau : seuls le compteur et la case d'en-tête suivent.
     function majCoches() {
       var n = _lignes.filter(function (l) { return FILTRE.coches[l.code]; }).length;
@@ -6131,9 +6176,54 @@ window.DEPOUILLEMENT = (function () {
       + '<div class="cv-nom"><b>' + esc(l.affNom) + '</b><span>' + esc(l.classe ? l.classe + " · " + l.code : l.code) + '</span></div>'
       + '<div>' + (l.entreprise ? esc(l.entreprise) : '<span class="mut">—</span>') + (l.entreprise2 ? '<span class="cv-petit">+ ' + esc(l.entreprise2) + ' (lieu 2)</span>' : "") + '</div>'
       + '<div>' + (l.dates ? esc(l.dates) : '<span class="mut">—</span>') + (l.dates2 ? '<span class="cv-petit">lieu 2 : ' + esc(l.dates2) + '</span>' : "") + '</div>'
-      + '<div><span class="mq-chip ' + e[0] + '">' + esc(e[1]) + '</span>' + (l.aVerifier.length ? '<span class="mq-alerte" title="' + l.aVerifier.length + ' point(s) à vérifier : ouvrez le détail.">⚠</span>' : "") + '</div>'
+      + '<div>' + avancementHTML(l) + '<span class="mq-chip ' + e[0] + '">' + esc(e[1]) + '</span>' + motifsHTML(l) + (l.aVerifier.length ? '<span class="mq-alerte" title="' + l.aVerifier.length + ' point(s) à vérifier : ouvrez le détail.">⚠</span>' : "") + '</div>'
       + '<button class="btn ghost sm" type="button" data-det="' + esc(l.code) + '" title="' + (ouvert ? "Replier le détail." : "Afficher le détail : parties reçues, points à vérifier, conventions, historique.") + '">' + (ouvert ? "▾" : "▸") + ' Détails</button>'
       + '</div>';
+  }
+  // Où en est la convention : les deux parties, les journées couvertes, et la resignature si elle est attendue.
+  // La jauge va du rouge au vert ; les motifs, juste à côté, disent ce qui manque.
+  // Quatre raccourcis : ils comptent, et ils filtrent.
+  function tuilesHTML(toutes) {
+    var n = toutes.length;
+    var complets = toutes.filter(function (l) { return !l.sansEnt && !l.sansPar && !l.aCompleter; }).length;
+    var attente = toutes.filter(function (l) { return l.sansEnt || l.sansPar; }).length;
+    var acomp = toutes.filter(function (l) { return l.aCompleter; }).length;
+    var courts = toutes.filter(function (l) { return l.jours && l.jours < l.joursPrevus; }).length;
+    function t(val, nb, lib, aide) {
+      return '<button class="cv-tuile' + (FILTRE.etat === val ? " on" : "") + '" type="button" data-racc="' + val + '" title="' + aide + '">'
+        + '<span class="n">' + nb + '</span><span class="t">' + lib + '</span></button>';
+    }
+    return '<div class="cv-tuiles">'
+      + t("complet", complets + "/" + n, "Complètes", "N\'affiche que les conventions complètes. Un second clic retire le filtre.")
+      + t("incomplet", attente, "Parties en attente", "N\'affiche que les élèves dont une partie manque. Un second clic retire le filtre.")
+      + t("completer", acomp, "À compléter", "N\'affiche que les conventions à compléter et resigner. Un second clic retire le filtre.")
+      + t("court", courts, "Stage trop court", "N\'affiche que les élèves dont le stage ne couvre pas toutes les journées prévues. Un second clic retire le filtre.")
+      + '</div>';
+  }
+  // Ce qui manque, dit sur la ligne elle-même : plus besoin d'ouvrir le détail pour le savoir.
+  function motifsHTML(l) {
+    var m = [];
+    if (l.sansEnt && l.sansPar) m.push('<span class="cv-mchip mq-ko">Rien reçu</span>');
+    else {
+      if (l.sansEnt) m.push('<span class="cv-mchip mq-ko">Entreprise manquante</span>');
+      if (l.sansPar) m.push('<span class="cv-mchip mq-ko">Parents manquants</span>');
+    }
+    if (l.secondManquant) m.push('<span class="cv-mchip mq-att">Second lieu attendu</span>');
+    if (l.jours && l.joursPrevus && l.jours < l.joursPrevus) {
+      m.push('<span class="cv-motif"><b>' + l.jours + ' journée' + (l.jours > 1 ? "s" : "") + ' sur ' + l.joursPrevus + '</b></span>');
+    }
+    return m.length ? '<span class="cv-motifs">' + m.join(" ") + '</span>' : "";
+  }
+  function avancementHTML(l) {
+    var p = 0;
+    if (!l.sansEnt) p += 30;
+    if (!l.sansPar) p += 30;
+    p += Math.round(30 * Math.min(1, (l.jours || 0) / (l.joursPrevus || 5)));
+    if (!l.sansEnt && !l.sansPar && !l.aCompleter) p += 10;
+    var c = p >= 100 ? "#1f6b3a" : p >= 70 ? "#7a9b2e" : p >= 40 ? "#c8921f" : p > 0 ? "#c4601c" : "#b3261e";
+    var aide = "Avancement : " + p + " %. Compte les deux parties reçues, les journées couvertes et la signature du texte en vigueur.";
+    return '<div class="cv-jauge" title="' + aide + '"><span style="width:' + p + '%;background:' + c + '"></span></div>'
+      + '<span class="cv-pct">' + p + ' %</span>';
   }
   function detailsHTML(l) {
     var admin = !!(window.__estAdmin && window.__estAdmin()), c = esc(l.code);
@@ -6141,6 +6231,7 @@ window.DEPOUILLEMENT = (function () {
       + '<div class="cv-bloc"><h5>Parties reçues</h5><div>' + l.parties.map(esc).join("<br>") + '</div></div>'
       + '<div class="cv-bloc"><h5>À vérifier</h5><div>' + (l.aVerifier.length ? l.aVerifier.map(function (t) { return "⚠ " + esc(t); }).join("<br>") : '<span class="mut">Rien à signaler.</span>') + '</div></div></div>';
     h += '<div class="cv-actions">'
+      + '<button class="btn ghost sm" type="button" onclick="window.DEPOUILLEMENT.genChecklists(\'' + c + '\')" title="Une demi-page à remettre à cet élève : ce qu\'il lui reste à faire.">🖶 Checklist</button>'
       + (l.aConv1 ? '<button class="btn ghost sm" type="button" onclick="window.DEPOUILLEMENT.voirConvention(\'' + c + '\')" title="Ouvre la convention à l\'écran, sans l\'enregistrer sur votre appareil.">👁 Visualiser</button>' : "")
       + (l.aConv1 ? '<button class="btn sm" type="button" onclick="window.DEPOUILLEMENT.genConvention(\'' + c + '\')" title="' + (l.aCompleter ? "Document provisoire : une partie reste à compléter et à resigner. Ne pas le transmettre." : "Fabrique la convention complète" + (l.deux ? " du premier lieu" : "") + " (PDF).") + '">' + (l.aCompleter ? "Aperçu provisoire" : "Convention" + (l.deux ? " 1" : "") + " (PDF)") + '</button>' : "")
       + (l.aConv2 ? '<button class="btn sm" type="button" onclick="window.DEPOUILLEMENT.genConvention(\'' + c + '\', 2)" title="' + (l.aCompleter ? "Document provisoire : une partie reste à compléter et à resigner. Ne pas le transmettre." : "Fabrique la convention complète du second lieu de stage (PDF).") + '">' + (l.aCompleter ? "Aperçu provisoire 2" : "Convention 2 (PDF)") + '</button>' : "")
@@ -6309,6 +6400,135 @@ window.DEPOUILLEMENT = (function () {
     var carte = fond.querySelector(".modal"); if (carte) carte.classList.add("large");
     fond.hidden = false;
   }
+  // ---- Checklist : une demi-page par élève, à remettre -----------------
+  // Deux élèves par feuille A4, à couper au trait. Le contenu s'adapte à l'état de la convention.
+  var _urlCheck = null;
+  function dateFrSimple(d) {
+    var x = d || new Date();
+    return ("0" + x.getDate()).slice(-2) + "/" + ("0" + (x.getMonth() + 1)).slice(-2) + "/" + x.getFullYear();
+  }
+  function premiereDateOff(classe) {
+    var niv = /^\s*3/.test(String(classe || "")) ? "3e" : "4e";
+    var l = window.__datesOffDe ? window.__datesOffDe(niv) : [];
+    return l && l.length ? l[0] : "";
+  }
+  function tachesDe(l) {
+    var t = [], prevus = l.joursPrevus || 5, couverts = l.jours || 0;
+    if (l.sansEnt) t.push(["Ton maître de stage remplit sa partie de la convention.",
+      "Sans sa partie, la convention ne peut pas être signée, et sans convention signée tu ne peux pas faire ton stage."]);
+    if (l.sansPar) t.push(["Tes parents remplissent leur partie de la convention.",
+      "La convention est signée par ton entreprise, par tes parents et par le collège. Il manque leur accord et leurs coordonnées en cas d'urgence."]);
+    if (l.aCompleter) t.push(["Il nous manque quelques informations : ton entreprise et tes parents reprennent la convention pour la compléter et la signer.",
+      "La convention officielle demande le détail des journées et des horaires, la fonction de ton tuteur, les activités prévues, et ce qu'il faut savoir sur ta santé pendant le stage."]);
+    if (couverts && couverts < prevus) {
+      var mots = ["", "un jour", "deux jours", "trois jours", "quatre jours", "cinq jours", "six jours"];
+      t.push(["Ton stage dure " + couverts + " journée" + (couverts > 1 ? "s" : "") + ", et il en faut " + prevus
+        + " : il te manque " + (prevus - couverts) + " journée" + ((prevus - couverts) > 1 ? "s" : "") + ".",
+        "La séquence d'observation dure " + (mots[prevus] || prevus + " jours") + ", qui peuvent être pris en une fois ou en plusieurs périodes (circulaire du 21 novembre 2025). "
+        + "Deux possibilités : demande à ton entreprise si elle peut t'accueillir les journées qui restent, ou trouve un second lieu d'accueil. "
+        + "Dans ce second cas, chaque entreprise remplit sa propre convention : tu auras deux conventions, une par lieu."]);
+    }
+    if (l.secondManquant) t.push(["Pour ton second lieu d'accueil, l'entreprise n'a pas encore rempli sa partie.",
+      "Chaque lieu a sa propre convention : celle du premier lieu n'attend plus rien, celle du second reste à établir."]);
+    if (l.parents2) t.push(["Pour ton second lieu d'accueil, tes parents n'ont pas encore rempli leur partie.",
+      "Chaque lieu a sa propre convention : tes parents signent les deux."]);
+    if (l.sansEnt && l.sansPar && !l.entreprise) t.push(["Tu n'as pas encore d'entreprise pour ton stage. Cherche un lieu d'accueil et parles-en à ton professeur principal.",
+      "Le centre d'information et d'orientation peut t'aider : CIO de Saumur, 3 rue de Sévigné, 02 41 51 02 30, cio.saumur@ac-nantes.fr, du lundi au vendredi de 9 h à 12 h et de 14 h à 17 h."]);
+    return t;
+  }
+  function demiPage(doc, l, y0, avecQR) {
+    var M = 14, W = 210, H2 = 148.5;
+    var t = tachesDe(l), y = y0 + 12;
+    doc.setFont("times", "bold"); doc.setFontSize(14); doc.setTextColor(22, 36, 63);
+    doc.text("Où on en est pour ton stage ?", M, y); y += 6;
+    doc.setFont("helvetica", "normal"); doc.setFontSize(8.6); doc.setTextColor(120);
+    doc.text(l.affNom + "  ·  " + (l.classe || "") + "  ·  feuille établie le " + dateFrSimple()
+      + (l.dates ? "  ·  stage prévu " + l.dates : ""), M, y);
+    doc.setTextColor(33); y += 6.5;
+    if (t.length) {
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9.6);
+      doc.text("Au " + dateFrSimple() + ", pour que ta convention soit complète, il reste à faire :", M, y); y += 5.5;
+      t.forEach(function (x) {
+        doc.setDrawColor(155, 28, 44); doc.setLineWidth(0.4); doc.rect(M, y - 3, 3.4, 3.4);
+        doc.setFont("helvetica", "bold"); doc.setFontSize(9.4); doc.setTextColor(33);
+        var t1 = doc.splitTextToSize(x[0], W - 2 * M - 7);
+        doc.text(t1, M + 6, y); y += t1.length * 4.2 + 0.6;
+        doc.setFont("helvetica", "normal"); doc.setFontSize(8.2); doc.setTextColor(110, 118, 135);
+        var t2 = doc.splitTextToSize(x[1], W - 2 * M - 7);
+        doc.text(t2, M + 6, y); y += t2.length * 3.5 + 3;
+        doc.setTextColor(33);
+      });
+      if (avecQR && (l.sansEnt || l.sansPar)) {
+        doc.setFont("helvetica", "normal"); doc.setFontSize(8.2); doc.setTextColor(110, 118, 135);
+        doc.text("Code redonné à votre demande, le code précédent ayant été perdu.", M, y + 2); y += 6;
+        doc.setTextColor(33);
+      } else {
+        doc.setFont("helvetica", "normal"); doc.setFontSize(8.2); doc.setTextColor(110, 118, 135);
+        doc.text(doc.splitTextToSize("Le lien et le code ont déjà été remis en début d'année. S'ils sont perdus, demande-les à ton professeur principal.", W - 2 * M), M, y); 
+        doc.setTextColor(33); y += 7;
+      }
+      var yg = y0 + H2 - 29;
+      doc.setDrawColor(155, 28, 44); doc.setLineWidth(0.5);
+      doc.setFillColor(253, 246, 247); doc.roundedRect(M, yg, W - 2 * M, 13, 1.4, 1.4, "FD");
+      doc.setFont("helvetica", "bold"); doc.setFontSize(8.8); doc.setTextColor(155, 28, 44);
+      doc.text("ATTENTION — ne perds pas cette feuille.", M + 3, yg + 5);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(8.4); doc.setTextColor(58, 33, 38);
+      doc.text("Donne-la à tes parents ou à ton entreprise ; cette personne devra la jeter dès que la convention est remplie.", M + 3, yg + 9.6);
+      doc.setTextColor(33);
+    } else {
+      doc.setFillColor(232, 243, 236); doc.rect(M, y - 4, W - 2 * M, 11, "F");
+      doc.setDrawColor(31, 107, 58); doc.setLineWidth(1.2); doc.line(M, y - 4, M, y + 7);
+      doc.setFont("helvetica", "bold"); doc.setFontSize(9.6); doc.setTextColor(31, 107, 58);
+      doc.text("Ta convention est complète.", M + 3, y + 1);
+      doc.setFont("helvetica", "normal"); doc.setTextColor(33);
+      doc.text("Tu n'as plus rien à faire.", M + 50, y + 1); y += 13;
+      doc.setFontSize(9.2);
+      [["Entreprise", l.entreprise || "—"], ["Dates", l.dates || "—"]].forEach(function (c) {
+        doc.setFont("helvetica", "bold"); doc.text(c[0] + " :", M, y);
+        doc.setFont("helvetica", "normal"); doc.text(doc.splitTextToSize(String(c[1]), W - 2 * M - 34), M + 32, y); y += 5;
+      });
+      if (l.entreprise2) { doc.setFont("helvetica", "bold"); doc.text("Second lieu :", M, y);
+        doc.setFont("helvetica", "normal"); doc.text(l.entreprise2 + (l.dates2 ? " — " + l.dates2 : ""), M + 32, y); y += 5; }
+      y += 2;
+      doc.setFontSize(8.6); doc.setTextColor(110, 118, 135);
+      doc.text(doc.splitTextToSize("La convention est envoyée par courriel à tes parents et à ton entreprise. Tu restes élève du collège pendant ton stage : les règles de présence sont les mêmes qu'en classe, et ton entreprise prévient le collège le jour même en cas d'absence.", W - 2 * M), M, y);
+      doc.setTextColor(33);
+    }
+    doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(110, 118, 135);
+    doc.text("Une question ? Parles-en à ton professeur principal.", M, y0 + H2 - 9);
+    doc.text("Collège Saint-Joseph · Doué-la-Fontaine", W - M, y0 + H2 - 9, { align: "right" });
+    doc.setTextColor(33);
+  }
+  function genChecklists(code) {
+    if (!_lignes || !_lignes.length) return;
+    var liste = code ? _lignes.filter(function (l) { return l.code === code; })
+                     : _lignes.filter(function (l) { return ((_dernier && _dernier.visibles) || []).indexOf(l.code) >= 0; });
+    if (!liste.length) liste = _lignes;
+    var avecQR = !!(document.getElementById("fc-qr") && document.getElementById("fc-qr").checked);
+    var doc = window.__wrapPDF(new window.jspdf.jsPDF({ unit: "mm", format: "a4" }));
+    for (var i = 0; i < liste.length; i += 2) {
+      if (i) doc.addPage();
+      demiPage(doc, liste[i], 0, avecQR);
+      doc.setDrawColor(185, 195, 208); doc.setLineWidth(0.3);
+      doc.setLineDashPattern([2, 2], 0); doc.line(0, 148.5, 210, 148.5); doc.setLineDashPattern([], 0);
+      if (liste[i + 1]) demiPage(doc, liste[i + 1], 148.5, avecQR);
+    }
+    var nom = "Checklists_" + dateFrSimple().replace(/\//g, "-") + ".pdf";
+    var blob = doc.output("blob");
+    if (_urlCheck) { try { URL.revokeObjectURL(_urlCheck); } catch (e) {} }
+    _urlCheck = URL.createObjectURL(blob);
+    var corps = document.getElementById("modal-corps"), titre = document.getElementById("modal-titre");
+    titre.textContent = code ? "Checklist — " + liste[0].affNom : "Checklists — " + liste.length + " élève(s)";
+    corps.innerHTML = '<iframe id="vue-conv" src="' + _urlCheck + '#zoom=page-width"></iframe>'
+      + '<div class="sel-ligne" style="margin-top:10px;justify-content:flex-end;gap:8px">'
+      + '<a class="btn ghost sm" href="' + _urlCheck + '" download="' + nom + '" title="Enregistre ces feuilles sur votre appareil.">⇩ Télécharger</a>'
+      + '<button class="btn bord sm" type="button" onclick="window.__fermerModal()" title="Ferme cette fenêtre. Rien n\'est enregistré.">Fermer</button></div>';
+    var fond = document.getElementById("modal");
+    fond.classList.add("large");
+    var carte = fond.querySelector(".modal"); if (carte) carte.classList.add("large");
+    fond.hidden = false;
+  }
+
   function genToutes() {
     if (!_dernier) return;
     var k = 0;
@@ -6425,7 +6645,7 @@ window.DEPOUILLEMENT = (function () {
   }
 
   function nbRecues() { return (_dernier && _dernier.codes) ? _dernier.codes.length : 0; }
-  return { init: init, importerZip: importerZip, exportCSV: exportCSV, genConvention: genConvention, voirConvention: voirConvention, rafraichir: function () { if (_lignes.length) afficherTable(); }, voletsDe: function (code) { return (_dernier && _dernier.parCode[code]) ? _dernier.parCode[code].volets : {}; }, genToutes: genToutes, envoyer: envoyer, genFichesTuteurs: genFichesTuteurs, injecterTest: injecterTest, nbRecues: nbRecues };
+  return { init: init, importerZip: importerZip, exportCSV: exportCSV, genConvention: genConvention, voirConvention: voirConvention, genChecklists: genChecklists, rafraichir: function () { if (_lignes.length) afficherTable(); }, voletsDe: function (code) { return (_dernier && _dernier.parCode[code]) ? _dernier.parCode[code].volets : {}; }, genToutes: genToutes, envoyer: envoyer, genFichesTuteurs: genFichesTuteurs, injecterTest: injecterTest, nbRecues: nbRecues };
 })();
 </script>
 <script>/* =====================================================================
@@ -8069,16 +8289,41 @@ window.DEPOUILLEMENT = (function () {
   // des envois sur GitHub ; descriptions reconstituées. À COMPLÉTER À CHAQUE LIVRAISON (consigne 8 en tête du fichier).
   var NOUVEAUTES = [
     { date: "01/10/2026", heure: "", auteur: "Paul Meney", version: "v2026.10.01·convention", points: [
-      "Texte de la convention : les dix articles du modèle officiel, validés par Mme Chrétien le 29 septembre, avec la délibération du conseil de direction du 1er octobre 2026, l'assurance collective de la Mutuelle Saint-Christophe et les deux téléphones du collège à l'article 9.",
-      "Annexe financière : hébergement, restauration, transport et assurance, dans les termes du modèle officiel.",
-      "La convention imprimée change d'allure : logo du collège en tête, signalétique et numéro de page en bas de chaque feuille, encadrés par section, entreprise et signataire d'un côté, élève et famille de l'autre, articles sur deux colonnes justifiées.",
+      "La convention imprimée change d'allure : logo du collège en tête, signalétique et numéro de page en bas de chaque feuille, un encadré par section, l'entreprise et son signataire d'un côté, l'élève et sa famille de l'autre, et les articles sur deux colonnes justifiées.",
+      "Signature de la cheffe d'établissement : elle porte désormais son empreinte, calculée sur la convention assemblée, et sa date, fixée dix minutes après la dernière signature reçue.",
+      "Le téléphone des parents figure sous leur signature, comme pour les deux autres signataires."
+    ] },
+    { date: "01/10/2026", heure: "", auteur: "Paul Meney", version: "v2026.10.01·duree", points: [
       "Durée du stage : l'article 10 annonce le nombre de journées que vous avez enregistrées comme dates officielles pour le niveau de l'élève. Sans dates saisies, il garde les cinq jours du texte officiel.",
-      "Conventions reçues : un stage trop court est signalé — « Cet élève n'a que 1 journée couverte sur les 5 prévues : il lui faut un second lieu d'accueil ou des journées supplémentaires. »",
+      "Conventions reçues : un stage trop court est signalé — « Cet élève n'a que 1 journée couverte sur les 5 prévues : il lui faut un second lieu d'accueil ou des journées supplémentaires. » Le compte additionne les deux lieux de stage.",
+      "Modifier un article vous demande si le changement exige une nouvelle signature. Si oui, les conventions déjà signées repassent « à compléter »."
+    ] },
+    { date: "30/09/2026", heure: "", auteur: "Paul Meney", version: "v2026.09.30·provisoire", points: [
       "« Visualiser » : la convention s'ouvre en grand à l'écran, sans rien déposer dans vos téléchargements. Le bouton « Télécharger » reste là si vous la voulez vraiment.",
       "Tant qu'une partie n'a pas été complétée et resignée, la convention porte un filigrane « PROVISOIRE » et un bandeau rouge, son fichier s'appelle PROVISOIRE_…, et « Préparer l'envoi » est inactif.",
-      "Modifier un article vous demande désormais si le changement exige une nouvelle signature. Si oui, les conventions déjà signées repassent « à compléter ».",
-      "Signature de la cheffe d'établissement : elle porte son empreinte, calculée sur la convention assemblée, et sa date, fixée dix minutes après la dernière signature reçue.",
-      "Toutes les commandes de l'application portent une infobulle : les boutons, les champs, les listes et les cases."
+      "L'avertissement dit ce qui cloche vraiment : les signataires n'ont pas encore approuvé ce texte et des informations manquent."
+    ] },
+    { date: "29/09/2026", heure: "", auteur: "Paul Meney", version: "v2026.09.29·texte-officiel", points: [
+      "Le texte de la convention est celui du modèle officiel, validé par Mme Chrétien : dix articles, les textes de référence, et la délibération du conseil de direction du 1er octobre 2026.",
+      "Assurance : le collège a souscrit une assurance collective auprès de la Mutuelle Saint-Christophe, contrat n° 0000002510637904, qui couvre tous les élèves pendant la séquence, qu'ils disposent ou non d'une assurance personnelle.",
+      "Article 9 : les difficultés et les absences se signalent au 02.41.59.16.89, ou sur le téléphone de la cheffe d'établissement au 07.43.36.81.97.",
+      "Annexe financière : hébergement, restauration, transport et assurance, dans les termes du modèle officiel."
+    ] },
+    { date: "29/09/2026", heure: "", auteur: "Paul Meney", version: "v2026.09.29·infobulles", points: [
+      "Toutes les commandes de l'application portent une infobulle : les 132 boutons, les 29 champs de formulaire, les listes, les cases et les zones de texte.",
+      "Trois boutons étaient cassés par une infobulle mal placée — « Vu » sur les nouveautés, « Valider mes modifications », et les boutons de l'aperçu. Corrigé, et le banc échoue désormais si cela se reproduit."
+    ] },
+    { date: "29/09/2026", heure: "", auteur: "Paul Meney", version: "v2026.09.29·familles", points: [
+      "Côté familles : « envoyer votre convention » remplace « générer », qui ne parlait à personne.",
+      "Les sigles sont expliqués : le PAI est le projet d'accueil individualisé établi avec le collège quand un enfant a un problème de santé, le PAP le plan d'accompagnement personnalisé pour les troubles des apprentissages, le PPS le projet personnalisé de scolarisation en situation de handicap.",
+      "Trousse d'urgence : une famille qui ne sait pas répondre peut le dire, et expliquer la situation en toutes lettres.",
+      "Le code remis par le collège est mis en sommeil : les familles n'en ont plus besoin. Le mécanisme reste en place et visible dans l'espace de test."
+    ] },
+    { date: "28/09/2026", heure: "", auteur: "Paul Meney", version: "v2026.09.28·horaires", points: [
+      "Formulaire de l'entreprise : les horaires jour par jour, avec un bouton pour copier les mêmes horaires sur toutes les journées.",
+      "Alertes en direct : plus de 7 heures dans la journée, ou plus de 5 heures d'affilée sans pause. La source est citée — modèle officiel, circulaire du 21 novembre 2025, Bulletin officiel n° 47.",
+      "Convention imprimée : une annexe pédagogique avec les activités prévues, les horaires jour par jour et l'enseignant référent.",
+      "Correction : la convention affichait « Tuteur : undefined » quand la partie entreprise manquait encore."
     ] },
     { date: "28/09/2026", heure: "", auteur: "Paul Meney", version: "v2026.09.28·code", points: [
       "Code de la famille (espace de test) : quand un code a été fabriqué pour un élève, son lien parents demande d'abord ce code. Au bout de cinq essais, l'application ouvre d'elle-même la convention sans code : personne n'est jamais bloqué.",
