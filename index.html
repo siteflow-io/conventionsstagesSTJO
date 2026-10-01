@@ -334,6 +334,12 @@
   .modal-bg{position:fixed;inset:0;background:rgba(22,36,63,.45);display:flex;align-items:center;justify-content:center;z-index:55;padding:20px}
   .modal-bg[hidden]{display:none}
   .modal{background:#fff;border-radius:14px;padding:22px;max-width:380px;text-align:center;border-top:4px solid var(--or);max-height:88vh;overflow:auto}
+  /* Fenêtre de lecture d'une convention : aussi grande que l'écran le permet. */
+  .modal-bg.large{padding:14px}
+  .modal.large{max-width:min(1180px,96vw);width:96vw;max-height:94vh;height:94vh;padding:14px 16px 12px;text-align:left;display:flex;flex-direction:column}
+  .modal.large h3{margin:0 0 8px;font-size:16px;text-align:left;padding-right:34px}
+  .modal.large #modal-corps{flex:1;display:flex;flex-direction:column;min-height:0}
+  .modal.large #vue-conv{flex:1;width:100%;min-height:0;border:1px solid var(--ligne);border-radius:8px;background:#fff}
   .lien-bloc{border:1px solid var(--ligne);border-radius:10px;padding:14px;margin-bottom:14px}
   .lien-titre{font-size:13px;font-weight:600;color:var(--bordeaux);margin-bottom:10px}
   .modal h3{margin:0 0 14px;font-size:17px;color:var(--nuit)}
@@ -3905,7 +3911,7 @@ window.SIGNATAIRE = (function () {
     { t: "Article 9 – Difficultés et discipline",
       c: "La cheffe d'établissement et le ou la responsable de l'organisme d'accueil se tiennent mutuellement informés des difficultés qui pourraient naître de l'application de la présente convention et prennent, d'un commun accord et en liaison avec l'équipe pédagogique, les dispositions propres à les résoudre, notamment en cas de manquement à la discipline. Les difficultés rencontrées, et notamment toute absence de l'élève, sont aussitôt portées à la connaissance de la cheffe d'établissement au 02.41.59.16.89, ou sur le téléphone de la cheffe d'établissement au 07.43.36.81.97." },
     { t: "Article 10 – Durée",
-      c: "La présente convention est signée pour la durée de la séquence d'observation en milieu professionnel, fixée à cinq jours, consécutifs ou non, pour les élèves scolarisés au collège. Lorsque l'élève est accueilli dans deux organismes différents, chaque période fait l'objet d'une convention distincte." }
+      c: "La présente convention est signée pour la durée de la séquence d'observation en milieu professionnel, fixée à {{duree}}, consécutifs ou non, pour les élèves scolarisés au collège. Lorsque l'élève est accueilli dans deux organismes différents, chaque période fait l'objet d'une convention distincte." }
   ];
 
   // ---- Contenus éditables (surcouche) ----
@@ -5214,6 +5220,21 @@ window.SIGNATAIRE = (function () {
     return "—";
   }
   window.__texteDates = texteDates;
+  // La durée annoncée à l'article 10 est celle que le collège prévoit vraiment : le nombre de dates
+  // officielles saisies pour le niveau de l'élève. Sans dates saisies, on garde la durée du texte officiel.
+  function dureeEnLettres(n) {
+    var mots = ["", "un jour", "deux jours", "trois jours", "quatre jours", "cinq jours", "six jours", "sept jours"];
+    return (n > 0 && n < mots.length) ? mots[n] : (n > 0 ? n + " jours" : "cinq jours");
+  }
+  function dureePrevue(o) {
+    try {
+      var cl = String((o && o.classe) || (window.__classeDe ? window.__classeDe(o && o.code) : "") || "");
+      var niv = /^\s*3/.test(cl) ? "3e" : "4e";
+      var l = window.__datesOffDe ? window.__datesOffDe(niv) : null;
+      if (l && l.length) return dureeEnLettres(l.length);
+    } catch (e) {}
+    return "cinq jours";
+  }
   function rendreConventionTissee(doc, o) {
     var M = 12, W = 210, PAGEH = 297, y = 0;
     // Une convention provisoire porte un avertissement au bas de chaque page : on lui réserve sa place
@@ -5240,6 +5261,48 @@ window.SIGNATAIRE = (function () {
     var GC = 7, LC = (W - 2 * M - GC) / 2, XL = [M, M + LC + GC], XV = 42, WV = LC - XV;
     var FILE = [];
     function ouvrirColonnes() { FILE = []; }
+    // Encadrés : chaque partie de la convention est posée dans son cadre, pour qu'on ne les mélange pas.
+    var _cadre = null;
+    function pageCourante() {
+      try { return doc.internal.getCurrentPageInfo().pageNumber; } catch (e) { return doc.internal.getNumberOfPages(); }
+    }
+    // Un intertitre à l'intérieur d'un encadré, pour distinguer deux groupes d'informations.
+    function sousTitre(t) {
+      fermerColonnes();
+      saut(5);
+      doc.setFont("helvetica", "bold"); doc.setFontSize(8.6); doc.setTextColor(122, 130, 153);
+      doc.text(t.toUpperCase(), M, y); doc.setTextColor(33); y += 3.9;
+      ouvrirColonnes();
+    }
+    // Un trait fin qui sépare deux groupes dans le même encadré.
+    function separationSection() {
+      fermerColonnes();
+      y += 1.5; saut(6);
+      doc.setDrawColor(224, 228, 235); doc.setLineWidth(0.3); doc.line(M, y, W - M, y);
+      y += 1.5;
+      ouvrirColonnes();
+    }
+    function debutSection(titre) {
+      saut(15);
+      _cadre = { page: pageCourante(), y0: y - 4.6 };
+      doc.setFont("times", "bold"); doc.setFontSize(11); doc.setTextColor(22, 36, 63);
+      doc.text(titre, M + 3, y); doc.setTextColor(33); y += 6;
+      ouvrirColonnes();
+    }
+    function finSection() {
+      fermerColonnes();
+      if (!_cadre) { y += 4; return; }
+      var page = pageCourante();
+      doc.setDrawColor(206, 213, 224); doc.setLineWidth(0.35);
+      if (page === _cadre.page) doc.rect(M - 3, _cadre.y0, W - 2 * M + 6, (y - 1.2) - _cadre.y0);
+      else {
+        doc.setPage(_cadre.page);
+        doc.rect(M - 3, _cadre.y0, W - 2 * M + 6, (PAGEH - 14) - _cadre.y0);
+        doc.setPage(page);
+        doc.rect(M - 3, 16, W - 2 * M + 6, (y + 2.5) - 16);
+      }
+      _cadre = null; y += 5.8;
+    }
     function ligne(label, val) { FILE.push([label, (val == null || val === "") ? "—" : String(val)]); }
     function ligneLarge(label, val) {
       // Les textes fixes de l'annexe financière : en pleine largeur, ils tiennent en trois lignes
@@ -5277,30 +5340,35 @@ window.SIGNATAIRE = (function () {
           doc.setFont("helvetica", "bold"); doc.text(d[1], XL[d[0]], y);
           doc.setFont("helvetica", "normal"); doc.text(d[2], XL[d[0]] + XV, y);
         });
-        y += hauteur + 2.2;
+        y += hauteur + 1.9;
       }
       FILE = [];
     }
 
 
-    doc.setFont("helvetica", "bold"); doc.setFontSize(10.5); doc.text("Parties et élève", M, y); y += 6; ouvrirColonnes();
+    debutSection("Parties et élève");
+    // L'entreprise d'abord, avec la personne qui signe pour elle ; puis un trait, puis l'élève et sa famille.
+    sousTitre("L'entreprise d'accueil");
     ligne("Entreprise", ent.raison_sociale);
     ligne("Adresse", ent.adresse);
     ligne("N° SIRET", ent.siret);
     ligne("Tuteur", (ent.tuteur_ent || "") + (ent.tuteur_fonction ? " — " + ent.tuteur_fonction : ""));
     ligne("Téléphone", ent.tel);
     ligne("Lieu de stage effectif", ent.lieu_stage);
-    ligne("Élève", o.nomEleve + (o.naissance ? " (né(e) le " + o.naissance + ")" : ""));
-    if (par.resp_nom) ligne("Responsable légal", par.resp_nom + (par.statut ? " — " + par.statut + (par.statut === "Autre" && par.statut_precision ? " : " + par.statut_precision : "") : ""));
-    if (par.tel || par.email) ligne("Coordonnées du responsable", [par.tel, par.email].filter(Boolean).join(" · "));
-    ligne("Dates de stage", texteDates(ent));
     if (ent.chef_nom) ligne("Représentant (signataire)", ent.chef_nom + (ent.chef_fonction ? " — " + ent.chef_fonction : ""));
+    ligne("Dates de stage", texteDates(ent));
+    separationSection();
+    sousTitre("L'élève et sa famille");
+    ligne("Élève", o.nomEleve + (o.naissance ? " (né(e) le " + o.naissance + ")" : ""));
+    if (par.resp_nom) ligne("Responsable légal", par.resp_nom + (par.lien ? " (" + par.lien + ")" : "") + (par.statut ? " — " + par.statut + (par.statut === "Autre" && par.statut_precision ? " : " + par.statut_precision : "") : ""));
+    if (par.adresse) ligne("Adresse du responsable", par.adresse);
+    if (par.tel || par.email) ligne("Coordonnées du responsable", [par.tel, par.email].filter(Boolean).join(" · "));
+    if (par.urgence) ligne("En cas d'urgence", String(par.urgence).replace(/\n/g, "  ·  "));
+
 
     // Annexe pédagogique (modèle officiel) : activités prévues, horaires jour par jour, référent au collège.
-    fermerColonnes(); y += 0.5; saut(12);
-    doc.setDrawColor(184, 146, 63); doc.setLineWidth(0.4); doc.line(M, y, W - M, y); y += 6;
-    doc.setFont("times", "bold"); doc.setFontSize(11); doc.setTextColor(22, 36, 63);
-    doc.text("Annexe pédagogique", M, y); y += 6; ouvrirColonnes(); doc.setTextColor(33); doc.setFontSize(9.5);
+    finSection();
+    debutSection("Annexe pédagogique"); doc.setFontSize(9.5);
     ligne("Activités prévues", ent.activites);
     ligne("Horaires", ent.horaires);
     if (par.pai) ligne("PAI (santé)", par.pai === "oui" ? "Oui — trousse d'urgence fournie par " + (par.pai_trousse || "…") + (par.pai_precisions ? " ; " + par.pai_precisions : "") : "Non");
@@ -5308,16 +5376,14 @@ window.SIGNATAIRE = (function () {
     var refEtab = (o.data && o.data.ETABLISSEMENT && o.data.ETABLISSEMENT.enseignant_suivi) || o.tuteur || "";
     if (refEtab) ligne("Enseignant référent", refEtab);
 
-    fermerColonnes(); y += 0.5; saut(12);
-    doc.setDrawColor(184, 146, 63); doc.setLineWidth(0.4); doc.line(M, y, W - M, y); y += 6;
-    doc.setFont("times", "bold"); doc.setFontSize(11); doc.setTextColor(22, 36, 63);
-    doc.text("Annexe financière", M, y); y += 6; doc.setTextColor(33); doc.setFontSize(9.5);
+    finSection();
+    debutSection("Annexe financière"); doc.setFontSize(9.5);
     [["Hébergement", "L'hébergement de l'élève en milieu professionnel n'entre pas dans le cadre de la présente convention."],
      ["Restauration", "L'élève peut accéder à l'espace restauration de l'entreprise ou de l'organisme qui l'accueille dans les conditions fixées pour l'ensemble du personnel par son règlement intérieur. La participation financière des repas pris par l'élève demeure à la charge de son représentant légal. L'organisme d'accueil peut décider de prendre en charge tout ou partie du coût du repas."],
      ["Transport", "Le déplacement de l'élève est réglementé par la circulaire n° 96-248 du 25 octobre 1996. Dès lors que la séquence d'observation implique un déplacement qui se situe en début ou en fin de temps scolaire, il est assimilé au trajet habituel entre le domicile et l'établissement scolaire. L'élève, dans le cadre de l'apprentissage de l'autonomie, peut s'y rendre ou en revenir seul."],
      ["Assurance", "Les élèves sont couverts par le contrat d'assurance collective souscrit par le collège auprès de la Mutuelle Saint-Christophe (n° 0000002510637904)."]].forEach(function (x) { ligneLarge(x[0], x[1]); });
-     y += 2; saut(14);
-    doc.setDrawColor(184, 146, 63); doc.setLineWidth(0.4); doc.line(M, y, W - M, y); y += 6;
+     finSection();
+    saut(14);
     doc.setFont("times", "bold"); doc.setFontSize(11); doc.setTextColor(22, 36, 63);
     doc.text("Articles de la convention", M, y); y += 6; doc.setTextColor(33);
     // Deux colonnes où le texte COULE : une ligne remplit la colonne de gauche, puis celle de droite,
@@ -5327,12 +5393,12 @@ window.SIGNATAIRE = (function () {
     var flux = [];
     ARTICLES.forEach(function (a, iA) {
       doc.setFont("helvetica", "bold"); doc.setFontSize(9.8);
-      if (iA) flux.push({ t: "", h: 1.8, esp: true });
-      doc.splitTextToSize(a.t, LCOL).forEach(function (l, k) { flux.push({ t: l, h: 4.1, gras: true, debut: k === 0 }); });
-      flux.push({ t: "", h: 1.1, esp: true });
+      if (iA) flux.push({ t: "", h: 1.4, esp: true });
+      doc.splitTextToSize(a.t, LCOL).forEach(function (l, k) { flux.push({ t: l, h: 4.0, gras: true, debut: k === 0 }); });
+      flux.push({ t: "", h: 0.9, esp: true });
       doc.setFont("helvetica", "normal"); doc.setFontSize(9.1);
-      var lignes = doc.splitTextToSize(a.c, LCOL);
-      lignes.forEach(function (l, k) { flux.push({ t: l, h: 3.82, justifier: k < lignes.length - 1 }); });
+      var lignes = doc.splitTextToSize(String(a.c).replace(/\{\{duree\}\}/g, dureePrevue(o)), LCOL);
+      lignes.forEach(function (l, k) { flux.push({ t: l, h: 3.55, justifier: k < lignes.length - 1 }); });
     });
     // Équilibrage : on simule d'abord le remplissage pour savoir où commence la dernière feuille, puis on
     // partage à parts égales ce qu'il y reste entre les deux colonnes. Sans cela, la colonne de droite
@@ -5399,7 +5465,7 @@ window.SIGNATAIRE = (function () {
     var SIGS = [];
     function blocSig(titre, infos, faitA, sig, preuve, dateTs) { SIGS.push([titre, infos, faitA, sig, preuve, dateTs]); }
     function dessinerSignatures() {
-      var GS = 5, LS = (W - 2 * M - 2 * GS) / 3, CW = LS, CH = 14, PAD = 1.3;
+      var GS = 5, LS = (W - 2 * M - 2 * GS) / 3, CW = LS, CH = 13, PAD = 1.2;
       // hauteur commune : celle du bloc le plus haut, pour que les trois cadres s'alignent
       var hTitre = 4.4, hInfos = 0;
       SIGS.forEach(function (b) {
@@ -5408,8 +5474,8 @@ window.SIGNATAIRE = (function () {
         b[1].filter(Boolean).forEach(function (l) { n += doc.splitTextToSize(l, LS).length; });
         hInfos = Math.max(hInfos, n * 3.7);
       });
-      var hHaut = hTitre + hInfos + 5;
-      saut(hHaut + CH + 6);
+      var hHaut = hTitre + hInfos + 4.2;
+      saut(hHaut + CH + 4);
       var yDep = y;
       SIGS.forEach(function (b, k) {
         var x = M + k * (LS + GS), titre = b[0], infos = b[1], faitA = b[2], sig = b[3], preuve = b[4], dateTs = b[5];
@@ -5459,7 +5525,7 @@ window.SIGNATAIRE = (function () {
         var pv = o.preuves || {};
     blocSig("Le chef d'entreprise", [ent.chef_nom, ent.tel], ent.fait_a, sigs.ENTREPRISE, pv.ENTREPRISE);
     blocSig("Les représentants légaux de l'élève",
-      [(par.resp_nom || "") + (par.lien ? " (" + par.lien + ")" : "") + (par.statut ? " — " + par.statut : ""), par.urgence ? "Urgence : " + par.urgence.replace(/\n/g, "  ;  ") : ""],
+      [(par.resp_nom || "") + (par.lien ? " (" + par.lien + ")" : ""), par.statut || ""],
       par.fait_a, sigs.PARENTS, pv.PARENTS);
     // Mme Chrétien signe une fois pour toutes ; elle est toujours le dernier signataire (D5) :
     // sa date est la plus récente entre la partie entreprise, la partie parents et sa propre signature.
@@ -5855,6 +5921,29 @@ window.DEPOUILLEMENT = (function () {
         // Raisonnement complet (D100) : ce que dit la famille, ce que dit l'entreprise, la conclusion.
         if (ent.accueil === "partiel") aVerifier.push("À vérifier avec la famille : elle a attesté un seul lieu de stage (le " + dToStr(v.ATTESTATION.date) + (at.nom ? ", par " + at.nom : "") + "). Or l'entreprise a déclaré n'accueillir l'élève que le" + ((ent.dates || []).length > 1 ? "s " : " ") + listeFr((ent.dates || []).map(libJour)) + ". Un second lieu semble manquer.");
       }
+      // Combien de journées l'élève a-t-il réellement ? On compare à la durée prévue par le collège
+      // (le nombre de dates officielles du niveau) ou, à défaut, aux cinq jours du texte officiel.
+      var joursCouverts = {};
+      [ent, ent2].forEach(function (e) {
+        ((e && e.dates) || []).forEach(function (d) { if (d) joursCouverts[d] = 1; });
+        if (e && !(e.dates || []).length && (e.date_debut || e.date_fin)) {
+          var a0 = e.date_debut || e.date_fin, b0 = e.date_fin || e.date_debut;
+          var t0 = new Date(a0 + "T12:00:00"), t1 = new Date(b0 + "T12:00:00");
+          if (!isNaN(t0.getTime()) && !isNaN(t1.getTime()) && t1 >= t0) {
+            for (var t = new Date(t0); t <= t1; t.setDate(t.getDate() + 1)) {
+              var j = t.getDay(); if (j === 0 || j === 6) continue;
+              joursCouverts[t.toISOString().slice(0, 10)] = 1;
+            }
+          }
+        }
+      });
+      var nbCouverts = Object.keys(joursCouverts).length;
+      var nbPrevus = datesOff.length || 5;
+      if ((ent.raison_sociale || ent2.raison_sociale) && nbCouverts && nbCouverts < nbPrevus) {
+        aVerifier.push("Cet élève n'a que " + nbCouverts + " journée" + (nbCouverts > 1 ? "s" : "") + " de stage couverte"
+          + (nbCouverts > 1 ? "s" : "") + " sur les " + nbPrevus + " prévues" + (datesOff.length ? "" : " par les textes")
+          + " : il lui faut un second lieu d'accueil ou des journées supplémentaires.");
+      }
       if (datesOff.length && (ent.dates || ent2.dates)) {
         var d1 = ent.dates || [], d2 = ent2.dates || [];
         var manque = datesOff.filter(function (d) { return d1.indexOf(d) < 0 && d2.indexOf(d) < 0; });
@@ -6175,11 +6264,14 @@ window.DEPOUILLEMENT = (function () {
     _urlVue = URL.createObjectURL(r.blob);
     var corps = document.getElementById("modal-corps"), titre = document.getElementById("modal-titre");
     titre.textContent = (o.provisoire ? "Aperçu provisoire — " : "Convention — ") + (o.nomEleve || code) + (n === 2 ? " (second lieu)" : "");
-    corps.innerHTML = '<iframe id="vue-conv" src="' + _urlVue + '" style="width:100%;height:70vh;border:1px solid var(--ligne);border-radius:8px;background:#fff"></iframe>'
+    corps.innerHTML = '<iframe id="vue-conv" src="' + _urlVue + '#zoom=page-width"></iframe>'
       + '<div class="sel-ligne" style="margin-top:10px;justify-content:flex-end;gap:8px">'
       + '<a class="btn ghost sm" href="' + _urlVue + '" download="' + esc(r.nom) + '" title="Enregistre ce document sur votre appareil.">⇩ Télécharger</a>'
       + '<button class="btn bord sm" type="button" onclick="window.__fermerModal()" title="Ferme cette fenêtre. Rien n\'est enregistré.">Fermer</button></div>';
-    document.getElementById("modal").hidden = false;
+    var fond = document.getElementById("modal");
+    fond.classList.add("large");
+    var carte = fond.querySelector(".modal"); if (carte) carte.classList.add("large");
+    fond.hidden = false;
   }
   function genToutes() {
     if (!_dernier) return;
@@ -8466,6 +8558,8 @@ window.DEPOUILLEMENT = (function () {
   }
   window.__estEspaceTest = function () { return STATE.niveauActif === "demo"; };
   var _datesOff = { "4e": [], "3e": [] };
+  // Les dates officielles d'un niveau donné, pour la convention : elles disent aussi la durée prévue.
+  window.__datesOffDe = function (n) { return _datesOff[n === "3e" ? "3e" : "4e"] || []; };
   window.__datesOffNiveau = function () { var n = STATE.niveauActif === "3e" ? "3e" : "4e"; return _datesOff[n] || []; };
   function chargerDatesOfficielles() {
     if (!window.FB || !window.FB.lireDatesOfficielles) return;
@@ -9149,7 +9243,13 @@ window.DEPOUILLEMENT = (function () {
     window.SIGNATAIRE.apercuConventionComplete();
     window.scrollTo(0, 0);
   };
-  window.__fermerModal = function () { $("modal").hidden = true; };
+  window.__fermerModal = function () {
+    var f = $("modal"); f.hidden = true;
+    // la fenêtre large ne sert qu'à lire un document : on la remet à sa taille ordinaire en sortant
+    f.classList.remove("large");
+    var c = f.querySelector(".modal"); if (c) c.classList.remove("large");
+    var vue = document.getElementById("vue-conv"); if (vue) vue.src = "about:blank";
+  };
   window.__etab = function () { return STATE.etab || {}; };
   window.__missionsTuteur = function () { return (STATE.etab && STATE.etab.missions) || ""; };
   function majEtabStatut() {
