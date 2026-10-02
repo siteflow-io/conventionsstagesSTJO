@@ -6029,6 +6029,21 @@ window.DEPOUILLEMENT = (function () {
         parties: parties, aVerifier: aVerifier, aConv1: !!(v.ENTREPRISE || v.PARENTS), aConv2: !!(v.ENTREPRISE_2 || v.PARENTS_2), aAttest: !!v.ATTESTATION,
         volets: v, emails: { ent: [ent.email, ent2.email].filter(Boolean), par: [v.PARENTS && (v.PARENTS.data.champs || {}).email, v.PARENTS_2 && (v.PARENTS_2.data.champs || {}).email].filter(Boolean) } };
     });
+    // Cloisonnement par niveau : on ne montre que les élèves importés dans le niveau choisi.
+    // Un élève inconnu de la liste reste visible, pour ne jamais perdre une convention reçue.
+    var _niv = (window.__niveauActif && window.__niveauActif()) || "";
+    if (_niv === "4e" || _niv === "3e") {
+      var duNiveau = {};
+      try { ((window.__elevesDe && window.__elevesDe(_niv)) || []).forEach(function (e) { if (e && e.code) duNiveau[e.code] = 1; }); } catch (e) {}
+      var connus = {};
+      try {
+        ["4e", "3e"].forEach(function (k) {
+          ((window.__elevesDe && window.__elevesDe(k)) || []).forEach(function (e) { if (e && e.code) connus[e.code] = 1; });
+        });
+      } catch (e) {}
+      lignes = lignes.filter(function (l) { return duNiveau[l.code] || !connus[l.code]; });
+      nbComplets = lignes.filter(function (l) { return !l.sansEnt && !l.sansPar && !l.aCompleter; }).length;
+    }
     _lignes = lignes; _nbComplets = nbComplets; _illisibles = illisibles.length;
     _dernier = { codes: codes, parCode: parCode };
     afficherTable();
@@ -6074,10 +6089,11 @@ window.DEPOUILLEMENT = (function () {
     afficherTable();
   }
   function afficherTable() {
-    var vis = lignesFiltrees();
-    var classes = {}; _lignes.forEach(function (l) { if (l.classe) classes[l.classe] = 1; });
+    var duNiveau = _lignes.filter(duNiveauActif);
+    var vis = lignesFiltrees().filter(duNiveauActif);
+    var classes = {}; duNiveau.forEach(function (l) { if (l.classe) classes[l.classe] = 1; });
     var tousCoches = vis.length && vis.every(function (l) { return FILTRE.coches[l.code]; });
-    var nbC = _lignes.filter(function (l) { return FILTRE.coches[l.code]; }).length;
+    var nbC = duNiveau.filter(function (l) { return FILTRE.coches[l.code]; }).length;
     var opt = function (v, lib, cur) { return '<option value="' + v + '"' + (cur === v ? " selected" : "") + '>' + lib + '</option>'; };
     var barre = '<div class="selecteur" id="barre-conv">'
       + '<div class="sel-ligne">'
@@ -6085,7 +6101,7 @@ window.DEPOUILLEMENT = (function () {
       + '<label title="N\'afficher que les élèves dans cet état.">État <select id="fc-etat">' + opt("", "Tous", FILTRE.etat) + opt("complet", "Complets", FILTRE.etat) + opt("incomplet", "Incomplets", FILTRE.etat)
       + opt("sans-ent", "Partie entreprise manquante", FILTRE.etat) + opt("sans-par", "Partie parents manquante", FILTRE.etat) + opt("second", "Second lieu attendu", FILTRE.etat) + opt("deux", "Deux lieux de stage", FILTRE.etat) + opt("demande", "Demande de refaire en attente", FILTRE.etat) + opt("completer", "À compléter (modèle officiel)", FILTRE.etat) + opt("sanscode", "Parents : envoi sans le code du collège", FILTRE.etat) + '</select></label>'
       + '<label title="Ordre d\'affichage.">Tri <select id="fc-tri">' + opt("recent", "Réception : plus récente d\'abord", FILTRE.tri) + opt("ancien", "Réception : plus ancienne d\'abord", FILTRE.tri) + opt("nom", "Nom", FILTRE.tri) + opt("classe", "Classe, puis nom", FILTRE.tri) + '</select></label></div>'
-      + tuilesHTML(_lignes && _lignes.length ? _lignes : vis)
+      + tuilesHTML(duNiveau.length ? duNiveau : vis)
       + '<div class="sel-ligne"><span title="Date de réception de la partie la plus récente de l\'élève.">Reçues entre le</span> <input type="date" id="fc-du" value="' + esc(FILTRE.du) + '" title="Début de la période (incluse)."> <span>et le</span> <input type="date" id="fc-au" value="' + esc(FILTRE.au) + '" title="Fin de la période (incluse).">'
       + '<button class="btn ghost sm" type="button" data-per="jour" title="Conventions reçues aujourd\'hui.">Aujourd\'hui</button>'
       + '<button class="btn ghost sm" type="button" data-per="semaine" title="Conventions reçues cette semaine (lundi à dimanche).">Cette semaine</button>'
@@ -6198,6 +6214,17 @@ window.DEPOUILLEMENT = (function () {
   // Où en est la convention : les deux parties, les journées couvertes, et la resignature si elle est attendue.
   // La jauge va du rouge au vert ; les motifs, juste à côté, disent ce qui manque.
   // Quatre raccourcis : ils comptent, et ils filtrent.
+  // Cloisonnement par niveau : une convention de 3e n'a rien à faire dans la vue des 4e.
+  // L'espace de test montre tout, et les élèves dont la classe est inconnue restent visibles.
+  function duNiveauActif(l) {
+    try {
+      var niv = (window.__niveauActif && window.__niveauActif()) || "4e";
+      if (niv === "demo") return true;
+      var cl = String(l.classe || "").trim();
+      if (!cl) return true;
+      return cl.charAt(0) === niv.charAt(0);
+    } catch (e) { return true; }
+  }
   function tuilesHTML(toutes) {
     var n = toutes.length;
     var complets = toutes.filter(function (l) { return !l.sansEnt && !l.sansPar && !l.aCompleter; }).length;
@@ -6473,11 +6500,26 @@ window.DEPOUILLEMENT = (function () {
         doc.text(t2, M + 6, y); y += t2.length * 3.5 + 3;
         doc.setTextColor(33);
       });
-      if (avecQR && (l.sansEnt || l.sansPar)) {
-        doc.setFont("helvetica", "normal"); doc.setFontSize(8.2); doc.setTextColor(110, 118, 135);
-        doc.text("Code redonné à votre demande, le code précédent ayant été perdu.", M, y + 2); y += 6;
-        doc.setTextColor(33);
-      } else {
+      // Le code sert aussi pour compléter : dans ce cas les deux parties doivent rouvrir leur lien.
+      var besoinCode = l.sansEnt || l.sansPar || l.aCompleter;
+      if (avecQR && besoinCode) {
+        var el = (typeof _resolver === "function" && _resolver(l.code)) || null;
+        var cases = [];
+        if (l.sansEnt || l.aCompleter) cases.push(["ENTREPRISE", "À faire scanner par ton maître de stage"]);
+        if (l.sansPar || l.aCompleter) cases.push(["PARENTS", "À faire scanner par tes parents"]);
+        var xq = M;
+        cases.forEach(function (c) {
+          var img = (el && window.__qrPour) ? window.__qrPour(el, c[0]) : "";
+          if (img) { try { doc.addImage(img, "PNG", xq, y, 20, 20); } catch (e) {} }
+          doc.setFont("helvetica", "normal"); doc.setFontSize(7.8); doc.setTextColor(64, 73, 90);
+          doc.text(doc.splitTextToSize(c[1], 44), xq + 22, y + 7);
+          doc.setTextColor(33);
+          xq += 70;
+        });
+        doc.setFont("helvetica", "normal"); doc.setFontSize(7.6); doc.setTextColor(110, 118, 135);
+        doc.text("Code redonné à votre demande, le code précédent ayant été perdu.", M, y + 23);
+        doc.setTextColor(33); y += 27;
+      } else if (besoinCode) {
         doc.setFont("helvetica", "normal"); doc.setFontSize(8.2); doc.setTextColor(110, 118, 135);
         doc.text(doc.splitTextToSize("Le lien et le code ont déjà été remis en début d'année. S'ils sont perdus, demande-les à ton professeur principal.", W - 2 * M), M, y); 
         doc.setTextColor(33); y += 7;
@@ -6801,6 +6843,9 @@ window.DEPOUILLEMENT = (function () {
   }
 
   function nv() { return STATE.niveaux[STATE.niveauActif]; }
+  // Le dépouillement est un module à part : il a besoin de connaître le niveau affiché.
+  window.__niveauActif = function () { return STATE.niveauActif; };
+  window.__elevesDe = function (n) { return ((STATE.niveaux[n] || {}).eleves) || []; };
 
   // Résout un code élève vers sa fiche (tous niveaux confondus), pour le dépouillement
   function resoudreEleve(code) {
@@ -6823,6 +6868,8 @@ window.DEPOUILLEMENT = (function () {
         STATE.niveauActif = b.getAttribute("data-niveau");
         if (STATE.niveauActif === "demo" && av !== "demo") toast("🧪 Mode test activé — espace isolé, branché sur Firebase. Rien n'affecte les vraies classes.");
         majAnneeNiveau(); majPanneauDemo(); majDepouillement(); renderTuteurs(); renderEleves(); sauverState("niveau");
+        // Les niveaux sont cloisonnés : la liste des conventions doit se redessiner avec le nouveau.
+        if (window.DEPOUILLEMENT && window.DEPOUILLEMENT.rafraichir) window.DEPOUILLEMENT.rafraichir();
       });
     });
     $("champ-annee").addEventListener("input", function () {
@@ -7576,6 +7623,10 @@ window.DEPOUILLEMENT = (function () {
     if (cle) url += "#k=" + cle; // clé E2E dans le fragment : jamais transmise au serveur
     return url;
   }
+  // Le code d'accès d'une partie, en image : la checklist s'en sert quand on le redemande.
+  window.__qrPour = function (el, role) {
+    try { return qrDataURL(lienEleve(el, role)); } catch (e) { return ""; }
+  };
   function qrDataURL(texte) {
     var qr = qrcode(0, "M");
     qr.addData(texte); qr.make();
@@ -8320,13 +8371,13 @@ window.DEPOUILLEMENT = (function () {
       var e = etats[k];
       c.classList.remove("etape-faite", "etape-encours", "etape-alerte");
       var tag = c.querySelector("h2 .etape-tag"); if (!tag) return;
-      if (!e || !e.tag) { tag.hidden = true; return; }
+      if (!e || !e.tag) { tag.hidden = true; if (/^\d+$/.test(k)) num.textContent = "!"; return; }
       if (e.cls) c.classList.add("etape-" + e.cls);
       tag.hidden = false;
       tag.className = "etape-tag tag-" + e.t;
       tag.textContent = e.tag;
-      // La pastille des étapes faites affiche une coche.
-      num.textContent = (e.cls === "faite") ? "✓" : k;
+      // Plus de numéros : une coche quand l'étape est faite, un point d'exclamation quand elle attend.
+      num.textContent = (e.cls === "faite") ? "✓" : (/^\d+$/.test(k) ? "!" : k);
       num.title = e.tag || "";
     });
   }
@@ -8982,7 +9033,14 @@ window.DEPOUILLEMENT = (function () {
       t.push(window.FB.ecrireDatesOfficielles(STATE.annee, n, _datesOff[n]));
       t.push(window.FB.ecrireDatesOfficielles("demo", n, _datesOff[n]));
     });
-    Promise.all(t).then(function () { oublierSaisies("admin-dates"); renderAdminDates(); journal("admin", "a enregistré les dates officielles de la séquence"); toast("Dates officielles enregistrées."); })
+    Promise.all(t).then(function () {
+      oublierSaisies("admin-dates"); renderAdminDates();
+      // La durée prévue vient de ces dates : la liste des conventions doit être recalculée sur-le-champ,
+      // sinon les alertes gardent l'ancienne durée jusqu'au prochain rechargement.
+      if (window.DEPOUILLEMENT && window.DEPOUILLEMENT.rafraichir) window.DEPOUILLEMENT.rafraichir();
+      journal("admin", "a enregistré les dates officielles de la séquence");
+      toast("Dates officielles enregistrées.");
+    })
       .catch(function () { toast("Échec : les dates n'ont pas été enregistrées.", true); });
   };
   function estAdmin() {
