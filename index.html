@@ -455,6 +455,10 @@
   .cadre-eleve-t{font-size:12px;font-weight:700;letter-spacing:.04em;color:#46597a;text-transform:uppercase}
   .qui-signe{font-weight:700;margin:2px 0 10px}
   @media (max-width:560px){ .urg-ligne{grid-template-columns:1fr !important} .urg-ligne > *{grid-column:1 / -1 !important;grid-row:auto !important;width:100%} .urg-ligne > button{justify-self:start;width:auto} }
+  .hor-plage{display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px;margin-right:12px}
+  .hor-a{white-space:nowrap}
+  .hor-h{width:5.2em;text-align:center}
+  .hor-copies{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
 </style>
 </head>
 <body>
@@ -856,7 +860,7 @@
 
 <div id="toast" class="toast" hidden></div>
 <button id="btn-valider-collab" hidden title="Ouvre la liste de vos modifications de textes, pour les valider ou les abandonner une par une." onclick="window.__ouvrirValidation && window.__ouvrirValidation()">✓ Valider mes modifications (0)</button>
-<div class="app-version">v2026.10.05·L3c</div>
+<div class="app-version">v2026.10.05·L4a</div>
 
 <script>
 /* ===== Configuration : système de transmission ====================
@@ -4033,7 +4037,7 @@ window.SIGNATAIRE = (function () {
     if (!CTX.persist || !CTX.role) return;
     var st = CTX.steps[CTX.stepIndex];
     if (st && (st.type === "fin")) return; // parcours terminé : on n'écrase pas par l'état final
-    var snap = { role: CTX.role, stepIndex: CTX.stepIndex, data: CTX.data, locked: CTX.locked,
+    var snap = { role: CTX.role, place: CTX.place || "", completion: !!CTX.completion, stepIndex: CTX.stepIndex, data: CTX.data, locked: CTX.locked,
       artChecks: CTX.artChecks, articlesOK: CTX.articlesOK, autorisation: CTX.autorisation, ts: Date.now() };
     lsSet(cleProgress(), JSON.stringify(snap));
   }
@@ -4172,8 +4176,24 @@ window.SIGNATAIRE = (function () {
       if (fini) return; CTX.statut = null; ouvrirPlace();
     });
   }
+  // C2-3 : un parcours de complétion ou de seconde convention interrompu (rechargement) est proposé à la reprise,
+  // au lieu de renvoyer à l'écran « déjà envoyée ».
+  function repriseAutrePlace() {
+    if (!CTX.persist) return false;
+    var st = CTX.statut || {}, base = CTX.roleLock;
+    var places = [base + "_2", base + "_C", base + "_2_C"];
+    for (var i = 0; i < places.length; i++) {
+      var pl = places[i], r = null;
+      try { r = JSON.parse(lsGet("conv_sig_v1_" + (CTX.code || "") + "_" + pl) || "null"); } catch (e) { r = null; }
+      if (!r || !(r.stepIndex > 0) || st[pl]) continue;
+      CTX.place = pl; if (/_C$/.test(pl)) CTX.completion = true;
+      proposerReprise(r); return true;
+    }
+    return false;
+  }
   function orienter() {
     var st = CTX.statut || {};
+    if ((CTX.roleLock === "PARENTS" && st.PARENTS) || (CTX.roleLock === "ENTREPRISE" && st.ENTREPRISE)) { if (repriseAutrePlace()) return; }
     if (CTX.roleLock === "ENTREPRISE") {
       if (!st.ENTREPRISE) { CTX.place = "ENTREPRISE"; ouvrirPlace(); return; }
       CTX.steps = [{ type: "place-prise" }]; CTX.stepIndex = 0; renderStep(); return;
@@ -4459,7 +4479,7 @@ window.SIGNATAIRE = (function () {
     var hj = {};
     document.querySelectorAll("#sig-step .hor-jour").forEach(function (r) {
       var d = r.getAttribute("data-jour"), v = {};
-      r.querySelectorAll("input[type=time]").forEach(function (i) { v[i.getAttribute("data-k")] = i.value || ""; });
+      r.querySelectorAll("input[data-k]").forEach(function (i) { v[i.getAttribute("data-k")] = normHeure(i.value || ""); });
       hj[d] = v;
     });
     CTX.data.horaires_jours = hj;
@@ -4518,16 +4538,19 @@ window.SIGNATAIRE = (function () {
   window.__alerteSignataire = alerteSignataire;
   function htmlHoraires() {
     var hj = CTX.data.horaires_jours || {}, js = joursHoraires();
-    var h = '<h3 class="serif">Les horaires</h3><p>Indiquez les horaires de présence de l\'élève pour chaque jour.</p>';
+    var h = '<h3 class="serif">Les horaires</h3><p>Indiquez les horaires de présence de l\'élève pour chaque jour.</p>'
+      + '<p class="mut">Le cadre légal : 7 heures de présence par jour au plus, 35 heures par semaine, une pause de 30 minutes dès 4 h 30 de présence, aucune présence avant 6 h ni après 20 h, et 14 heures de repos entre deux journées.</p>';
     if (!js.length) return h + '<div class="encadre-conseil">Revenez à l\'étape précédente pour choisir les jours du stage.</div>' + navHTML(true);
     h += '<div class="hor-table">';
     js.forEach(function (d, k) {
       var v = hj[d] || {};
-      var inp = function (key, lib) { return '<input type="time" data-k="' + key + '" value="' + esc(v[key] || "") + '" title="' + lib + '">'; };
+      // D105 : l'heure se tape au clavier (« 830 » devient « 08:30 ») ; C2-18 : « à » reste collé à l'heure de fin.
+      var inp = function (key, lib) { return '<input type="text" class="hor-h" inputmode="numeric" maxlength="5" placeholder="hh:mm" data-k="' + key + '" value="' + esc(v[key] || "") + '" title="' + lib + ' (par exemple 830 pour 8 h 30)">'; };
       h += '<div class="hor-jour" data-jour="' + esc(d) + '"><b>' + esc(libDate(d)) + '</b>'
-        + '<span>Matin : de ' + inp("m1", "Début du matin") + ' à ' + inp("m2", "Fin du matin") + '</span>'
-        + '<span>Après-midi : de ' + inp("a1", "Début de l\'après-midi") + ' à ' + inp("a2", "Fin de l\'après-midi") + '</span>'
-        + (k === 0 && js.length > 1 ? '<button class="btn ghost sm" type="button" onclick="SIGNATAIRE.copierHoraires()" title="Recopie les horaires de ce premier jour sur tous les autres jours ; vous pourrez ensuite les modifier.">Copier ces horaires sur tous les jours</button>' : '')
+        + '<span class="hor-plage">Matin : de ' + inp("m1", "Début du matin") + ' <span class="hor-a">à ' + inp("m2", "Fin du matin") + '</span></span>'
+        + '<span class="hor-plage">Après-midi : de ' + inp("a1", "Début de l\'après-midi") + ' <span class="hor-a">à ' + inp("a2", "Fin de l\'après-midi") + '</span></span>'
+        + (k === 0 && js.length > 1 ? '<span class="hor-copies"><button class="btn ghost sm" type="button" id="hor-copie-m" onclick="SIGNATAIRE.copierDemi(\'m\')" title="Recopie les horaires du matin de ce premier jour sur les autres jours. Si d\'autres jours ont déjà un matin différent, on vous demande avant de le remplacer.">Copier le matin sur les autres jours</button>'
+          + '<button class="btn ghost sm" type="button" id="hor-copie-a" onclick="SIGNATAIRE.copierDemi(\'a\')" title="Recopie les horaires de l\'après-midi de ce premier jour sur les autres jours. Si d\'autres jours ont déjà un après-midi différent, on vous demande avant de le remplacer.">Copier l\'après-midi sur les autres jours</button></span>' : '')
         + '</div>';
     });
     h += '</div><div id="hor-alertes"></div>';
@@ -4537,18 +4560,42 @@ window.SIGNATAIRE = (function () {
     lireHoraires();
     var z = $("hor-alertes"); if (!z) return;
     var t = alertesHoraires();
-    z.innerHTML = t.length ? '<div class="encadre-conseil">⚠ À vérifier (vous pouvez tout de même continuer) :<br>' + t.map(esc).join("<br>") + '<div style="margin-top:6px;font-size:12px;opacity:.85">' + esc(SOURCE_HORAIRES) + '</div></div>' : "";
+    // D104 : hors du cadre légal, on ne peut pas continuer ; chaque message nomme le jour à corriger.
+    z.innerHTML = t.length ? '<div class="encadre-conseil" style="border-color:#e3a3a3;background:#fdecec;color:#8a1c1c">À corriger avant de continuer :<br>' + t.map(esc).join("<br>") + '<div style="margin-top:6px;font-size:12px;opacity:.85">' + esc(SOURCE_HORAIRES) + '</div></div>' : "";
+    var js = joursHoraires(), v0 = (CTX.data.horaires_jours || {})[js[0]] || {};
+    var bm = $("hor-copie-m"), ba = $("hor-copie-a");
+    if (bm) bm.disabled = !plageValide(v0.m1, v0.m2); if (ba) ba.disabled = !plageValide(v0.a1, v0.a2);
   }
-  function copierHoraires() {
+  function normHeure(t) {
+    var x = String(t || "").trim().toLowerCase().replace(/\s+/g, "").replace(/[h.]/g, ":");
+    var m = /^(\d{1,2})(?::(\d{0,2}))?$/.exec(x), n = /^(\d{3,4})$/.exec(x);
+    var hh, mm;
+    if (n) { hh = +x.slice(0, x.length - 2); mm = +x.slice(-2); }
+    else if (m) { hh = +m[1]; mm = m[2] ? +m[2] : 0; }
+    else return String(t || "").trim();
+    if (hh > 23 || mm > 59) return String(t || "").trim();
+    return ("0" + hh).slice(-2) + ":" + ("0" + mm).slice(-2);
+  }
+  function plageValide(a, b) { var x = minutes(a), y = minutes(b); return x != null && y != null && y > x; }
+  // D109 : copie par demi-journée ; garde avant de remplacer ce qui est déjà tapé.
+  function copierDemi(q) {
     lireHoraires();
     var js = joursHoraires(), hj = CTX.data.horaires_jours || {}, v = hj[js[0]] || {};
-    js.forEach(function (d) { hj[d] = { m1: v.m1 || "", m2: v.m2 || "", a1: v.a1 || "", a2: v.a2 || "" }; });
+    var k1 = q === "m" ? "m1" : "a1", k2 = q === "m" ? "m2" : "a2";
+    if (!plageValide(v[k1], v[k2])) return;
+    var autres = js.slice(1).filter(function (d) { var w = hj[d] || {}; return (w[k1] || w[k2]) && (w[k1] !== v[k1] || w[k2] !== v[k2]); });
+    if (autres.length && !window.confirm("Les horaires " + (q === "m" ? "du matin" : "de l'après-midi") + " déjà tapés pour " + autres.length + " autre(s) jour(s) seront remplacés. Continuer ?")) return;
+    js.forEach(function (d) { var w = hj[d] || {}; w[k1] = v[k1]; w[k2] = v[k2]; hj[d] = w; });
     CTX.data.horaires_jours = hj; renderStep();
   }
   function validerHoraires() {
     lireHoraires();
     var hj = CTX.data.horaires_jours || {}, manque = joursHoraires().filter(function (d) { var v = hj[d] || {}; return !((v.m1 && v.m2) || (v.a1 && v.a2)); });
-    if (manque.length) { toast("Merci d'indiquer au moins une plage horaire pour : " + manque.map(libDate).join(", ") + ".", true); return false; }
+    if (manque.length) { toast("Il manque une plage horaire pour : " + manque.map(libDate).join(", ") + ".", true); return false; }
+    var incompris = [];
+    joursHoraires().forEach(function (d) { var v = hj[d] || {}; ["m1", "m2", "a1", "a2"].forEach(function (k) { if (v[k] && minutes(v[k]) == null) incompris.push(libDate(d) + " : heure non comprise « " + v[k] + " »"); }); });
+    var t = incompris.concat(alertesHoraires());
+    if (t.length) { majAlertesHoraires(); toast("À corriger : " + t[0] + (t.length > 1 ? " (et " + (t.length - 1) + " autre(s) point(s), listés sous les horaires)" : "") + ".", true); return false; }
     return true;
   }
 
@@ -4648,7 +4695,8 @@ window.SIGNATAIRE = (function () {
   }
   function reprendre() {
     var sauve = CTX._sauve || {};
-    demarrerRole(CTX.roleLock);
+    if (sauve.completion && /_C$/.test(sauve.place || "")) completer(sauve.place.replace(/_C$/, ""));   // C2-3 : on reprend « Compléter » là où il en était
+    else demarrerRole(CTX.roleLock);
     if (sauve.data) CTX.data = sauve.data;
     CTX.locked = sauve.locked || {};
     CTX.artChecks = sauve.artChecks || {};
@@ -4657,7 +4705,11 @@ window.SIGNATAIRE = (function () {
     var maxStep = indexType("signature"); // la signature n'est pas conservée : on n'avance pas au-delà
     go(Math.min(sauve.stepIndex || 0, maxStep));
   }
-  function recommencer() { effacerProgress(); CTX.data = {}; CTX.locked = {}; CTX.artChecks = {}; CTX.articlesOK = (CTX.roleLock === "ETABLISSEMENT"); demarrerRole(CTX.roleLock); }
+  function recommencer() {
+    effacerProgress(); CTX.data = {}; CTX.locked = {}; CTX.artChecks = {}; CTX.articlesOK = (CTX.roleLock === "ETABLISSEMENT");
+    if (/_C$/.test(CTX.place || "")) { completer(CTX.place.replace(/_C$/, "")); return; }
+    demarrerRole(CTX.roleLock);
+  }
   function indexType(type) { for (var i = 0; i < CTX.steps.length; i++) if (CTX.steps[i].type === type) return i; return CTX.steps.length - 1; }
 
   function demarrerRole(role) {
@@ -4704,7 +4756,18 @@ window.SIGNATAIRE = (function () {
     $("sig-prog-lbl").textContent = "Étape " + cur + " sur " + n;
   }
 
-  function go(i) { CTX.stepIndex = Math.max(0, Math.min(i, CTX.steps.length - 1)); renderStep(); sauverProgress(); window.scrollTo(0, 0); }
+  var _enRetour = false;
+  function go(i) {
+    CTX.stepIndex = Math.max(0, Math.min(i, CTX.steps.length - 1)); renderStep(); sauverProgress(); window.scrollTo(0, 0);
+    if (!_enRetour) { try { history.pushState({ sigStep: CTX.stepIndex }, ""); } catch (e) {} }
+  }
+  window.addEventListener("popstate", function (e) {
+    if (!CTX.steps || !CTX.steps.length || document.getElementById("mode-console") && document.getElementById("mode-console").offsetParent) return;
+    var cur = CTX.steps[CTX.stepIndex];
+    if (cur && cur.type === "fin") { try { history.pushState({ sigStep: CTX.stepIndex }, ""); } catch (x) {} return; }   // après l'envoi, on reste sur l'écran final
+    var cible = (e.state && e.state.sigStep != null) ? e.state.sigStep : 0;
+    _enRetour = true; try { go(cible); } finally { _enRetour = false; }
+  });
   function suivant() { if (!validerEtape()) return; if (CTX.stepIndex < CTX.steps.length - 1) go(CTX.stepIndex + 1); }
   function precedent() { if (CTX.stepIndex > 0) go(CTX.stepIndex - 1); }
 
@@ -4729,7 +4792,14 @@ window.SIGNATAIRE = (function () {
     else if (st.type === "choix-completion") box.innerHTML = htmlChoixCompletion();
     else if (st.type === "urgences") box.innerHTML = htmlUrgences();
     else if (st.type === "sante") box.innerHTML = htmlSante();
-    else if (st.type === "horaires") { box.innerHTML = htmlHoraires(); box.querySelectorAll("input[type=time]").forEach(function (i) { i.addEventListener("input", majAlertesHoraires); }); majAlertesHoraires(); }
+    else if (st.type === "horaires") {
+      box.innerHTML = htmlHoraires();
+      box.querySelectorAll("input.hor-h").forEach(function (i) {
+        i.addEventListener("input", majAlertesHoraires);
+        i.addEventListener("change", function () { i.value = normHeure(i.value); majAlertesHoraires(); });
+      });
+      majAlertesHoraires();
+    }
     else if (st.type === "reprise") box.innerHTML = htmlReprise();
     else if (st.type === "choix-role") box.innerHTML = htmlChoixRole();
     else if (st.type === "intro") box.innerHTML = htmlIntro();
@@ -4817,6 +4887,12 @@ window.SIGNATAIRE = (function () {
   }
   // La mention sous un champ prérempli suit la saisie (D110) : « Enregistré. », ou « Vous avez repris l'information préremplie ».
   document.addEventListener("input", function (e) {
+    var z = e.target && e.target.closest && e.target.closest("#sig-step");
+    if (z && CTX.persist && CTX.role) {
+      var stc = CTX.steps[CTX.stepIndex] || {};
+      try { if (stc.type === "fields") lireChampsVisibles(); else if (stc.type === "urgences") lireUrgences(); } catch (x) {}
+      sauverProgress();
+    }
     var t = e.target; if (!t || !t.id || t.id.indexOf("f_") !== 0 || !t.closest || !t.closest("#sig-step")) return;
     var id = t.id.slice(2), pv = (CTX.prefillVals || {})[id]; if (pv == null) return;
     var sp = document.querySelector('#sig-step .prefill-sous[data-pref="' + id + '"]'); if (!sp) return;
@@ -5885,6 +5961,7 @@ function nomConvention(o) {
     attacherSignature: attacherSignature,
     choisirRole: choisirRole,
     suivant: suivant,
+    copierDemi: copierDemi,
     majQui: majQui,
     commencerQui: commencerQui,
     precedent: precedent,
@@ -5908,7 +5985,6 @@ function nomConvention(o) {
     retourFin: retourFin,
     effacerMesInfos: effacerMesInfos,
     accueil: choisirAccueil,
-    copierHoraires: copierHoraires,
     statut: choisirStatut,
     ajouterUrgence: ajouterUrgence,
     retirerUrgence: retirerUrgence,
@@ -8735,6 +8811,14 @@ window.DEPOUILLEMENT = (function () {
   // Une entrée par version mise en ligne, la plus récente en tête. Dates et versions relevées dans l'historique
   // des envois sur GitHub ; descriptions reconstituées. À COMPLÉTER À CHAQUE LIVRAISON (consigne 8 en tête du fichier).
   var NOUVEAUTES = [
+    { date: "05/10/2026", heure: "19:30", auteur: "Paul Meney", version: "v2026.10.05·L4a", points: [
+      "Côté entreprise : des horaires hors du cadre légal ne peuvent plus être envoyés ; le message nomme le jour à corriger. Le cadre est rappelé en une phrase avant la saisie.",
+      "Les heures se tapent au clavier (« 830 » devient « 08:30 »), et se recopient par demi-journée sur les autres jours."
+    ] },
+    { date: "05/10/2026", heure: "19:00", auteur: "Paul Meney", version: "v2026.10.05·L3d", points: [
+      "Côté familles et entreprises : chaque frappe est gardée sur l'appareil ; un rechargement de la page ne fait plus rien perdre, et propose de reprendre là où l'on en était, y compris pendant « Compléter » ou une seconde convention.",
+      "Le bouton « retour » du navigateur ramène à l'écran précédent au lieu de quitter la page."
+    ] },
     { date: "05/10/2026", heure: "18:30", auteur: "Paul Meney", version: "v2026.10.05·L3c", points: [
       "Le courriel des parents et de l'entreprise est obligatoire, contrôlé et tapé deux fois : la convention signée doit pouvoir leur parvenir.",
       "Seconde convention : « Réutiliser les informations que j'ai remplies pour la première convention » ou « Tout remplir à nouveau »."
