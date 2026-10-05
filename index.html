@@ -856,7 +856,7 @@
 
 <div id="toast" class="toast" hidden></div>
 <button id="btn-valider-collab" hidden title="Ouvre la liste de vos modifications de textes, pour les valider ou les abandonner une par une." onclick="window.__ouvrirValidation && window.__ouvrirValidation()">✓ Valider mes modifications (0)</button>
-<div class="app-version">v2026.10.05·L3b</div>
+<div class="app-version">v2026.10.05·L3c</div>
 
 <script>
 /* ===== Configuration : système de transmission ====================
@@ -3914,7 +3914,8 @@ window.SIGNATAIRE = (function () {
       { id: "tuteur_ent",     label: "Nom et prénom du tuteur", req: true, aide: "La personne qui accueillera l’élève au quotidien et répondra à ses questions." },
       { id: "tuteur_fonction", label: "Fonction du tuteur dans l'entreprise", req: true, aide: "Son métier ou sa fonction : l’élève doit savoir qui l’encadre." },
       { id: "tel",            label: "Téléphone du tuteur ou de l'entreprise", req: true, aide: "Le numéro où joindre l’entreprise pendant le stage, y compris en cas d’urgence." },
-      { id: "email",          label: "Courriel (pour recevoir la convention)", aide: "L’adresse à laquelle la convention signée sera envoyée." },
+      { id: "email",          label: "Courriel (pour recevoir la convention)", req: true, aide: "L’adresse à laquelle la convention signée sera envoyée." },
+      { id: "email2",         label: "Confirmez le courriel (tapez-le une seconde fois)", req: true, confirmation: "email", aide: "Tapez de nouveau le courriel : les deux doivent être identiques, pour éviter une faute de frappe." },
       { id: "lieu_stage",     label: "Lieu de stage effectif (si différent de l'adresse de l'entreprise)", aide: "À remplir seulement si l’élève travaille ailleurs qu’à l’adresse de l’entreprise." },
       { id: "activites",      label: "Activités prévues pendant la séquence d'observation", type: "area", req: true, aide: "Ce que l’élève va observer ou faire pendant son stage. Quelques lignes suffisent." },
       { id: "date_debut",     label: "Date de début", type: "date", req: true, aide: "Premier jour de présence de l’élève." },
@@ -3930,7 +3931,8 @@ window.SIGNATAIRE = (function () {
       { id: "lien",     label: "Lien avec l'élève (père, mère, tuteur…)", req: true, aide: "Votre lien avec l’élève : père, mère, tuteur…" },
       { id: "adresse",  label: "Adresse", type: "area", aide: "Votre adresse postale, telle qu’elle figurera sur la convention." },
       { id: "tel",      label: "Téléphone", aide: "Le numéro où vous joindre pendant le stage de votre enfant." },
-      { id: "email",    label: "Courriel", aide: "L’adresse à laquelle la convention signée vous sera envoyée." },
+      { id: "email",    label: "Courriel", req: true, aide: "L’adresse à laquelle la convention signée vous sera envoyée." },
+      { id: "email2",   label: "Confirmez le courriel (tapez-le une seconde fois)", req: true, confirmation: "email", aide: "Tapez de nouveau votre courriel : les deux doivent être identiques, pour éviter une faute de frappe." },
       { id: "urgence",  label: "Contacts en cas d'urgence", type: "area", aide: "Les personnes à prévenir pendant le stage si besoin." },
       { id: "fait_a",   label: "Fait à" , aide: "La commune où vous signez. Elle figurera sous votre signature." },
       { id: "lu_approuve", label: "Recopiez ici la mention « Lu et approuvé »", req: true, mention: true , aide: "Recopiez la mention à l’identique : elle vaut confirmation que vous avez lu la convention." }
@@ -4052,13 +4054,13 @@ window.SIGNATAIRE = (function () {
   var GROUPES = {
     ENTREPRISE: [
       { titre: "L'entreprise d'accueil", ids: ["raison_sociale", "adresse", "siret"] },
-      { titre: "Le tuteur de stage", ids: ["tuteur_ent", "tuteur_fonction", "tel", "email"] },
+      { titre: "Le tuteur de stage", ids: ["tuteur_ent", "tuteur_fonction", "tel", "email", "email2"] },
       { titre: "Le stage", ids: ["lieu_stage", "activites"] },
       { titre: "Le signataire", ids: ["chef_nom", "chef_fonction", "fait_a"] }
     ],
     PARENTS: [
       { titre: "Le responsable légal", ids: ["resp_nom", "lien"] },
-      { titre: "Vos coordonnées", ids: ["adresse", "tel", "email"] }
+      { titre: "Vos coordonnées", ids: ["adresse", "tel", "email", "email2"] }
     ],
     ETABLISSEMENT: [
       { titre: "Le suivi de l'élève", ids: ["chef", "enseignant_suivi", "email", "fait_a"] }
@@ -4316,18 +4318,19 @@ window.SIGNATAIRE = (function () {
   }
   function htmlReutiliser() {
     return '<h3 class="serif">Seconde convention de stage</h3>'
-      + '<p>Réutiliser les informations de la première convention ?</p>'
       + '<p class="mut">Vos nom, lien avec l\'élève, adresse, téléphone, courriel, contacts d\'urgence et lieu de signature seront repris, et restent modifiables. La mention « Lu et approuvé » et la signature sont à refaire : elles valident cette seconde convention.</p>'
-      + '<div class="sig-actions"><button class="btn ghost" onclick="SIGNATAIRE.reutiliserParents(false)" title="Remplir cette seconde convention sans reprendre les informations.">Non, tout remplir</button>'
-      + '<button class="btn bord" onclick="SIGNATAIRE.reutiliserParents(true)" title="Reprendre les informations de la première convention, modifiables.">Oui, réutiliser</button></div>';
+      + '<div class="sig-actions" style="flex-wrap:wrap;gap:8px"><button class="btn ghost" style="border-width:1.5px" onclick="SIGNATAIRE.reutiliserParents(false)" title="Remplir cette seconde convention sans reprendre les informations.">Tout remplir à nouveau</button>'
+      + '<button class="btn ghost" style="border-width:1.5px" onclick="SIGNATAIRE.reutiliserParents(true)" title="Reprendre les informations de la première convention, modifiables.">Réutiliser les informations que j\'ai remplies pour la première convention</button></div>';
   }
   function reutiliserParents(oui) {
     demarrerRole("PARENTS");
+    // D113 : pour la seconde convention, la seule proposition est de reprendre ses propres réponses ; pas de « Qui remplit ? ».
+    CTX.steps = CTX.steps.filter(function (x) { return x.type !== "qui"; });
     if (oui && CTX._profilParents) {
       Object.keys(CTX._profilParents).forEach(function (k) { CTX.data[k] = CTX._profilParents[k]; });
-      CTX.steps = CTX.steps.filter(function (x) { return x.type !== "qui"; });   // D113 : les informations reprises tiennent lieu de « Qui remplit ? »
-      renderStep();
+      if (CTX.data.email && !CTX.data.email2) CTX.data.email2 = CTX.data.email;
     }
+    renderStep();
   }
   // ---- Demande de refaire (D78, D80) : raison obligatoire ; c'est l'établissement qui libère la place.
   function demanderRefaire() { CTX.steps = [{ type: "demande" }]; CTX.stepIndex = 0; renderStep(); }
@@ -4829,6 +4832,7 @@ window.SIGNATAIRE = (function () {
       if ((deja.length || (CTX.data.urgences || []).some(function (u) { return u.nom || u.tel; })) && !window.confirm("Le préremplissage va remplacer ce que vous avez déjà tapé. Continuer ?")) return;
       CTX.prefillIds = {}; CTX.prefillVals = {};
       Object.keys(ch).forEach(function (k) { CTX.data[k] = ch[k]; CTX.prefillIds[k] = true; CTX.prefillVals[k] = ch[k]; });
+      if (ch.email) { CTX.data.email2 = ch.email; CTX.prefillIds.email2 = true; CTX.prefillVals.email2 = ch.email; }
       CTX.data.urgences = pr.urgences;
     }
     suivant();
@@ -4940,7 +4944,7 @@ window.SIGNATAIRE = (function () {
     (CTX.completion ? [] : GROUPES[CTX.role]).forEach(function (g, gi) {
       h += '<div class="recap-bloc"><div class="recap-t">' + esc(g.titre) + ' <button type="button" class="lien-modif" onclick="SIGNATAIRE.modifier(' + gi + ')" title="Revient à cette étape pour corriger une information avant l\'envoi.">Modifier</button></div>';
       g.ids.forEach(function (id) {
-        var c = champDef(CTX.role, id); if (!c) return;
+        var c = champDef(CTX.role, id); if (!c || c.confirmation) return;   // D117 : le courriel retapé n'est qu'une vérification
         var v = CTX.data[id] || '—';
         h += '<div class="recap-l"><span>' + esc(c.label) + '</span><b>' + esc(c.type === "date" ? frDate(v) : v) + '</b></div>';
       });
@@ -5022,6 +5026,12 @@ window.SIGNATAIRE = (function () {
         if (c.req && !(CTX.data[id] || "").trim() && !manquant) manquant = c.label;
       });
       if (manquant) { toast("Il manque : « " + manquant + " ».", true); return false; }
+      // D117 : un courriel valide, tapé deux fois à l'identique
+      if (st.ids.indexOf("email") >= 0) {
+        var em = (CTX.data.email || "").trim();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)) { toast("Ce courriel ne semble pas valide (exemple : nom@domaine.fr).", true); return false; }
+        if (st.ids.indexOf("email2") >= 0 && (CTX.data.email2 || "").trim().toLowerCase() !== em.toLowerCase()) { toast("Les deux courriels ne sont pas identiques.", true); return false; }
+      }
       if (CTX.role === "ENTREPRISE" && st.ids.indexOf("chef_nom") >= 0) {
         var alerte = alerteSignataire(CTX.data.chef_nom, CTX.nomEleve);
         if (alerte && !CTX._alerteSignataireVue) { CTX._alerteSignataireVue = true; toast(alerte + " Si c'est bien le cas, cliquez de nouveau sur « Continuer ».", true); return false; }
@@ -8725,6 +8735,10 @@ window.DEPOUILLEMENT = (function () {
   // Une entrée par version mise en ligne, la plus récente en tête. Dates et versions relevées dans l'historique
   // des envois sur GitHub ; descriptions reconstituées. À COMPLÉTER À CHAQUE LIVRAISON (consigne 8 en tête du fichier).
   var NOUVEAUTES = [
+    { date: "05/10/2026", heure: "18:30", auteur: "Paul Meney", version: "v2026.10.05·L3c", points: [
+      "Le courriel des parents et de l'entreprise est obligatoire, contrôlé et tapé deux fois : la convention signée doit pouvoir leur parvenir.",
+      "Seconde convention : « Réutiliser les informations que j'ai remplies pour la première convention » ou « Tout remplir à nouveau »."
+    ] },
     { date: "05/10/2026", heure: "18:00", auteur: "Paul Meney", version: "v2026.10.05·L3b", points: [
       "Côté parents : l'accueil se fait en deux pages ; la seconde demande qui remplit la convention (le responsable 1, le responsable 2 ou une autre personne), et propose de préremplir avec ce que le collège connaît de cette personne. Rien n'est jamais prérempli sans ce choix.",
       "Les liens fabriqués désormais portent aussi les coordonnées du responsable 2."
