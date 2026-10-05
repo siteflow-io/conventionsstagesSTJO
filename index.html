@@ -718,7 +718,7 @@
         </label>
       </h2>
       <div id="admin-corps" hidden>
-        <div class="admin-bloc">
+        <div class="admin-bloc" hidden>
           <h4>Relecture avant partage</h4>
           <p class="hint" style="margin-top:0">Les données sont toujours communes à l'équipe et l'historique est toujours tenu. Cette option ajoute une étape de relecture : chacun valide ses modifications (et arbitre les conflits) avant qu'elles ne soient transmises. Désactivée, les modifications partent immédiatement.</p>
           <label style="display:inline-flex;align-items:center;gap:8px;font-size:13.5px">
@@ -7549,7 +7549,7 @@ window.DEPOUILLEMENT = (function () {
           var code = prompt("Code d'activation du mode collaboratif :");
           if (code === CODE_COLLAB) {
             if (!window.FB || !window.FB.dispo || !window.FB.utilisateur()) { toast("Connectez-vous d'abord.", true); return; }
-            window.FB.ecrireCollab(!_collab).then(function () { toast(!_collab ? "Mode collaboratif activé." : "Mode collaboratif désactivé."); });
+            toast("La relecture avant partage n'existe plus : un seul compte modifie, ses changements partent aussitôt.");
           } else if (code != null && code !== "") { toast("Code incorrect.", true); }
         }
       });
@@ -7783,7 +7783,7 @@ window.DEPOUILLEMENT = (function () {
       // L'interrupteur ne gouverne plus que la relecture avant partage.
       if (!_collabEcoute && window.FB && window.FB.ecouterCollab) {
         _collabEcoute = true;
-        window.FB.ecouterCollab(function (v) { _collab = v; majCollabUI(); majAdmin(); });
+        window.FB.ecouterCollab(function (v) { _collab = false; majCollabUI(); majAdmin(); });   // D121 : plus de relecture avant partage, quel que soit le réglage enregistré
       }
       majCollabUI();
       return true;
@@ -8631,7 +8631,8 @@ window.DEPOUILLEMENT = (function () {
     _sectionCourante = sectionVisible();
     window.FB.presenceAnnoncer(_monId, {
       nom: auteurCourant(), section: _sectionCourante, espace: STATE.niveauActif,
-      depuis: Date.now(), vu: Date.now(), version: VERSION_APP, cle: !!_maitre
+      depuis: Date.now(), vu: Date.now(), version: VERSION_APP, cle: !!_maitre,
+      admin: estAdmin(), main: (estAdmin() && _aLaMain && _mainDecidee) ? _mainDepuis : 0
     }).catch(function () {});
     if (_battement) clearInterval(_battement);
     // Battement de cœur : signale que l'onglet est toujours vivant, et suit la section consultée.
@@ -8651,6 +8652,7 @@ window.DEPOUILLEMENT = (function () {
       // On ignore les présences muettes depuis plus de 2 minutes (onglet en veille, réseau coupé).
       var seuil = Date.now() - 120000;
       _presences = (arr || []).filter(function (p) { return (p.vu || 0) > seuil; });
+      suivreLaMain();
       renderPresence();
       majDiag();
     });
@@ -9063,11 +9065,42 @@ window.DEPOUILLEMENT = (function () {
   window.__estAdmin = estAdmin;
   // Lecture seule (D121) : tout compte connecté autre que l'administrateur consulte et télécharge, sans rien modifier.
   // Le verrou réel est dans les règles Firebase ; ici, la console n'affiche pas les gestes qui modifient et ne tente aucune écriture.
-  function estLecteur() { return !!(window.FB && window.FB.utilisateur && window.FB.utilisateur()) && !estAdmin(); }
+  // Un seul poste à la fois en écriture sur le compte de l'administrateur : celui qui a « pris la main » le plus récemment.
+  var _aLaMain = true, _mainDepuis = 0, _mainDecidee = false;
+  function estLecteur() {
+    if (!(window.FB && window.FB.utilisateur && window.FB.utilisateur())) return false;
+    return !estAdmin() || !_aLaMain;
+  }
+  function autresPostesAdmin() { return (_presences || []).filter(function (p) { return p._id !== _monId && p.admin && p.main; }); }
+  function prendreLaMain() {
+    _aLaMain = true; _mainDepuis = Date.now(); _mainDecidee = true;
+    if (window.FB && window.FB.presenceMaj) window.FB.presenceMaj(_monId, { admin: true, main: _mainDepuis }).catch(function () {});
+    majLectureSeule(); try { majCollabUI(); } catch (e) {}
+  }
+  window.__prendreLaMain = prendreLaMain;
+  function suivreLaMain() {
+    if (!estAdmin()) return;
+    var autres = autresPostesAdmin();
+    var plusRecent = autres.reduce(function (m, p) { return Math.max(m, +p.main || 0); }, 0);
+    if (!_mainDecidee) {
+      // À l'ouverture : si un autre poste du même compte a déjà la main, celui-ci s'ouvre en lecture seule.
+      if (plusRecent) { _aLaMain = false; _mainDecidee = true; majLectureSeule(); try { majCollabUI(); } catch (e) {} }
+      else prendreLaMain();
+      return;
+    }
+    if (_aLaMain && plusRecent > _mainDepuis) {
+      _aLaMain = false; majLectureSeule(); try { majCollabUI(); } catch (e) {}
+      toast("Un autre poste a pris la main sur ce compte : ici, lecture seule.");
+    }
+  }
   window.__estLecteur = estLecteur;
   function majLectureSeule() {
     var ls = estLecteur();
     document.body.classList.toggle("lecture-seule", ls);
+    var bl = document.getElementById("bandeau-lecture");
+    if (bl) bl.innerHTML = (estAdmin() && !_aLaMain)
+      ? 'Ce compte est déjà ouvert sur un autre poste : ici, lecture seule. <button class="btn sm" type="button" onclick="window.__prendreLaMain()" title="Ce poste devient celui qui modifie ; l’autre poste passe aussitôt en lecture seule. Ce que l’autre poste était en train de taper n’est pas transmis.">Prendre la main ici</button>'
+      : "Lecture seule : les modifications se font depuis le compte de M. Meney.";
     var m = document.getElementById("etab-missions"); if (m) m.readOnly = ls;
     document.querySelectorAll("select[data-tut], #tuteurs-liste input, #tuteurs-liste select").forEach(function (e) { e.disabled = ls; });
   }
@@ -9226,7 +9259,7 @@ window.DEPOUILLEMENT = (function () {
     h += '<div class="diag-grille">'
       + voyant("Liaison au serveur", (liaison ? "● Active" : "● Interrompue"), liaison ? "v-ok" : "v-ko")
       + voyant("Clé de chiffrement", (_maitre ? "● Établie" : "● Absente"), _maitre ? "v-ok" : "v-ko")
-      + voyant("Relecture avant partage", (_collab ? "Activée" : "Désactivée"), "")
+      + ""
       + voyant("Données partagées", "Version " + _etatVersion, "")
       + voyant("Textes de la convention", "Version " + _contenusVersion, "")
       + voyant("Historique", _journalItems.length + " action(s)", "")
