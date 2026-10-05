@@ -445,6 +445,12 @@
   @media(max-width:520px){ .form-grid{grid-template-columns:1fr} }
 
   @media(max-width:680px){ .maprow{grid-template-columns:1fr} .top h1{font-size:18px} }
+  /* Lecture seule (D121) : un compte autre que celui de l'administrateur consulte et télécharge, sans rien modifier. */
+  #bandeau-lecture{display:none;padding:10px 16px;background:#fff6d6;border-bottom:1px solid #e8d48a;color:#5b4a12;font-weight:600;text-align:center}
+  body.lecture-seule #bandeau-lecture{display:block}
+  body.lecture-seule #carte-import, body.lecture-seule #btn-ajout-tuteur, body.lecture-seule #import-perso,
+  body.lecture-seule [data-attrib], body.lecture-seule [data-suppr-el], body.lecture-seule [data-suppr-cl],
+  body.lecture-seule #tuteurs-liste button, body.lecture-seule .ls-cache{display:none !important}
 </style>
 </head>
 <body>
@@ -476,6 +482,7 @@
 
 <!-- ===================== MODE CONSOLE ===================== -->
 <div id="mode-console">
+  <div id="bandeau-lecture" role="status" title="Votre compte peut tout consulter et télécharger, mais ne modifie rien : seules les actions qui changent les données sont retirées.">Lecture seule : les modifications se font depuis le compte de M. Meney.</div>
   <!-- Connexion réservée à l'équipe (gestionnaires) -->
   <div id="login-console">
     <div class="login-carte">
@@ -548,7 +555,7 @@
       <div class="pousse">
         <button id="btn-autosave" class="btn ghost sm" title="Active ou coupe le téléchargement automatique de la sauvegarde de travail">💾 Auto-sauvegarde : ON</button>
         <button id="btn-export-json" class="btn ghost sm" title="Télécharger une sauvegarde complète des données (élèves, tuteurs, réglages)">Exporter (.json)</button>
-        <span class="btn ghost sm file-btn" title="Recharger une sauvegarde .json enregistrée précédemment">Reprendre…<input id="file-import-json" type="file" accept=".json"></span>
+        <span class="btn ghost sm file-btn ls-cache" title="Recharger une sauvegarde .json enregistrée précédemment">Reprendre…<input id="file-import-json" type="file" accept=".json"></span>
       </div>
     </div>
 
@@ -7203,6 +7210,7 @@ window.DEPOUILLEMENT = (function () {
         + '<button class="tut-del" type="button" title="Retirer ce tuteur">×</button>'
         + '</div>';
     }).join("");
+    majLectureSeule();
   }
 
   function renommerTuteur(i, ancien, neo) {
@@ -7703,6 +7711,7 @@ window.DEPOUILLEMENT = (function () {
     });
     majCompteSelection();
     renderDocsButtons();
+    majLectureSeule();
   }
 
   function renderDocsButtons() {
@@ -7752,6 +7761,7 @@ window.DEPOUILLEMENT = (function () {
       return window.CRYPTO.emballerCle(maitre, "CONV-OK").then(function (p) { return window.FB.ecrireCanari(p); });
     }).then(function () {
       _maitre = maitre;
+      window.__modeConsole = true; majLectureSeule();
       try { localStorage.setItem(LS_SECRET, secret); } catch (e) {}
       return Promise.all([assurerCle(STATE.annee), assurerCle("demo")]);
     }).then(function () {
@@ -8068,7 +8078,7 @@ window.DEPOUILLEMENT = (function () {
     lsSet(LS_STATE, signature());
     try { majEtapes(); } catch (e) {}
     if ((motif === "import" || motif === "demo") && nv().eleves && nv().eleves.length) ouvrirEtape(2);
-    if (_etatBase && STATE.niveauActif !== "demo") {
+    if (_etatBase && STATE.niveauActif !== "demo" && !estLecteur()) {
       if (motif === "import") commitDirectEtat("a importé " + ((nv().eleves || []).length) + " élève(s) en " + STATE.niveauActif, null);
       else if (_collab) majBoutonValider();          // relecture demandée : validation explicite
       else commitDirectEtatDecrit();                 // partage direct : transmis et journalisé
@@ -8828,7 +8838,9 @@ window.DEPOUILLEMENT = (function () {
       return;
     }
     b.className = "bandeau-mode bandeau-partage";
-    b.innerHTML = _collab
+    b.innerHTML = estLecteur()
+      ? "<span>👥</span><span><b>Données partagées avec l'équipe</b> — vous les consultez en lecture seule.</span>"
+      : _collab
       ? "<span>👥</span><span><b>Données partagées avec l'équipe</b> — vos modifications sont transmises après validation de votre part.</span>"
       : "<span>👥</span><span><b>Données partagées avec l'équipe</b> — vos modifications sont transmises immédiatement.</span>";
   }
@@ -9048,6 +9060,32 @@ window.DEPOUILLEMENT = (function () {
     var mail = ((u && u.email) || "").toLowerCase().trim();
     return ADMINS.indexOf(mail) !== -1;
   }
+  window.__estAdmin = estAdmin;
+  // Lecture seule (D121) : tout compte connecté autre que l'administrateur consulte et télécharge, sans rien modifier.
+  // Le verrou réel est dans les règles Firebase ; ici, la console n'affiche pas les gestes qui modifient et ne tente aucune écriture.
+  function estLecteur() { return !!(window.FB && window.FB.utilisateur && window.FB.utilisateur()) && !estAdmin(); }
+  window.__estLecteur = estLecteur;
+  function majLectureSeule() {
+    var ls = estLecteur();
+    document.body.classList.toggle("lecture-seule", ls);
+    var m = document.getElementById("etab-missions"); if (m) m.readOnly = ls;
+    document.querySelectorAll("select[data-tut], #tuteurs-liste input, #tuteurs-liste select").forEach(function (e) { e.disabled = ls; });
+  }
+  window.__majLectureSeule = majLectureSeule;
+  (function gardeEcritures() {
+    // Écritures permises à un lecteur : sa présence, une ligne d'historique, une remarque, la signature (réservée à la cheffe par les règles).
+    var LIBRES = { journalPush: 1, presenceMaj: 1, presencePartir: 1, remarquePush: 1, ecrireSignature: 1 };
+    if (!window.FB) return;
+    Object.keys(window.FB).forEach(function (n) {
+      if (LIBRES[n] || typeof window.FB[n] !== "function") return;
+      if (!/^(ecrire|supprimer|marquer|vider|journalPurger|remarqueMaj|remarqueSupprimer)/.test(n)) return;
+      var o = window.FB[n];
+      window.FB[n] = function () {
+        if (window.__modeConsole && estLecteur()) return Promise.reject(new Error("Lecture seule : les modifications se font depuis le compte de M. Meney."));
+        return o.apply(this, arguments);
+      };
+    });
+  })();
   function valeurCourante(cle) {
     var C = window.__contenus();
     if (cle.indexOf("art:") === 0) return (C.articles[+cle.slice(4)] || {}).c || "";
@@ -9520,7 +9558,7 @@ window.DEPOUILLEMENT = (function () {
       Object.keys(val || {}).forEach(function (c) {
         Object.keys(val[c] || {}).forEach(function (r) {
           var k = espaceAnnee() + "|" + c + "|" + r, p = val[c][r];
-          if (p && p.ct && !p.e && !_statutsPoses[k]) { _statutsPoses[k] = 1; window.FB.marquerStatut(espaceAnnee(), c, r).catch(function () { delete _statutsPoses[k]; }); }
+          if (p && p.ct && !p.e && !_statutsPoses[k] && !estLecteur()) { _statutsPoses[k] = 1; window.FB.marquerStatut(espaceAnnee(), c, r).catch(function () { delete _statutsPoses[k]; }); }
         });
       });
     }
