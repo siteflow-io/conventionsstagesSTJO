@@ -451,6 +451,10 @@
   body.lecture-seule #carte-import, body.lecture-seule #btn-ajout-tuteur, body.lecture-seule #import-perso,
   body.lecture-seule [data-attrib], body.lecture-seule [data-suppr-el], body.lecture-seule [data-suppr-cl],
   body.lecture-seule #tuteurs-liste button, body.lecture-seule .ls-cache{display:none !important}
+  .cadre-eleve{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 16px;padding:8px 12px;border-radius:10px;background:#eef2f7;border:1px solid #d9e1ec}
+  .cadre-eleve-t{font-size:12px;font-weight:700;letter-spacing:.04em;color:#46597a;text-transform:uppercase}
+  .qui-signe{font-weight:700;margin:2px 0 10px}
+  @media (max-width:560px){ .urg-ligne{grid-template-columns:1fr !important} .urg-ligne > *{grid-column:1 / -1 !important;grid-row:auto !important;width:100%} .urg-ligne > button{justify-self:start;width:auto} }
 </style>
 </head>
 <body>
@@ -551,7 +555,7 @@
         <button data-niveau="3e" title="Travailler sur les conventions des classes de 3e">Troisième</button>
         <button data-niveau="demo" title="Espace de test isolé et branché sur Firebase — vos vraies classes ne sont jamais touchées">🧪 Mode test</button>
       </div>
-      <span class="annee-wrap">Année <input id="champ-annee" type="text" value="2026-2027" title="Année scolaire portée sur les conventions"></span>
+      <span class="annee-wrap">Année <select id="champ-annee" title="Année scolaire affichée. Chaque année garde sa propre liste d'élèves et ses conventions. Depuis le compte de M. Meney, changer d'année change l'année de travail de l'équipe ; depuis un autre compte, seulement ce qui est affiché sur ce poste."></select></span>
       <div class="pousse">
         <button id="btn-autosave" class="btn ghost sm" title="Active ou coupe le téléchargement automatique de la sauvegarde de travail">💾 Auto-sauvegarde : ON</button>
         <button id="btn-export-json" class="btn ghost sm" title="Télécharger une sauvegarde complète des données (élèves, tuteurs, réglages)">Exporter (.json)</button>
@@ -852,7 +856,7 @@
 
 <div id="toast" class="toast" hidden></div>
 <button id="btn-valider-collab" hidden title="Ouvre la liste de vos modifications de textes, pour les valider ou les abandonner une par une." onclick="window.__ouvrirValidation && window.__ouvrirValidation()">✓ Valider mes modifications (0)</button>
-<div class="app-version">v2026.10.01·convention</div>
+<div class="app-version">v2026.10.05·L3a</div>
 
 <script>
 /* ===== Configuration : système de transmission ====================
@@ -1055,6 +1059,16 @@ window.FB = (function () {
   function lireVersionTextes() { if (!dispo) return Promise.resolve(0); return db.ref("textes_version").once("value").then(function (s) { return +s.val() || 0; }).catch(function () { return 0; }); }
   function ecrireVersionTextes(n) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("textes_version").set(n); }
   function ecrireCodeActif(annee, code) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("codes_actifs/" + encodeCle(annee) + "/" + encodeCle(code)).set(true); }
+  // D123 : un élève retiré de la liste. Ses parties de la convention, ses demandes et son code actif sont effacés ;
+  // son code est marqué « retiré », pour que ses liens disent qu'ils ne sont plus actifs.
+  function supprimerEleveBase(annee, code) {
+    if (!dispo) return Promise.reject(new Error("Firebase indisponible"));
+    var a = encodeCle(annee), c = encodeCle(code), m = {};
+    m["conventions/" + a + "/" + c] = null; m["demandes/" + a + "/" + c] = null; m["codes_actifs/" + a + "/" + c] = null; m["verif/" + a + "/" + c] = null;
+    m["codes_retires/" + a + "/" + c] = true;
+    return db.ref().update(m);
+  }
+  function lireRetire(annee, code) { if (!dispo) return Promise.resolve(false); return db.ref("codes_retires/" + encodeCle(annee) + "/" + encodeCle(code)).once("value").then(function (s) { return !!s.val(); }); }
   function lireCodeActif(annee, code) { if (!dispo) return Promise.resolve(false); return db.ref("codes_actifs/" + encodeCle(annee) + "/" + encodeCle(code)).once("value").then(function (s) { return !!s.val(); }).catch(function () { return false; }); }
   function testerEmpreinte(annee, code, empreinte) { if (!dispo) return Promise.resolve(false); return db.ref("verif/" + encodeCle(annee) + "/" + encodeCle(code) + "/" + empreinte).once("value").then(function (s) { return s.val() === true; }).catch(function () { return false; }); }
   function lireSignature() { if (!dispo) return Promise.resolve(null); return db.ref("signature").once("value").then(function (s) { return s.val(); }); }
@@ -1093,6 +1107,8 @@ window.FB = (function () {
     });
   }
   function lireEtat() { if (!dispo) return Promise.resolve(null); return db.ref("etat").once("value").then(function (s) { return s.val(); }); }
+  // Écoute de l'état partagé : chaque poste voit les modifications validées ailleurs, sans recharger la page.
+  function ecouterEtat(cb) { if (!dispo) return; db.ref("etat").on("value", function (s) { cb(s.val()); }); }
   function ecrireEtat(o) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("etat").set(o); }
   function connecter(email, mdp) {
     if (!dispo) return Promise.reject(new Error("Firebase indisponible"));
@@ -1101,7 +1117,7 @@ window.FB = (function () {
   function deconnecter() { if (dispo) try { auth.signOut(); } catch (e) {} }
   function onAuth(cb) { if (dispo) auth.onAuthStateChanged(cb); else cb(null); }
   function utilisateur() { return (dispo && auth && auth.currentUser) || null; }
-  return { dispo: dispo, ecrireConvention: ecrireConvention, ecouter: ecouter, supprimer: supprimer, viderEspace: viderEspace, lireSel: lireSel, ecrireSel: ecrireSel, lireCleAnnee: lireCleAnnee, ecrireCleAnnee: ecrireCleAnnee, lireCanari: lireCanari, ecrireCanari: ecrireCanari, ecouterCollab: ecouterCollab, ecrireCollab: ecrireCollab, journalPush: journalPush, journalEcouter: journalEcouter, journalPurger: journalPurger, lireEtat: lireEtat, ecrireEtat: ecrireEtat, presenceAnnoncer: presenceAnnoncer, presenceMaj: presenceMaj, presencePartir: presencePartir, presenceEcouter: presenceEcouter, lireContenus: lireContenus, ecrireContenus: ecrireContenus, lireCodes: lireCodes, ecrireCodes: ecrireCodes, ecrireVerif: ecrireVerif, lireVersionTextes: lireVersionTextes, ecrireVersionTextes: ecrireVersionTextes, ecrireCodeActif: ecrireCodeActif, lireCodeActif: lireCodeActif, testerEmpreinte: testerEmpreinte, PLACES: PLACES, COMPLEMENTS: COMPLEMENTS, lireStatuts: lireStatuts, marquerStatut: marquerStatut, supprimerPlace: supprimerPlace, ecrireDemande: ecrireDemande, ecouterDemandes: ecouterDemandes, supprimerDemande: supprimerDemande, ecrireArchive: ecrireArchive, ecouterArchive: ecouterArchive, lirePlace: lirePlace, lireDatesOfficielles: lireDatesOfficielles, ecrireDatesOfficielles: ecrireDatesOfficielles, lirePause: lirePause, ecrirePause: ecrirePause, ecouterPause: ecouterPause, lireSignature: lireSignature, ecrireSignature: ecrireSignature, ecouterSignature: ecouterSignature, lireChefEmail: lireChefEmail, ecrireChefEmail: ecrireChefEmail, ecouterChefEmail: ecouterChefEmail, remarquePush: remarquePush, remarqueMaj: remarqueMaj, remarqueSupprimer: remarqueSupprimer, remarquesEcouter: remarquesEcouter, connecter: connecter, deconnecter: deconnecter, onAuth: onAuth, utilisateur: utilisateur };
+  return { dispo: dispo, supprimerEleveBase: supprimerEleveBase, lireRetire: lireRetire, ecouterEtat: ecouterEtat, ecrireConvention: ecrireConvention, ecouter: ecouter, supprimer: supprimer, viderEspace: viderEspace, lireSel: lireSel, ecrireSel: ecrireSel, lireCleAnnee: lireCleAnnee, ecrireCleAnnee: ecrireCleAnnee, lireCanari: lireCanari, ecrireCanari: ecrireCanari, ecouterCollab: ecouterCollab, ecrireCollab: ecrireCollab, journalPush: journalPush, journalEcouter: journalEcouter, journalPurger: journalPurger, lireEtat: lireEtat, ecrireEtat: ecrireEtat, presenceAnnoncer: presenceAnnoncer, presenceMaj: presenceMaj, presencePartir: presencePartir, presenceEcouter: presenceEcouter, lireContenus: lireContenus, ecrireContenus: ecrireContenus, lireCodes: lireCodes, ecrireCodes: ecrireCodes, ecrireVerif: ecrireVerif, lireVersionTextes: lireVersionTextes, ecrireVersionTextes: ecrireVersionTextes, ecrireCodeActif: ecrireCodeActif, lireCodeActif: lireCodeActif, testerEmpreinte: testerEmpreinte, PLACES: PLACES, COMPLEMENTS: COMPLEMENTS, lireStatuts: lireStatuts, marquerStatut: marquerStatut, supprimerPlace: supprimerPlace, ecrireDemande: ecrireDemande, ecouterDemandes: ecouterDemandes, supprimerDemande: supprimerDemande, ecrireArchive: ecrireArchive, ecouterArchive: ecouterArchive, lirePlace: lirePlace, lireDatesOfficielles: lireDatesOfficielles, ecrireDatesOfficielles: ecrireDatesOfficielles, lirePause: lirePause, ecrirePause: ecrirePause, ecouterPause: ecouterPause, lireSignature: lireSignature, ecrireSignature: ecrireSignature, ecouterSignature: ecouterSignature, lireChefEmail: lireChefEmail, ecrireChefEmail: ecrireChefEmail, ecouterChefEmail: ecouterChefEmail, remarquePush: remarquePush, remarqueMaj: remarqueMaj, remarqueSupprimer: remarqueSupprimer, remarquesEcouter: remarquesEcouter, connecter: connecter, deconnecter: deconnecter, onAuth: onAuth, utilisateur: utilisateur };
 })();
 </script>
 <script>
@@ -3910,7 +3926,7 @@ window.SIGNATAIRE = (function () {
       { id: "lu_approuve",    label: "Recopiez ici la mention « Lu et approuvé »", req: true, mention: true, aide: "Recopiez la mention à l’identique : elle vaut confirmation que vous avez lu la convention." }
     ]},
     PARENTS: { titre: "Responsable légal", champs: [
-      { id: "resp_nom", label: "Nom et prénom du responsable", req: true, aide: "Le nom et le prénom du responsable légal qui signe cette convention." },
+      { id: "resp_nom", label: "Nom et prénom du responsable légal qui signe", req: true, aide: "Le nom et le prénom du responsable légal qui signe cette convention." },
       { id: "lien",     label: "Lien avec l'élève (père, mère, tuteur…)", req: true, aide: "Votre lien avec l’élève : père, mère, tuteur…" },
       { id: "adresse",  label: "Adresse", type: "area", aide: "Votre adresse postale, telle qu’elle figurera sur la convention." },
       { id: "tel",      label: "Téléphone", aide: "Le numéro où vous joindre pendant le stage de votre enfant." },
@@ -4050,9 +4066,9 @@ window.SIGNATAIRE = (function () {
   };
   var DUREE = { ENTREPRISE: "environ 5 minutes", PARENTS: "environ 3 minutes", ETABLISSEMENT: "environ 2 minutes" };
   var ROLE_CLAIR = {
-    ENTREPRISE: "l'entreprise d'accueil du stagiaire",
-    PARENTS: "le responsable légal de l'élève",
-    ETABLISSEMENT: "l'établissement scolaire"
+    ENTREPRISE: "entreprise d'accueil de l'élève",
+    PARENTS: "responsable légal de l'élève",
+    ETABLISSEMENT: "établissement scolaire"
   };
 
   function champDef(role, id) {
@@ -4142,8 +4158,10 @@ window.SIGNATAIRE = (function () {
     var pause = window.FB.lirePause ? window.FB.lirePause().catch(function () { return null; }) : Promise.resolve(null);
     var codeA = (CTX.roleLock === "PARENTS" && codeEnService() && window.FB.lireCodeActif) ? window.FB.lireCodeActif(CTX.annee, CTX.code).catch(function () { return false; }) : Promise.resolve(false);
     if (window.FB.lireVersionTextes) window.FB.lireVersionTextes().then(function (n) { window.__versionTextes = n; }).catch(function () {});
-    Promise.all([window.FB.lireStatuts(CTX.annee, CTX.code), dates, pause, codeA]).then(function (r) {
+    var retire = window.FB.lireRetire ? window.FB.lireRetire(CTX.annee, CTX.code).catch(function () { return false; }) : Promise.resolve(false);
+    Promise.all([window.FB.lireStatuts(CTX.annee, CTX.code), dates, pause, codeA, retire]).then(function (r) {
       fini = true; CTX.statut = r[0] || {}; CTX.datesOff = (r[1] || []).filter(Boolean).sort(); CTX.codeExiste = !!r[3];
+      if (r[4]) { var z = document.getElementById("sig-step"); if (z) z.innerHTML = '<h3 class="serif">Ce lien n\'est plus actif</h3><p>Contactez le collège.</p>'; return; }
       if (pauseActive(r[2])) { montrerMaintenance(r[2]); return; }
       orienter();
     }).catch(function () {
@@ -4250,7 +4268,7 @@ window.SIGNATAIRE = (function () {
     return '<h3 class="serif">Compléter ' + (ent ? "votre convention" : "votre partie") + '</h3>'
       + '<p>Le collège a besoin de quelques informations complémentaires pour établir la convention :</p>'
       + '<ul class="liste-compl">' + (ent ? '<li>les jours et les horaires de présence de l\'élève, jour par jour\u00a0;</li><li>la fonction du tuteur\u00a0;</li><li>les activités prévues\u00a0;</li><li>la fonction du représentant qui signe.</li>'
-        : '<li>votre statut de signataire\u00a0;</li><li>les personnes à prévenir en cas d\'urgence\u00a0;</li><li>la santé de votre enfant (PAI) et les aménagements éventuels.</li>') + '</ul>'
+        : '<li>à quel titre vous signez (parent, tuteur légal ou autre représentant de l\'élève)\u00a0;</li><li>les personnes à prévenir en cas d\'urgence\u00a0;</li><li>la santé de votre enfant (PAI) et les aménagements éventuels.</li>') + '</ul>'
       + '<p class="mut">Ce que vous avez déjà envoyé est conservé. Vous relisez ensuite le texte de la convention et vous signez.</p>'
       + '<div class="sig-actions"><span></span><button class="btn bord" onclick="SIGNATAIRE.suivant()" title="Commencer à compléter.">Commencer →</button></div>';
   }
@@ -4554,13 +4572,13 @@ window.SIGNATAIRE = (function () {
     l.forEach(function (u, i) {
       h += '<div class="urg-ligne" data-i="' + i + '">'
         + '<input type="text" class="urg-nom" placeholder="Nom et prénom" value="' + esc(u.nom) + '" title="Nom et prénom de la personne à prévenir.">'
-        + '<input type="text" class="urg-lien" placeholder="Lien (mère, oncle…)" value="' + esc(u.lien) + '" title="Lien de cette personne avec l\'élève.">'
+        + '<input type="text" class="urg-lien" placeholder="Lien avec l\'élève (mère, oncle…)" value="' + esc(u.lien) + '" title="Lien de cette personne avec l\'élève.">'
         + '<input type="tel" class="urg-tel" placeholder="Téléphone" value="' + esc(u.tel) + '" title="Numéro où la joindre pendant la journée.">'
         + (l.length > 1 ? '<button class="btn ghost sm" type="button" onclick="SIGNATAIRE.retirerUrgence(' + i + ')" title="Retirer ce contact.">Retirer</button>' : '')
         + '</div>';
     });
     h += '</div><button class="btn ghost sm" type="button" onclick="SIGNATAIRE.ajouterUrgence()" title="Ajouter une autre personne à prévenir en cas d\'urgence.">+ Ajouter un contact d\'urgence</button>';
-    h += '<div class="form-grid" style="margin-top:12px"><div class="fieldwrap"><label for="f_fait_a">Fait à (commune où vous signez)</label><input id="f_fait_a" type="text" title="La commune où vous signez. Elle figurera sous votre signature." value="' + esc(CTX.data.fait_a || "") + '"></div></div>';
+    // « Fait à » est demandé sur l'écran de la signature (236).
     return h + navHTML(true);
   }
   function lireUrgences() {
@@ -4569,7 +4587,7 @@ window.SIGNATAIRE = (function () {
       l.push({ nom: r.querySelector(".urg-nom").value.trim(), lien: r.querySelector(".urg-lien").value.trim(), tel: r.querySelector(".urg-tel").value.trim() });
     });
     CTX.data.urgences = l;
-    var fa = $("f_fait_a"); if (fa) CTX.data.fait_a = fa.value.trim();
+    // « Fait à » est lu sur l'écran de la signature (236).
     CTX.data.urgence = l.filter(function (u) { return u.nom || u.tel; }).map(function (u) { return u.nom + (u.lien ? " (" + u.lien + ")" : "") + (u.tel ? " : " + u.tel : ""); }).join("\n");
   }
   function ajouterUrgence() { lireUrgences(); CTX.data.urgences = CTX.data.urgences.concat([{ nom: "", lien: "", tel: "" }]); renderStep(); }
@@ -4746,20 +4764,17 @@ window.SIGNATAIRE = (function () {
   function htmlIntroBase() {
     var h = '';
     if (CTX.estTest && !CTX.apercu) h += '<div class="encadre-conseil" style="background:#fbe9e9;border-color:#e6c9ce;color:#7a2e3a"><b>🧪 Lien de TEST.</b> Ce parcours sert à vérifier la chaîne complète. L\'envoi ira dans un espace de test isolé, sans effet sur les vraies conventions.</div>';
-    h += '<h3 class="serif">Convention de stage — nouveau dispositif</h3>';
-    h += '<div class="identite-sig">'
-      + '<div>Vous remplissez cette convention en tant que <b>' + esc(ROLE_CLAIR[CTX.role] || FORMULAIRES[CTX.role].titre) + '</b>.</div>'
-      + '<div class="identite-eleve">Élève concerné : <b>' + esc(CTX.nomEleve || "(à confirmer)") + '</b>'
-      + (CTX.naissance ? ', né(e) le ' + esc(CTX.naissance) : '') + '.</div>'
-      + (CTX.code ? '<div class="mut" style="font-size:12px;margin-top:4px">Référence : ' + esc(CTX.code) + '</div>' : '')
-      + '</div>';
-    h += '<p>Le Collège Saint-Joseph met en place un <b>nouveau dispositif dématérialisé</b> pour les conventions de stage. Vous allez remplir votre partie en quelques étapes guidées.</p>';
+    var rc = ROLE_CLAIR[CTX.role] || FORMULAIRES[CTX.role].titre;
+    h += cadreEleve();
+    h += '<h3 class="serif">Convention de stage</h3>';
+    h += '<div class="identite-sig"><div>Vous remplissez cette convention ' + (/^[aeiouyéèê]/i.test(rc) ? "en tant qu'" : "en tant que ") + '<b>' + esc(rc) + '</b>.</div></div>';
+    h += '<p>Le collège passe aux conventions de stage en ligne. Vous remplissez votre partie en quelques étapes.</p>';
     if (estFirebase()) {
       h += '<div class="demarche"><div class="demarche-t">Comment ça se passe</div><ol>'
         + '<li>Vous remplissez votre partie, étape par étape.</li>'
         + '<li>Vous validez les articles et vous signez.</li>'
-        + '<li>Vous envoyez votre convention à l\'établissement, en un clic.</li></ol></div>';
-      h += '<p class="mut">⏱ Durée : ' + DUREE[CTX.role] + '. Vos informations sont chiffrées sur votre appareil avant l\'envoi.</p>';
+        + '<li>Vous envoyez votre convention au collège, en un clic.</li></ol></div>';
+      h += '<p class="mut">⏱ Durée : ' + DUREE[CTX.role] + '. Ce que vous tapez reste sur votre appareil jusqu\'à l\'envoi. Dès que vous envoyez, vos informations partent chiffrées, et seul le collège peut alors les lire.</p>';
       h += '<p class="mut" style="font-size:12px;margin-top:10px">Remplissez votre convention sur un seul appareil, du début à l\'envoi : c\'est là qu\'elle est conservée si vous vous interrompez. Et si vous devez y revenir plus tard, reprenez avec ce même appareil.</p>';
     } else {
       h += '<div class="demarche"><div class="demarche-t">Comment ça se passe</div><ol>'
@@ -4774,10 +4789,17 @@ window.SIGNATAIRE = (function () {
     return h;
   }
 
+  // L'élève vient au-dessus de tout, dans son propre cadre, bien distinct de la personne qui remplit (360, 367).
+  function cadreEleve() {
+    if (!CTX.nomEleve) return "";
+    return '<div class="cadre-eleve"><span class="cadre-eleve-t">L\'élève</span><span><b>' + esc(CTX.nomEleve) + '</b>' + (CTX.naissance ? ', né(e) le ' + esc(CTX.naissance) : '') + '</span></div>';
+  }
   function htmlFields(st) {
     var locked = !!CTX.locked[CTX.stepIndex];
-    var h = '<h3 class="serif">' + esc(st.titre) + '</h3>';
-    if (CTX.nomEleve) h += '<p class="mut" style="margin:-4px 0 14px">Élève : <b>' + esc(CTX.nomEleve) + '</b>' + (CTX.naissance ? ' — né(e) le ' + esc(CTX.naissance) : '') + '</p>';
+    var h = cadreEleve() + '<h3 class="serif">' + esc(st.titre) + '</h3>';
+    var quiSigne = (CTX.role === "PARENTS" && st.ids.indexOf("resp_nom") >= 0) ? "Vous, qui signez en tant que responsable légal :"
+      : (CTX.role === "ENTREPRISE" && st.ids.indexOf("chef_nom") >= 0) ? "Vous, qui signez pour l'entreprise :" : "";
+    if (quiSigne) h += '<div class="qui-signe">' + quiSigne + '</div>';
     if (CTX.proposerProfil && CTX.stepIndex === 1) {
       var rs = (CTX.profilEntreprise && CTX.profilEntreprise.raison_sociale) || "votre entreprise";
       h += '<div class="encadre-conseil">Vous avez déjà rempli une convention pour <b>' + esc(rs) + '</b> sur cet appareil. Réutiliser ces informations ?'
@@ -4822,16 +4844,19 @@ window.SIGNATAIRE = (function () {
       + '<input id="f_lu_approuve" type="text" title="Recopiez la mention à l’identique : elle vaut confirmation que vous avez lu la convention." value="' + esc(CTX.data.lu_approuve || '') + '" placeholder="Lu et approuvé"></div></div>';
     if (CTX.role === "PARENTS") {
       h += '<label class="chk"><input type="checkbox" id="chk-autorisation" title="À cocher pour autoriser votre enfant à faire ce stage."' + (CTX.autorisation ? ' checked' : '') + '> '
-        + 'Nous, soussigné(s), autorisons l\'élève à effectuer cette séquence d\'observation et certifions qu\'il est couvert par une assurance responsabilité civile.</label>';
+        + 'Nous, soussigné(s), autorisons l\'élève à effectuer cette séquence d\'observation. <span class="req">*</span></label>'
+        + '<label class="chk"><input type="checkbox" id="chk-rc" title="Facultatif : le collège assure déjà tous ses élèves."' + (CTX.data.rc_famille ? ' checked' : '') + '> '
+        + 'En plus de l\'assurance du collège, notre enfant est couvert par notre propre assurance responsabilité civile. (facultatif)</label>';
     }
     return h + navHTML(true, "Continuer →");
   }
 
   function htmlSignature() {
     var h = '<h3 class="serif">Signature</h3><p class="mut">Signez dans le cadre, au doigt ou à la souris.</p>';
+    if (CTX.role === "PARENTS") h += '<div class="form-grid" style="margin-bottom:10px"><div class="fieldwrap"><label for="f_fait_a">Fait à (commune où vous signez)</label><input id="f_fait_a" type="text" title="La commune où vous signez. Elle figurera sous votre signature." value="' + esc(CTX.data.fait_a || "") + '"></div></div>';
     h += '<canvas id="sig-canvas" class="sig-canvas"></canvas>';
     h += '<div><button type="button" class="mini" onclick="SIGNATAIRE.effacerSignature()" title="Efface votre signature pour la recommencer.">Effacer</button></div>';
-    h += '<label class="chk"><input type="checkbox" id="chk-exactitude" title="À cocher pour confirmer que les informations saisies sont exactes."' + (CTX.exactitude ? ' checked' : '') + '> Je valide l\'exactitude des informations saisies.</label>';
+    h += '<label class="chk"><input type="checkbox" id="chk-exactitude" title="À cocher pour confirmer que les informations saisies sont exactes."' + (CTX.exactitude ? ' checked' : '') + '> Je confirme que les informations sont exactes saisies.</label>';
     return h + navHTML(true, "Continuer →");
   }
 
@@ -4858,7 +4883,7 @@ window.SIGNATAIRE = (function () {
     }
     if (CTX.role === "PARENTS") {
       blocPerso("Votre statut", "statut", [["Statut", (CTX.data.statut || "") + (CTX.data.statut === "Autre" && CTX.data.statut_precision ? " : " + CTX.data.statut_precision : "")]]);
-      blocPerso("En cas d'urgence", "urgences", [["Contacts", CTX.data.urgence], ["Fait à", CTX.data.fait_a]]);
+      blocPerso("En cas d'urgence", "urgences", [["Contacts", CTX.data.urgence]]);
       blocPerso("Santé et aménagements", "sante", [["PAI", CTX.data.pai === "oui" ? "Oui — trousse fournie par " + (CTX.data.pai_trousse || "…") : "Non"], ["Précisions", CTX.data.pai_precisions], ["Aménagements", CTX.data.amenagements_oui === "oui" ? CTX.data.amenagements : "Aucun"]]);
     }
     h += '<div class="recap-bloc"><div class="recap-l"><span>Articles</span><b>' + (tousArticlesOK() ? 'tous validés ✓' : 'à valider') + '</b></div>'
@@ -4882,7 +4907,7 @@ window.SIGNATAIRE = (function () {
       h += '<div class="encadre-conseil" style="background:#e9f5ee;border-color:#9fd3b4;color:#1d6a40">'
         + '<b>' + (CTX.estTest ? 'Test réussi : la convention a été transmise dans l\'espace de test.' : 'Votre convention a bien été transmise à l\'établissement.') + '</b><br>'
         + 'Élève : ' + esc(CTX.nomEleve || '') + (CTX.code ? ' · réf. ' + esc(CTX.code) : '') + '.</div>';
-      h += '<p class="mut">Vos informations ont été chiffrées sur votre appareil avant l\'envoi : seul l\'établissement peut les lire. Vous pouvez fermer cette page.</p>';
+      h += '<p class="mut">Vos informations sont parties chiffrées : seul le collège peut les lire. Vous pouvez fermer cette page.</p>';
       var st = CTX.statut || {};
       if (CTX.place === "PARENTS" && !st.PARENTS_2 && !st.ATTESTATION) h += htmlBoutonsSecondLieu();
       h += htmlEffacer();
@@ -4919,9 +4944,9 @@ window.SIGNATAIRE = (function () {
       var manquant = null;
       st.ids.forEach(function (id) {
         var c = champDef(CTX.role, id); if (!c || c.mention) return;
-        if (c.req && !(CTX.data[id] || "").trim() && !manquant) manquant = c.label.toLowerCase();
+        if (c.req && !(CTX.data[id] || "").trim() && !manquant) manquant = c.label;
       });
-      if (manquant) { toast("Merci de renseigner " + manquant + ".", true); return false; }
+      if (manquant) { toast("Il manque : « " + manquant + " ».", true); return false; }
       if (CTX.role === "ENTREPRISE" && st.ids.indexOf("chef_nom") >= 0) {
         var alerte = alerteSignataire(CTX.data.chef_nom, CTX.nomEleve);
         if (alerte && !CTX._alerteSignataireVue) { CTX._alerteSignataireVue = true; toast(alerte + " Si c'est bien le cas, cliquez de nouveau sur « Continuer ».", true); return false; }
@@ -4939,13 +4964,17 @@ window.SIGNATAIRE = (function () {
     if (st.type === "mention") {
       var lu = $("f_lu_approuve"); CTX.data.lu_approuve = lu ? lu.value.trim() : "";
       if (normMention(CTX.data.lu_approuve) !== "lu et approuve") { toast("Merci de recopier exactement « Lu et approuvé ».", true); return false; }
-      if (CTX.role === "PARENTS") { var au = $("chk-autorisation"); CTX.autorisation = !!(au && au.checked); if (!CTX.autorisation) { toast("Merci de cocher l'autorisation.", true); return false; } }
+      if (CTX.role === "PARENTS") {
+        var rcb = $("chk-rc"); CTX.data.rc_famille = !!(rcb && rcb.checked);
+        var au = $("chk-autorisation"); CTX.autorisation = !!(au && au.checked); if (!CTX.autorisation) { toast("Il manque : cochez l'autorisation.", true); return false; }
+      }
       return true;
     }
     if (st.type === "signature") {
       var ex = $("chk-exactitude"); CTX.exactitude = !!(ex && ex.checked);
+      if (CTX.role === "PARENTS") { var fa = $("f_fait_a"); if (fa) CTX.data.fait_a = fa.value.trim(); }
       if (_vierge) { toast("Merci de signer dans le cadre.", true); return false; }
-      if (!CTX.exactitude) { toast("Merci de valider l'exactitude des informations.", true); return false; }
+      if (!CTX.exactitude) { toast("Il manque : cochez « Je confirme que les informations sont exactes ».", true); return false; }
       CTX.sig = sigReduite(_canvas);
       return true;
     }
@@ -5165,7 +5194,7 @@ window.SIGNATAIRE = (function () {
     doc.text(doc.splitTextToSize(
       "Le signataire reconnaît avoir pris connaissance et validé les articles 1 à " + ARTICLES.length
       + " de la convention de séquence d'observation en milieu professionnel"
-      + (o.role === "PARENTS" ? ", autorise l'élève à effectuer cette séquence et certifie qu'il est couvert par une assurance responsabilité civile" : "")
+      + (o.role === "PARENTS" ? ", autorise l'élève à effectuer cette séquence" + ((o.champs && o.champs.rc_famille) ? " ; l'élève est également couvert par l'assurance responsabilité civile de sa famille" : "") : "")
       + ". Le texte intégral des articles figure sur la convention complète.", W - 2 * M), M, y);
     y += 12; doc.setTextColor(33);
 
@@ -5912,7 +5941,7 @@ window.DEPOUILLEMENT = (function () {
     var codes = Object.keys(parCode).sort();
     if (!codes.length) {
       _lignes = [];
-      afficher('<p class="mut">Aucune convention reçue pour l\'instant.</p>'
+      afficher('<p class="mut">Aucune convention reçue pour ' + ((window.__anneeAffichee && window.__anneeAffichee()) || "l'instant") + '.</p>'
         + (illisibles.length ? '<p class="hint">' + illisibles.length + " fichier(s) sans données lisibles.</p>" : ""));
       return;
     }
@@ -6563,10 +6592,11 @@ window.DEPOUILLEMENT = (function () {
     doc.text("Collège Saint-Joseph · Doué-la-Fontaine", W - M, y0 + H2 - 9, { align: "right" });
     doc.setTextColor(33);
   }
-  function genChecklists(code) {
-    if (!_lignes || !_lignes.length) return;
+  function genChecklists(code, mode) {
+    if (!_lignes || !_lignes.length) return null;
     var liste = code ? _lignes.filter(function (l) { return l.code === code; })
                      : _lignes.filter(function (l) { return ((_dernier && _dernier.visibles) || []).indexOf(l.code) >= 0; });
+    if (mode === "fichier" && !liste.length) return null;
     if (!liste.length) liste = _lignes;
     var avecQR = !!(document.getElementById("fc-qr") && document.getElementById("fc-qr").checked);
     var doc = window.__wrapPDF(new window.jspdf.jsPDF({ unit: "mm", format: "a4" }));
@@ -6579,6 +6609,7 @@ window.DEPOUILLEMENT = (function () {
     }
     var nom = "Checklists_" + dateFrSimple().replace(/\//g, "-") + ".pdf";
     var blob = doc.output("blob");
+    if (mode === "fichier") return { nom: "Checklist_" + code + ".pdf", blob: blob };
     if (_urlCheck) { try { URL.revokeObjectURL(_urlCheck); } catch (e) {} }
     _urlCheck = URL.createObjectURL(blob);
     var corps = document.getElementById("modal-corps"), titre = document.getElementById("modal-titre");
@@ -6709,7 +6740,22 @@ window.DEPOUILLEMENT = (function () {
   }
 
   function nbRecues() { return (_dernier && _dernier.codes) ? _dernier.codes.length : 0; }
-  return { init: init, importerZip: importerZip, exportCSV: exportCSV, genConvention: genConvention, voirConvention: voirConvention, genChecklists: genChecklists, rafraichir: function () { if (_lignes.length) afficherTable(); }, voletsDe: function (code) { return (_dernier && _dernier.parCode[code]) ? _dernier.parCode[code].volets : {}; }, genToutes: genToutes, envoyer: envoyer, genFichesTuteurs: genFichesTuteurs, injecterTest: injecterTest, nbRecues: nbRecues };
+  // D123 : tout ce qui concerne des élèves retirés, dans un seul ZIP : conventions, checklist, informations.
+  function archiveEleves(eleves) {
+    if (!window.JSZip) return Promise.reject(new Error("Fabrication du ZIP impossible sur ce navigateur."));
+    var zip = new window.JSZip();
+    eleves.forEach(function (e) {
+      var dos = (e.code + "_" + (e.nom || "") + "_" + (e.prenom || "")).replace(/[^A-Za-z0-9_-]+/g, "_") + "/";
+      var l = (_lignes || []).filter(function (x) { return x.code === e.code; })[0];
+      if (l) {
+        conventionsDe(l).forEach(function (o) { try { var f = window.SIGNATAIRE.genererConventionComplete(o, "fichier"); if (f) zip.file(dos + f.nom, f.blob); } catch (x) {} });
+        try { var c = genChecklists(e.code, "fichier"); if (c) zip.file(dos + c.nom, c.blob); } catch (x) {}
+      }
+      zip.file(dos + "informations.json", JSON.stringify(e, null, 2));
+    });
+    return zip.generateAsync({ type: "blob" });
+  }
+  return { init: init, archiveEleves: archiveEleves, telecharger: telecharger, importerZip: importerZip, exportCSV: exportCSV, genConvention: genConvention, voirConvention: voirConvention, genChecklists: genChecklists, rafraichir: function () { if (_lignes.length) afficherTable(); }, voletsDe: function (code) { return (_dernier && _dernier.parCode[code]) ? _dernier.parCode[code].volets : {}; }, genToutes: genToutes, envoyer: envoyer, genFichesTuteurs: genFichesTuteurs, injecterTest: injecterTest, nbRecues: nbRecues };
 })();
 </script>
 <script>/* =====================================================================
@@ -6879,9 +6925,7 @@ window.DEPOUILLEMENT = (function () {
         if (window.DEPOUILLEMENT && window.DEPOUILLEMENT.rafraichir) window.DEPOUILLEMENT.rafraichir();
       });
     });
-    $("champ-annee").addEventListener("input", function () {
-      STATE.annee = $("champ-annee").value; sauverState("annee");
-    });
+    $("champ-annee").addEventListener("change", function () { changerAnnee($("champ-annee").value); });
 
     // Import Excel
     var f = $("file-eleves");
@@ -6923,9 +6967,60 @@ window.DEPOUILLEMENT = (function () {
     window.addEventListener("focus", function () { if (_collab) notifierNouveautes(); });
   }
 
+  // ===== Les années (C2-2, D122) : chaque année garde sa propre liste d'élèves =====
+  function niveauVide(n) { return { eleves: [], tuteurs: [], tuteursTel: {}, tuteursMax: {}, tuteursQuotite: {}, modeAttribution: n === "demo" ? "auto" : "manuel" }; }
+  function anneeScolaire(decalage) {
+    var d = new Date(), y = d.getFullYear() - (d.getMonth() < 8 ? 1 : 0) + (decalage || 0);   // l'année scolaire commence en septembre
+    return y + "-" + (y + 1);
+  }
+  function remplirMenuAnnees() {
+    var sel = $("champ-annee"); if (!sel) return;
+    var ans = [anneeScolaire(-1), anneeScolaire(0), anneeScolaire(1), STATE.annee].concat(Object.keys(STATE.annees || {}));
+    ans = ans.filter(function (a, i) { return a && /^\d{4}-\d{4}$/.test(a) && ans.indexOf(a) === i; }).sort();
+    sel.innerHTML = ans.map(function (a) { return '<option value="' + a + '">' + a + '</option>'; }).join("");
+    sel.value = STATE.annee;
+  }
+  function changerAnnee(nouv) {
+    if (!nouv || nouv === STATE.annee) return;
+    STATE.annees = STATE.annees || {};
+    var cur = STATE.niveaux || {}, garde = {};
+    Object.keys(cur).forEach(function (k) { if (k !== "demo") garde[k] = cur[k]; });
+    STATE.annees[STATE.annee] = garde;                       // la liste de l'année quittée reste rattachée à son année
+    var l = STATE.annees[nouv] || {};
+    var niv = { "4e": l["4e"] || niveauVide("4e"), "3e": l["3e"] || niveauVide("3e") };
+    Object.keys(l).forEach(function (k) { if (!niv[k] && k !== "demo") niv[k] = l[k]; });
+    niv.demo = cur.demo || niveauVide("demo");
+    delete STATE.annees[nouv];
+    STATE.niveaux = niv; STATE.annee = nouv;
+    majAnneeNiveau(); majDepouillement(); renderTuteurs(); renderEleves();
+    sauverState("annee");
+    var relance = function () { demarrerEcoute(); if (window.DEPOUILLEMENT && window.DEPOUILLEMENT.rafraichir) window.DEPOUILLEMENT.rafraichir(); };
+    assurerCle(nouv).then(relance, relance);
+    toast(estLecteur() ? "Année " + nouv + " affichée sur ce poste." : "Année de travail : " + nouv + ".");
+  }
+  window.__changerAnnee = changerAnnee;
+  // D122 : la liste importée avant cette version n'est rattachée à aucune année ; le compte qui écrit la rattache une fois.
+  var _listeSansAnnee = false;
+  function proposerRattachement() {
+    if (!_listeSansAnnee || estLecteur() || STATE.niveauActif === "demo") return;
+    _listeSansAnnee = false;
+    var n = ((nv() || {}).eleves || []).length, ans = [anneeScolaire(-1), anneeScolaire(0), anneeScolaire(1), STATE.annee].filter(function (a, i, t) { return t.indexOf(a) === i; }).sort();
+    $("modal-titre").textContent = "Rattacher la liste actuelle à son année";
+    $("modal-corps").innerHTML = "<p>La liste des élèves de l'équipe a été importée avant que chaque liste soit rattachée à une année. Elle sera rattachée à l'année :</p>"
+      + '<p><select id="ratt-annee" title="L\'année scolaire de la liste actuelle.">' + ans.map(function (a) { return '<option value="' + a + '"' + (a === STATE.annee ? " selected" : "") + ">" + a + "</option>"; }).join("") + "</select></p>"
+      + '<div style="margin-top:14px;display:flex;justify-content:flex-end"><button class="btn bord" onclick="window.__rattacher()" title="Rattache la liste actuelle à l\'année choisie, pour toute l\'équipe. On ne vous le demandera plus.">Confirmer</button></div>';
+    $("modal").hidden = false;
+  }
+  window.__rattacher = function () {
+    var a = ($("ratt-annee") || {}).value || STATE.annee; $("modal").hidden = true;
+    STATE.annee = a; majAnneeNiveau(); if (window.DEPOUILLEMENT && window.DEPOUILLEMENT.rafraichir) window.DEPOUILLEMENT.rafraichir();
+    lsSet(LS_STATE, signature());
+    commitDirectEtat("a rattaché la liste des élèves à l'année " + a, null);
+    toast("Liste rattachée à l'année " + a + ".");
+  };
   function majAnneeNiveau() {
     majBandeauMode();
-    $("champ-annee").value = STATE.annee;
+    remplirMenuAnnees();
     document.querySelectorAll("[data-niveau]").forEach(function (b) {
       b.classList.toggle("actif", b.getAttribute("data-niveau") === STATE.niveauActif);
     });
@@ -7114,7 +7209,8 @@ window.DEPOUILLEMENT = (function () {
       (parCle[k] = parCle[k] || []).push(e);
     });
     var maxNum = {};
-    existants.forEach(function (e) { var m = /^(.*)-(\d+)$/.exec(e.code || ""); if (m) maxNum[m[1]] = Math.max(maxNum[m[1]] || 0, +m[2]); });
+    // Un code déjà donné n'est jamais redonné, même si l'élève a été retiré (sinon un ancien lien ouvrirait la convention d'un autre enfant).
+    existants.map(function (e) { return e.code; }).concat(nv().codesRetires || []).forEach(function (c) { var m = /^(.*)-(\d+)$/.exec(c || ""); if (m) maxNum[m[1]] = Math.max(maxNum[m[1]] || 0, +m[2]); });
     var plan = { classes: Object.keys(classes).map(function (k) { return classes[k]; }), retrouves: [], nouveaux: [], absents: [], dates: 0, coords: 0, autres: 0, maxNum: maxNum };
     var vus = {};
     fichier.forEach(function (f) {
@@ -7128,15 +7224,67 @@ window.DEPOUILLEMENT = (function () {
         if ((rf.email || rf.tel) && !(re.email || re.tel)) plan.coords++;
       } else plan.nouveaux.push(f);
     });
+    // Rapprochements probables (D123, cas a et b) : un élève du fichier non retrouvé et un élève de la liste non retrouvé,
+    // nés le même jour, dans la même classe (nom corrigé) ou sous le même nom (changement de classe). Le code est gardé.
+    plan.probables = [];
+    var restants = existants.filter(function (e) { return !vus[e.code]; });
+    plan.nouveaux = plan.nouveaux.filter(function (f) {
+      var ex = restants.filter(function (e) {
+        if (vus[e.code]) return false;
+        var memeNe = f.naissance && e.naissance && f.naissance === e.naissance;
+        var memeClasse = abregerClasse(e.classe) === abregerClasse(f.classe), memeNom = cleNomComplet(e) === cleNomComplet(f);
+        return (memeNe && memeClasse) || (memeNom && !memeClasse && (memeNe || !f.naissance || !e.naissance));
+      })[0];
+      if (!ex) return true;
+      vus[ex.code] = 1; plan.probables.push({ ancien: ex, fichier: f }); return false;
+    });
     existants.forEach(function (e) {
       if (classes[abregerClasse(e.classe)]) { if (!vus[e.code]) plan.absents.push(e); }
-      else plan.autres++;
+      else if (!vus[e.code]) plan.autres++;
     });
+    // Le détail de chaque modification (D123) : champ par champ, avant → après.
+    plan.modifs = [];
+    plan.retrouves.concat(plan.probables).forEach(function (r) {
+      var d = diffEleve(r.ancien, r.fichier); if (d.length) plan.modifs.push({ eleve: r.ancien, code: r.ancien.code, details: d });
+    });
+    // Gardes (D123, cas d et e) : une grande part d'une classe qui disparaîtrait ; une liste d'un autre niveau que l'onglet ouvert.
+    plan.alertes = [];
+    Object.keys(classes).forEach(function (ab) {
+      var tot = existants.filter(function (e) { return abregerClasse(e.classe) === ab; }).length;
+      var dispa = plan.absents.filter(function (e) { return abregerClasse(e.classe) === ab; }).length;
+      if (tot >= 4 && dispa * 2 > tot) plan.alertes.push("Attention : " + dispa + " des " + tot + " élèves de " + classes[ab] + " ne sont pas dans ce fichier. Vérifiez qu'il s'agit du bon fichier.");
+    });
+    var niv = STATE.niveauActif, chiffres = {};
+    Object.keys(classes).forEach(function (ab) { var c = (ab.match(/\d/) || [""])[0]; if (c) chiffres[c] = 1; });
+    var attendu = niv === "4e" ? "4" : niv === "3e" ? "3" : "";
+    if (attendu && Object.keys(chiffres).length && !chiffres[attendu]) plan.alertes.push("Ce fichier semble être une liste de " + Object.keys(chiffres).join(", ") + "e, alors que l'onglet ouvert est la " + niv + ".");
     return plan;
+  }
+  var LIB_CHAMPS = { nom: "nom", prenom: "prénom", classe: "classe", naissance: "date de naissance", sexe: "sexe", regime: "régime" };
+  var LIB_RESP = { nom: "nom", tel: "téléphone", email: "courriel", adresse: "adresse", lien: "lien" };
+  function diffEleve(a, f) {
+    var d = [];
+    Object.keys(LIB_CHAMPS).forEach(function (k) {
+      var av = (a[k] || "") + "", ap = (f[k] || "") + "";
+      if (k === "classe" && abregerClasse(av) === abregerClasse(ap)) return;   // même classe, écrite autrement
+      if (ap && ap.trim() !== av.trim()) d.push({ champ: LIB_CHAMPS[k], avant: av, apres: ap });
+    });
+    ["resp1", "resp2"].forEach(function (r, i) {
+      var ra = a[r] || {}, rf = f[r] || {};
+      Object.keys(LIB_RESP).forEach(function (k) {
+        var av = (ra[k] || "") + "", ap = (rf[k] || "") + "";
+        if (ap && ap.trim() !== av.trim()) d.push({ champ: LIB_RESP[k] + " du responsable " + (i + 1), avant: av, apres: ap });
+      });
+    });
+    return d;
   }
   function appliquerPlanImport(plan) {
     var liste = nv().eleves || [];
     var CHAMPS = ["naissance", "sexe", "age", "regime", "resp1", "resp2"];
+    (plan.probables || []).forEach(function (r) {
+      ["nom", "prenom", "classe"].forEach(function (k) { if (r.fichier[k]) r.ancien[k] = r.fichier[k]; });
+      plan.retrouves.push(r);
+    });
     plan.retrouves.forEach(function (r) {
       CHAMPS.forEach(function (k) {
         var v = r.fichier[k];
@@ -7144,7 +7292,7 @@ window.DEPOUILLEMENT = (function () {
         if (plein) r.ancien[k] = JSON.parse(JSON.stringify(v));
       });
     });
-    var pris = {}; liste.forEach(function (e) { pris[e.code] = 1; });
+    var pris = {}; liste.forEach(function (e) { pris[e.code] = 1; }); (nv().codesRetires || []).forEach(function (c) { pris[c] = 1; });
     plan.nouveaux.forEach(function (f) {
       var n = JSON.parse(JSON.stringify(f)); var fourni = n._codeFichier; delete n._codeFichier;
       if (!(fourni && n.code && !pris[n.code])) {
@@ -7160,31 +7308,60 @@ window.DEPOUILLEMENT = (function () {
   var _planImport = null;
   function proposerImport(fichier, source) {
     if (!fichier || !fichier.length) { toast("Aucun élève lu dans ce fichier.", true); return; }
-    _planImport = preparerImport(fichier);
+    _planImport = preparerImport(fichier); _dernierImport = { fichier: fichier, source: source };
     var p = _planImport;
-    var h = '<p>Fichier : <b>' + esc(source) + '</b><br>Classe(s) concernée(s) : <b>' + p.classes.map(esc).join(", ") + '</b></p>';
+    // D122 : la liste s'attache à l'année ouverte ; on la confirme, ou l'on en choisit une autre (le plan est alors recalculé sur cette année).
+    var ans = [anneeScolaire(-1), anneeScolaire(0), anneeScolaire(1), STATE.annee].filter(function (a, i, t) { return t.indexOf(a) === i; }).sort();
+    var h = '<p style="padding:8px 12px;background:#fff6d6;border:1px solid #e8d48a;border-radius:8px">Cette liste sera rattachée à l\'année <b>' + esc(STATE.annee) + '</b>. '
+      + 'Si ce n\'est pas la bonne année, choisissez-la : <select id="imp-annee" onchange="window.__importAnnee(this.value)" title="Change l\'année à laquelle la liste sera rattachée ; la comparaison avec la liste existante est refaite pour cette année.">'
+      + ans.map(function (a) { return '<option value="' + a + '"' + (a === STATE.annee ? " selected" : "") + '>' + a + '</option>'; }).join("") + '</select></p>';
+    h += '<p>Fichier : <b>' + esc(source) + '</b><br>Classe(s) concernée(s) : <b>' + p.classes.map(esc).join(", ") + '</b></p>';
     h += '<div style="padding:10px 12px;background:#f7f9fb;border:1px solid var(--ligne);border-radius:8px;font-size:13.5px;line-height:1.8">'
       + '<div><b>' + p.retrouves.length + '</b> élève(s) retrouvé(s) : leur code, déjà distribué aux familles, est conservé.</div>'
       + '<div><b>' + p.nouveaux.length + '</b> nouvel(aux) élève(s) : un code neuf leur sera attribué.</div>'
-      + '<div><b>' + p.absents.length + '</b> élève(s) de la liste absent(s) du fichier : conservé(s), rien n\'est retiré.</div>'
+      + '<div><b>' + p.absents.length + '</b> élève(s) qui ne sont plus dans le fichier : ils seront retirés, après le téléchargement de tout ce qui les concerne.</div>'
+      + '<div><b>' + p.probables.length + '</b> élève(s) retrouvé(s) malgré un nom ou une classe changés : leur code est conservé.</div>'
+      + '<div><b>' + p.modifs.length + '</b> élève(s) dont des informations changent (détail ci-dessous).</div>'
       + '<div><b>' + p.dates + '</b> date(s) de naissance et <b>' + p.coords + '</b> coordonnées de responsables ajoutées.</div>'
       + '<div><b>' + p.autres + '</b> élève(s) des autres classes du niveau : non touché(s).</div></div>';
     function liste(t, arr) { return arr.length ? '<p style="margin:10px 0 4px"><b>' + t + '</b></p><div class="hint" style="margin:0">' + arr.map(function (e) { return esc((e.prenom || "") + " " + (e.nom || "")); }).join(" · ") + '</div>' : ""; }
-    h += liste("Nouveaux élèves :", p.nouveaux) + liste("Absents du fichier (conservés) :", p.absents);
+    h = (p.alertes.length ? '<div style="margin:0 0 10px;padding:10px 12px;border:1px solid #e3a3a3;background:#fdecec;color:#8a1c1c;border-radius:8px;font-weight:600">' + p.alertes.map(esc).join("<br>") + '</div>' : "") + h;
+    h += liste("Nouveaux élèves :", p.nouveaux) + liste("Ne sont plus dans le fichier (seront retirés) :", p.absents);
+    if (p.absents.length) h += '<p style="margin:6px 0 0;padding:8px 12px;border:1px solid #e3a3a3;background:#fdecec;color:#8a1c1c;border-radius:8px">Avant de les retirer, un fichier ZIP de tout ce qui les concerne est téléchargé : conventions, checklist et informations. Leurs parties de la convention sont ensuite effacées de la base, et leurs liens ne marchent plus.</p>';
+    if (p.modifs.length) h += '<p style="margin:10px 0 4px"><b>Modifications :</b></p><div style="font-size:13px;line-height:1.6">' + p.modifs.map(function (m) {
+      return '<div style="padding:6px 0;border-top:1px solid var(--ligne)"><b>' + esc((m.eleve.prenom || "") + " " + (m.eleve.nom || "")) + '</b> <span class="mut">(' + esc(m.code) + ')</span><br>'
+        + m.details.map(function (d) { return esc(d.champ) + ' : <s style="color:#8a1c1c">' + esc(d.avant || "vide") + '</s> → <b style="color:#1d6a40">' + esc(d.apres) + '</b>'; }).join("<br>") + '</div>';
+    }).join("") + '</div>';
     h += '<div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">'
       + '<button class="btn ghost" onclick="window.__importAnnuler()" title="Ne change rien : la liste reste telle qu\'elle est.">Annuler</button>'
-      + '<button class="btn bord" onclick="window.__importAppliquer()" title="Ajoute les nouveaux élèves et les informations du fichier. Aucun code existant ne change, aucun élève n\'est retiré. Transmis aussitôt à l\'équipe.">Appliquer l\'import</button></div>';
+      + (p.absents.length
+        ? '<button class="btn bord" onclick="window.__importAppliquer()" title="Télécharge d\'abord le ZIP de tout ce qui concerne les élèves qui ne sont plus dans le fichier, puis les retire et efface leurs parties de la convention. Ajoute aussi les nouveaux élèves et applique les modifications. Aucun code existant ne change. Transmis aussitôt à l\'équipe.">Télécharger le ZIP, puis appliquer</button>'
+        : '<button class="btn bord" onclick="window.__importAppliquer()" title="Ajoute les nouveaux élèves et les informations du fichier. Aucun code existant ne change, aucun élève n\'est retiré. Transmis aussitôt à l\'équipe.">Appliquer l\'import</button>') + '</div>';
     $("modal-titre").textContent = "Vérifier l'import avant de l'appliquer";
     $("modal-corps").innerHTML = h;
     $("modal").hidden = false;
   }
+  var _dernierImport = null;
+  window.__importAnnee = function (a) { var d = _dernierImport; changerAnnee(a); if (d) proposerImport(d.fichier, d.source); };
   window.__importAnnuler = function () { _planImport = null; $("modal").hidden = true; toast("Import annulé : rien n'a changé."); };
   window.__importAppliquer = function () {
     if (!_planImport) return;
     var p = _planImport; _planImport = null; $("modal").hidden = true;
-    appliquerPlanImport(p);
-    renderEleves(); sauverState("import");
-    toast(p.retrouves.length + " élève(s) mis à jour, " + p.nouveaux.length + " ajouté(s), aucun code modifié.");
+    var fin = function (retires) {
+      appliquerPlanImport(p); renderEleves(); sauverState("import");
+      toast(p.retrouves.length + p.probables.length + " élève(s) mis à jour, " + p.nouveaux.length + " ajouté(s)" + (retires ? ", " + retires + " retiré(s) après téléchargement du ZIP" : "") + ", aucun code modifié.");
+    };
+    if (!p.absents.length) { fin(0); return; }
+    // D123 : d'abord le ZIP de tout ce qui concerne les élèves retirés ; s'il échoue, rien n'est retiré.
+    if (!window.DEPOUILLEMENT || !window.DEPOUILLEMENT.archiveEleves) { toast("Le ZIP n'a pas pu être fabriqué : rien n'a été retiré.", true); return; }
+    window.DEPOUILLEMENT.archiveEleves(p.absents).then(function (blob) {
+      window.DEPOUILLEMENT.telecharger(blob, "Eleves_retires_" + p.classes.join("_").replace(/[^A-Za-z0-9]+/g, "_") + "_" + new Date().toISOString().slice(0, 10) + ".zip");
+      var an = espaceAnnee(), codes = p.absents.map(function (e) { return e.code; });
+      nv().codesRetires = (nv().codesRetires || []).concat(codes);
+      nv().eleves = (nv().eleves || []).filter(function (e) { return codes.indexOf(e.code) < 0; });
+      fin(codes.length);
+      codes.forEach(function (c) { if (window.FB && window.FB.supprimerEleveBase) window.FB.supprimerEleveBase(an, c).catch(function () {}); });
+    }).catch(function (e) { toast("Le ZIP n'a pas pu être fabriqué : rien n'a été retiré. (" + (e && e.message) + ")", true); });
   };
 
   // ---- Liste interactive des tuteurs --------------------------------
@@ -7691,7 +7868,7 @@ window.DEPOUILLEMENT = (function () {
       b.addEventListener("click", function () {
         var i = +b.getAttribute("data-suppr-el"), el = nv().eleves[i]; if (!el) return;
         if (confirm("Supprimer définitivement " + ((el.prenom + " " + el.nom).trim() || el.code) + " (" + el.code + ") ?\n\nSes liens deviendront inactifs.")) {
-          nv().eleves.splice(i, 1); sauverState("suppr-eleve"); renderEleves(); toast("Élève supprimé.");
+          (nv().codesRetires = nv().codesRetires || []).push(el.code); nv().eleves.splice(i, 1); sauverState("suppr-eleve"); renderEleves(); toast("Élève supprimé.");
         }
       });
     });
@@ -7777,7 +7954,8 @@ window.DEPOUILLEMENT = (function () {
         lsSet(LS_CNX, String(Date.now()));
         setTimeout(function () { journal("connexion", "s'est connecté(e)"); }, 800);
       }
-      chargerEtatPartage();
+      if (!/^\d{4}-\d{4}$/.test(STATE.annee || "")) STATE.annee = anneeScolaire(0);   // une année tronquée par l'ancien champ libre
+      chargerEtatPartage().then(function () { ecouterEtatPartage(); proposerRattachement(); }, ecouterEtatPartage);
       demarrerRemarques();
       chargerContenus().then(function () { majAdmin(); majVerrouSignature(); });
       // L'interrupteur ne gouverne plus que la relecture avant partage.
@@ -8079,7 +8257,9 @@ window.DEPOUILLEMENT = (function () {
     try { majEtapes(); } catch (e) {}
     if ((motif === "import" || motif === "demo") && nv().eleves && nv().eleves.length) ouvrirEtape(2);
     if (_etatBase && STATE.niveauActif !== "demo" && !estLecteur()) {
-      if (motif === "import") commitDirectEtat("a importé " + ((nv().eleves || []).length) + " élève(s) en " + STATE.niveauActif, null);
+      if (motif === "annee") commitDirectEtat("a ouvert l'année " + STATE.annee, null);
+      else if (motif === "reprise") commitDirectEtat("a rechargé une sauvegarde", null);
+      else if (motif === "import") commitDirectEtat("a importé " + ((nv().eleves || []).length) + " élève(s) en " + STATE.niveauActif, null);
       else if (_collab) majBoutonValider();          // relecture demandée : validation explicite
       else commitDirectEtatDecrit();                 // partage direct : transmis et journalisé
     }
@@ -8127,20 +8307,52 @@ window.DEPOUILLEMENT = (function () {
     telechargerBlob(nomFichierJSON(), JSON.stringify(stateAExporter(), null, 2));
     _lastSig = signature();
   }
+  // « Reprendre… » (C2-1) : une sauvegarde ne remplace rien sans confirmation ; si l'on confirme, elle devient aussitôt
+  // les données de l'équipe. La console garde ses clés et son espace de test ; une sauvegarde d'une autre année
+  // va dans son année (D122).
+  var _reprise = null;
   function importerJSON(file) {
     var reader = new FileReader();
     reader.onload = function (e) {
-      try {
-        var s = JSON.parse(e.target.result);
-        if (!s || !s.niveaux) throw new Error("format inattendu");
-        STATE = s; lsSet(LS_STATE, signature()); _lastSig = signature();
-        majAnneeNiveau(); renderTuteurs(); renderEleves();
-        toast("Configuration rechargée.");
-      } catch (err) { toast("Import impossible : " + err.message, true); }
       $("file-import-json").value = "";
+      var s;
+      try { s = JSON.parse(e.target.result); if (!s || !s.niveaux) throw new Error("ce fichier n'est pas une sauvegarde de la console"); }
+      catch (err) { toast("Reprise impossible : " + err.message, true); return; }
+      _reprise = s;
+      var an = s.annee || STATE.annee, memeAnnee = an === STATE.annee;
+      var avant = memeAnnee ? (STATE.niveaux || {}) : ((STATE.annees || {})[an] || {});
+      var ligne = function (niv) {
+        var a = ((avant[niv] || {}).eleves || []).length, b = ((s.niveaux[niv] || {}).eleves || []).length;
+        var ta = ((avant[niv] || {}).tuteurs || []).length, tb = ((s.niveaux[niv] || {}).tuteurs || []).length;
+        return "<div><b>" + niv + "</b> : " + a + " élève(s) → <b>" + b + "</b> élève(s) ; " + ta + " tuteur(s) → <b>" + tb + "</b> tuteur(s)</div>";
+      };
+      var h = "<p>Cette sauvegarde va remplacer la liste des élèves et des tuteurs de l'année <b>" + esc(an) + "</b> :</p>"
+        + '<div style="padding:10px 12px;background:#f7f9fb;border:1px solid var(--ligne);border-radius:8px;font-size:13.5px;line-height:1.8">' + ligne("4e") + ligne("3e") + "</div>"
+        + (memeAnnee ? "" : '<p class="hint">La sauvegarde est celle de l\'année ' + esc(an) + ", qui n'est pas l'année ouverte (" + esc(STATE.annee) + ") : elle va dans son année, l'année ouverte ne change pas.</p>")
+        + "<p>Les conventions reçues ne sont pas touchées." + (estLecteur() ? "" : " L'équipe voit la sauvegarde aussitôt.") + "</p>"
+        + '<div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">'
+        + '<button class="btn ghost" onclick="window.__repriseAnnuler()" title="Ne change rien.">Annuler</button>'
+        + '<button class="btn bord" onclick="window.__repriseAppliquer()" title="Remplace la liste de cette année par celle de la sauvegarde et la transmet aussitôt à l\'équipe. Les conventions reçues, les clés de chiffrement et l\'espace de test ne changent pas.">Remplacer par la sauvegarde</button></div>';
+      $("modal-titre").textContent = "Recharger une sauvegarde ?";
+      $("modal-corps").innerHTML = h; $("modal").hidden = false;
     };
     reader.readAsText(file);
   }
+  window.__repriseAnnuler = function () { _reprise = null; $("modal").hidden = true; toast("Reprise annulée : rien n'a changé."); };
+  window.__repriseAppliquer = function () {
+    var s = _reprise; _reprise = null; $("modal").hidden = true; if (!s) return;
+    var an = s.annee || STATE.annee, niv = {};
+    Object.keys(s.niveaux || {}).forEach(function (k) { if (k !== "demo") niv[k] = s.niveaux[k]; });
+    if (an === STATE.annee) {
+      var demo = (STATE.niveaux || {}).demo;
+      STATE.niveaux = { "4e": niv["4e"] || niveauVide("4e"), "3e": niv["3e"] || niveauVide("3e") };
+      Object.keys(niv).forEach(function (k) { if (!STATE.niveaux[k]) STATE.niveaux[k] = niv[k]; });
+      if (demo) STATE.niveaux.demo = demo;
+    } else { STATE.annees = STATE.annees || {}; STATE.annees[an] = niv; }
+    if (s.etab) { var sig = (STATE.etab || {}).signature; STATE.etab = s.etab; if (sig) STATE.etab.signature = sig; }
+    majAnneeNiveau(); renderTuteurs(); renderEleves(); sauverState("reprise");
+    toast("Sauvegarde rechargée pour l'année " + an + ".");
+  };
 
   // ---- Mode démonstration : prépare le niveau « Démo » à partir du jeu unique ----
   function prepererDemo() {
@@ -8174,6 +8386,7 @@ window.DEPOUILLEMENT = (function () {
   function estFirebase() { return ((window.CONFIG && window.CONFIG.transport) || "nuage") === "firebase"; }
   // Espace de stockage Firebase : les vraies classes utilisent l'année ; le mode test est isolé sous "demo".
   function espaceAnnee() { return STATE.niveauActif === "demo" ? "demo" : STATE.annee; }
+  window.__anneeAffichee = function () { return STATE.niveauActif === "demo" ? "" : STATE.annee; };
   var _unsubEcoute = null, _demoResultats = null, _maitre = null;
   var LS_SECRET = "conv_stage_secret_v1";
   var LS_VU = "conv_journal_vu_v1";
@@ -8434,6 +8647,27 @@ window.DEPOUILLEMENT = (function () {
   // Une entrée par version mise en ligne, la plus récente en tête. Dates et versions relevées dans l'historique
   // des envois sur GitHub ; descriptions reconstituées. À COMPLÉTER À CHAQUE LIVRAISON (consigne 8 en tête du fichier).
   var NOUVEAUTES = [
+    { date: "05/10/2026", heure: "17:00", auteur: "Paul Meney", version: "v2026.10.05·L3a", points: [
+      "Côté familles : le nom de l'élève vient en tête de chaque écran, au-dessus du titre ; les phrases validées sont en place (accueil, oubli d'un champ, assurance, signature, chiffrement) ; « Fait à » est demandé avec la signature.",
+      "Sur téléphone, chaque champ d'un contact d'urgence prend sa propre ligne."
+    ] },
+    { date: "05/10/2026", heure: "15:30", auteur: "Paul Meney", version: "v2026.10.05·L2e2", points: [
+      "Mise à jour d'une liste : un élève qui n'est plus dans le fichier est retiré, après le téléchargement d'un ZIP de tout ce qui le concerne (conventions, checklist, informations). Ses parties de la convention sont alors effacées, et ses liens disent « Ce lien n'est plus actif. Contactez le collège. »",
+      "À la première ouverture de la console de M. Meney, la liste déjà en place est rattachée une fois à son année."
+    ] },
+    { date: "05/10/2026", heure: "14:30", auteur: "Paul Meney", version: "v2026.10.05·L2e1", points: [
+      "Mise à jour d'une liste : un élève dont le nom ou la classe a changé est retrouvé, et garde son code (le lien de sa famille reste bon).",
+      "La fenêtre d'import montre chaque modification, champ par champ, avant → après.",
+      "Elle signale en rouge un fichier suspect : une classe qui perdrait la plupart de ses élèves, ou une liste d'un autre niveau que l'onglet ouvert.",
+      "Le code d'un élève retiré n'est jamais redonné à un autre."
+    ] },
+    { date: "05/10/2026", heure: "10:00", auteur: "Paul Meney", version: "v2026.10.05·L2d", points: [
+      "Lecture seule : seul le compte de M. Meney modifie. Les autres comptes consultent, téléchargent et produisent conventions et checklists ; un bandeau jaune le rappelle en tête de la console.",
+      "Le compte de M. Meney ouvert sur deux postes : un seul écrit. L'autre s'ouvre en lecture seule, avec « Prendre la main ici ».",
+      "Plus besoin de recharger la page : les modifications faites sur le poste de M. Meney apparaissent aussitôt sur les autres postes, sans effacer ce que vous êtes en train de taper.",
+      "L'année se choisit dans un menu. Chaque année garde sa propre liste d'élèves ; une liste importée est rattachée à l'année confirmée dans la fenêtre d'import.",
+      "« Reprendre… » demande confirmation et dit ce qui va changer avant de remplacer quoi que ce soit."
+    ] },
     { date: "01/10/2026", heure: "13:05", auteur: "Paul Meney", version: "v2026.10.01·convention", points: [
       "La convention imprimée change d'allure : logo du collège en tête, signalétique et numéro de page en bas de chaque feuille, un encadré par section, l'entreprise et son signataire d'un côté, l'élève et sa famille de l'autre, et les articles sur deux colonnes justifiées.",
       "Signature de la cheffe d'établissement : elle porte désormais son empreinte, calculée sur la convention assemblée, et sa date, fixée dix minutes après la dernière signature reçue.",
@@ -8614,7 +8848,8 @@ window.DEPOUILLEMENT = (function () {
   // ===== Présence en direct =====
   var _monId = "p" + Math.random().toString(36).slice(2, 10);
   var _presences = [], _battement = null, _sectionCourante = "";
-  var VERSION_APP = "v2026.09.24";
+  // Un seul numéro de version : celui du pied de page (C2-32). Le diagnostic et la présence le lisent ici.
+  var VERSION_APP = ((document.querySelector(".app-version") || {}).textContent || "").trim() || "version inconnue";
   function sectionVisible() {
     // La section « en cours » = la dernière carte dépliée sur laquelle on a agi, ou la première visible.
     var cartes = document.querySelectorAll("#mode-console main > section.carte");
@@ -9311,7 +9546,9 @@ window.DEPOUILLEMENT = (function () {
     // L'espace de test est exclu : son contenu ne doit jamais rejoindre les données de l'équipe.
     var n = JSON.parse(JSON.stringify(STATE.niveaux || {}));
     delete n.demo;
-    return JSON.parse(JSON.stringify({ niveaux: n, etab: e }));
+    var autres = JSON.parse(JSON.stringify(STATE.annees || {}));
+    Object.keys(autres).forEach(function (a) { if (autres[a]) delete autres[a].demo; });
+    return JSON.parse(JSON.stringify({ niveaux: n, etab: e, anneeListe: STATE.annee, annees: autres }));
   }
   function vide(nk) { return { eleves: [], tuteurs: [], tuteursTel: {}, tuteursMax: {}, tuteursQuotite: {}, modeAttribution: nk === "demo" ? "auto" : "manuel" }; }
 
@@ -9395,7 +9632,8 @@ window.DEPOUILLEMENT = (function () {
         return window.CRYPTO.deballerCle(_maitre, rec).then(function (txt) {
           var distant; try { distant = JSON.parse(txt); } catch (e) { return; }
           _etatVersion = rec.v || 0;
-          var dist = { niveaux: distant.niveaux || {}, etab: distant.etab || {} };
+          _listeSansAnnee = !distant.anneeListe && (((distant.niveaux || {})["4e"] || {}).eleves || []).concat(((distant.niveaux || {})["3e"] || {}).eleves || []).length > 0;
+          var dist = { niveaux: distant.niveaux || {}, etab: distant.etab || {}, anneeListe: distant.anneeListe, annees: distant.annees };
           var local = snapEtat();
           var base = lireBase();
           if (!base) {
@@ -9422,7 +9660,14 @@ window.DEPOUILLEMENT = (function () {
   function adopterEtatDistant(distant) {
     if (distant.niveaux) {
       var demoLocal = (STATE.niveaux || {}).demo;      // l'espace de test reste propre à cet appareil
-      STATE.niveaux = distant.niveaux;
+      // Toutes les listes de l'équipe, année par année ; ce poste affiche celle de son année (D122).
+      var toutes = JSON.parse(JSON.stringify(distant.annees || {}));
+      toutes[distant.anneeListe || STATE.annee] = distant.niveaux;
+      var l = toutes[STATE.annee] || {};
+      var niv = { "4e": l["4e"] || niveauVide("4e"), "3e": l["3e"] || niveauVide("3e") };
+      Object.keys(l).forEach(function (k) { if (!niv[k] && k !== "demo") niv[k] = l[k]; });
+      delete toutes[STATE.annee];
+      STATE.niveaux = niv; STATE.annees = toutes;
       if (demoLocal) STATE.niveaux.demo = demoLocal;
     }
     if (distant.etab) {
@@ -9578,9 +9823,54 @@ window.DEPOUILLEMENT = (function () {
   function commitDirectEtat(desc, details) {
     if (!_maitre || !window.FB || !window.FB.ecrireEtat) return;
     var snapshot = snapEtat();
+    var vNouv = _etatVersion + 1; _vEnVol = vNouv;   // l'écoute reconnaîtra notre propre écriture et ne redessinera pas pour elle
     window.CRYPTO.emballerCle(_maitre, JSON.stringify(snapshot)).then(function (p) {
-      return window.FB.ecrireEtat({ iv: p.iv, ct: p.ct, v: _etatVersion + 1, ts: Date.now() });
+      return window.FB.ecrireEtat({ iv: p.iv, ct: p.ct, v: vNouv, ts: Date.now() });
     }).then(function () { _etatVersion += 1; poserBase(snapshot); if (desc) journal("modif", desc, details); majBoutonValider(); }).catch(function () {});
+  }
+  // ===== Actualisation sans rechargement (règle permanente ; dette C2-34) =====
+  // Quand l'état partagé change ailleurs, ce poste le reprend aussitôt. Le redessin ne touche jamais à ce que
+  // l'on est en train d'utiliser : champ, menu déroulant, case, fenêtre ouverte. Il attend qu'on l'ait quitté,
+  // et garde l'endroit où l'on en était dans la page.
+  var _vEnVol = 0, _ecouteEtat = false, _enAttente = null, _attenteBranchee = false;
+  function occupe() {
+    var a = document.activeElement, m = document.getElementById("modal");
+    var champ = a && a !== document.body && (/^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName) || a.isContentEditable) && !!a.closest("#mode-console, #modal");
+    return !!champ || !!(m && !m.hidden);
+  }
+  function appliquerQuandLibre(fn) {
+    _enAttente = fn;   // seule la plus récente compte
+    var essai = function () {
+      setTimeout(function () {
+        if (!_enAttente || occupe()) return;
+        var f = _enAttente; _enAttente = null;
+        var y = window.scrollY; f(); window.scrollTo(0, y);
+      }, 0);
+    };
+    if (!_attenteBranchee) {
+      _attenteBranchee = true;
+      document.addEventListener("focusout", essai, true);
+      var m = document.getElementById("modal");
+      if (m && window.MutationObserver) new MutationObserver(essai).observe(m, { attributes: true, attributeFilter: ["hidden"] });
+    }
+    essai();
+  }
+  function ecouterEtatPartage() {
+    if (_ecouteEtat || !window.FB || !window.FB.ecouterEtat || !_maitre) return;
+    _ecouteEtat = true;
+    window.FB.ecouterEtat(function (rec) {
+      if (!rec || !rec.ct || !_maitre) return;
+      var v = +rec.v || 0;
+      if (v <= _etatVersion || v === _vEnVol) return;   // déjà connu, ou notre propre écriture
+      window.CRYPTO.deballerCle(_maitre, rec).then(function (txt) {
+        var d; try { d = JSON.parse(txt); } catch (e) { return; }
+        appliquerQuandLibre(function () {
+          if (v <= _etatVersion) return;
+          _etatVersion = v;
+          adopterEtatDistant({ niveaux: d.niveaux || {}, etab: d.etab || {}, anneeListe: d.anneeListe, annees: d.annees });
+        });
+      }).catch(function () {});
+    });
   }
   function show(id, on) { var e = $(id); if (e) e.hidden = !on; }
 
