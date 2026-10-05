@@ -856,7 +856,7 @@
 
 <div id="toast" class="toast" hidden></div>
 <button id="btn-valider-collab" hidden title="Ouvre la liste de vos modifications de textes, pour les valider ou les abandonner une par une." onclick="window.__ouvrirValidation && window.__ouvrirValidation()">✓ Valider mes modifications (0)</button>
-<div class="app-version">v2026.10.05·L3a</div>
+<div class="app-version">v2026.10.05·L3b</div>
 
 <script>
 /* ===== Configuration : système de transmission ====================
@@ -4079,6 +4079,7 @@ window.SIGNATAIRE = (function () {
 
   function construireSteps(role) {
     var steps = [{ type: "intro" }];
+    if (role === "PARENTS" && !CTX.completion) steps.push({ type: "qui", titre: "Qui remplit cette convention ?" });
     // Jours de stage (D85, D90) : l'entreprise dit si elle accueille l'élève tout le stage ou certains jours, et coche les vraies dates.
     if (role === "ENTREPRISE") { steps.push({ type: "accueil", titre: "Les jours de stage" }); steps.push({ type: "horaires", titre: "Les horaires" }); }
     GROUPES[role].forEach(function (g, gi) {
@@ -4103,7 +4104,7 @@ window.SIGNATAIRE = (function () {
     CTX.nomEleve = payload.e || "";
     CTX.naissance = payload.n || "";
     CTX.tuteur = payload.t || "";
-    CTX.prefillP = payload.p || null;
+    CTX.prefillP = payload.p || null; CTX.prefillP2 = payload.p2 || null;
     CTX.urgence = payload.u || [];
     CTX.annee = annee || "";
     CTX.lienDepot = lienDepot || "";
@@ -4322,7 +4323,11 @@ window.SIGNATAIRE = (function () {
   }
   function reutiliserParents(oui) {
     demarrerRole("PARENTS");
-    if (oui && CTX._profilParents) { Object.keys(CTX._profilParents).forEach(function (k) { CTX.data[k] = CTX._profilParents[k]; }); renderStep(); }
+    if (oui && CTX._profilParents) {
+      Object.keys(CTX._profilParents).forEach(function (k) { CTX.data[k] = CTX._profilParents[k]; });
+      CTX.steps = CTX.steps.filter(function (x) { return x.type !== "qui"; });   // D113 : les informations reprises tiennent lieu de « Qui remplit ? »
+      renderStep();
+    }
   }
   // ---- Demande de refaire (D78, D80) : raison obligatoire ; c'est l'établissement qui libère la place.
   function demanderRefaire() { CTX.steps = [{ type: "demande" }]; CTX.stepIndex = 0; renderStep(); }
@@ -4564,6 +4569,7 @@ window.SIGNATAIRE = (function () {
   // ---- Parents : contacts d'urgence en liste (D95, D99) -------------------------------------------------
   function urgencesInitiales() {
     if (CTX.data.urgences && CTX.data.urgences.length) return CTX.data.urgences;
+    if (CTX.role === "PARENTS" && !CTX.completion) return [{ nom: "", lien: "", tel: "" }];   // D110 : rien sans le choix de préremplir
     var l = (CTX.urgence || []).map(function (u) { return { nom: u[0] || "", lien: "", tel: u[1] || "" }; }).filter(function (u) { return u.nom || u.tel; });
     return l.length ? l : [{ nom: "", lien: "", tel: "" }];
   }
@@ -4655,8 +4661,8 @@ window.SIGNATAIRE = (function () {
     CTX.role = role;
     CTX.steps = construireSteps(role);
     CTX.stepIndex = 0;
-    var pre = prefillPour(role);
-    CTX.prefillIds = {};
+    var pre = (role === "PARENTS" && !CTX.completion) ? {} : prefillPour(role);   // D110 : jamais automatique pour les parents
+    CTX.prefillIds = {}; CTX.prefillVals = {};
     Object.keys(pre).forEach(function (k) { if (pre[k]) { CTX.data[k] = pre[k]; CTX.prefillIds[k] = true; } });
     FORMULAIRES[role].champs.forEach(function (c) { if (CTX.data[c.id] == null && c.valeur != null) CTX.data[c.id] = c.valeur; });
     if (role === "ETABLISSEMENT") CTX.articlesOK = true;
@@ -4683,12 +4689,12 @@ window.SIGNATAIRE = (function () {
   }
 
   // ---- MOTEUR -------------------------------------------------------
-  function etapesContenu() { return CTX.steps.filter(function (s) { return s.type !== "intro" && s.type !== "fin" && s.type !== "choix-role"; }); }
+  function etapesContenu() { return CTX.steps.filter(function (s) { return s.type !== "intro" && s.type !== "qui" && s.type !== "fin" && s.type !== "choix-role"; }); }
 
   function majProgression() {
     var prog = $("sig-prog"); if (!prog) return;
     var st = CTX.steps[CTX.stepIndex];
-    if (!st || ["intro", "intro-completion", "choix-completion", "code", "code-abandon", "fin", "choix-role", "reprise", "porte", "maintenance", "place-prise", "reutiliser", "demande", "demande-ok", "demande-deja", "attestation", "attestation-ok", "fin-retour"].indexOf(st.type) >= 0) { prog.hidden = true; return; }
+    if (!st || ["intro", "qui", "intro-completion", "choix-completion", "code", "code-abandon", "fin", "choix-role", "reprise", "porte", "maintenance", "place-prise", "reutiliser", "demande", "demande-ok", "demande-deja", "attestation", "attestation-ok", "fin-retour"].indexOf(st.type) >= 0) { prog.hidden = true; return; }
     prog.hidden = false;
     var liste = etapesContenu(), n = liste.length, cur = liste.indexOf(st) + 1;
     $("sig-prog-fill").style.width = Math.round(cur / n * 100) + "%";
@@ -4724,6 +4730,7 @@ window.SIGNATAIRE = (function () {
     else if (st.type === "reprise") box.innerHTML = htmlReprise();
     else if (st.type === "choix-role") box.innerHTML = htmlChoixRole();
     else if (st.type === "intro") box.innerHTML = htmlIntro();
+    else if (st.type === "qui") { box.innerHTML = htmlQui(); majQui(); }
     else if (st.type === "fields") box.innerHTML = htmlFields(st);
     else if (st.type === "articles") box.innerHTML = htmlArticles();
     else if (st.type === "mention") box.innerHTML = htmlMention();
@@ -4761,13 +4768,81 @@ window.SIGNATAIRE = (function () {
   }
   // L'écran d'accueil de la seconde convention commence par son titre surligné (D103).
   function htmlIntro() { return htmlIntroSecond() + htmlIntroBase(); }
+  // ===== Page 2/2 de l'accueil des parents : « Qui remplit ? » et le choix de préremplir (D110, D111, D112, 286) =====
+  function respConnus() {
+    var u = CTX.urgence || [], r = [];
+    var r1 = CTX.prefillP || (u[0] ? { n: u[0][0], t: u[0][1] } : null);
+    var r2 = CTX.prefillP2 || (u[1] ? { n: u[1][0], t: u[1][1] } : null);
+    if (r1 && (r1.n || r1.t)) r.push({ cle: "r1", p: r1 });
+    if (r2 && (r2.n || r2.t)) r.push({ cle: "r2", p: r2 });
+    return r;
+  }
+  function htmlQui() {
+    var rs = respConnus(), qui = CTX.data._qui || "";
+    var h = '<h3 class="serif">Qui remplit cette convention ?</h3>'
+      + '<p>Un seul responsable légal remplit et signe la convention : sa signature suffit (article 372-2 du Code civil).</p>';
+    rs.forEach(function (r) {
+      h += '<label class="radio" style="display:block;margin:6px 0"><input type="radio" name="qui" value="' + r.cle + '"' + (qui === r.cle ? " checked" : "") + ' onchange="SIGNATAIRE.majQui()" title="C\'est cette personne qui remplit et signe."> ' + esc(r.p.n || "Responsable légal") + '</label>';
+    });
+    h += '<label class="radio" style="display:block;margin:6px 0"><input type="radio" name="qui" value="autre"' + (qui === "autre" ? " checked" : "") + ' onchange="SIGNATAIRE.majQui()" title="Un autre représentant de l\'élève remplit et signe."> Une autre personne (grand-parent, tuteur…)</label>';
+    h += '<p id="qui-pref" style="margin-top:12px">Vous avez la possibilité de préremplir votre convention avec les informations que le collège connaît de vous. Vérifiez-les et modifiez si besoin.</p>'
+      + '<p id="qui-autre" class="mut" hidden>Le collège ne connaît pas vos informations : rien n\'est prérempli.</p>';
+    h += '<div class="sig-actions"><button class="btn ghost" onclick="SIGNATAIRE.precedent()" title="Revenir à la page précédente.">← Précédent</button>'
+      + '<span style="display:flex;gap:8px;flex-wrap:wrap">'
+      + '<button class="btn ghost" style="border-width:1.5px" id="qui-sans" onclick="SIGNATAIRE.commencerQui(false)" title="Vous remplissez tout vous-même ; rien n\'est prérempli.">Commencer sans préremplir</button>'
+      + '<button class="btn ghost" style="border-width:1.5px" id="qui-avec" onclick="SIGNATAIRE.commencerQui(true)" title="Remplit d\'avance les coordonnées que le collège connaît de la personne choisie ; vous les vérifiez à chaque écran.">Préremplir et commencer →</button>'
+      + '</span></div>';
+    return h;
+  }
+  function majQui() {
+    var c = document.querySelector('#sig-step input[name=qui]:checked'), v = c ? c.value : "";
+    var autre = v === "autre", ok = !!respConnus().length;
+    var a = $("qui-autre"), pr = $("qui-pref"), av = $("qui-avec"), sa = $("qui-sans");
+    if (a) a.hidden = !autre; if (pr) pr.hidden = autre || !ok; if (av) av.hidden = autre || !ok;
+    if (sa) sa.textContent = (autre || !ok) ? "Commencer" : "Commencer sans préremplir";
+  }
+  function prefillQui(cle) {
+    var u = CTX.urgence || [];
+    var r1 = CTX.prefillP || (u[0] ? { n: u[0][0], t: u[0][1] } : {}), r2 = CTX.prefillP2 || (u[1] ? { n: u[1][0], t: u[1][1] } : {});
+    var moi = cle === "r2" ? r2 : r1, autre = cle === "r2" ? r1 : r2, o = {};
+    if (moi.n) o.resp_nom = moi.n; if (moi.t) o.tel = moi.t; if (moi.m) o.email = moi.m; if (moi.a) o.adresse = moi.a;
+    var urg = [{ nom: moi.n || "", lien: "", tel: moi.t || "" }];
+    // D112 : l'autre responsable n'entre dans les urgences que s'il habite à la même adresse, ce qui ne se sait qu'avec les deux adresses.
+    var na = function (x) { return String(x || "").toLowerCase().replace(/[^a-z0-9]/g, ""); };
+    if (moi.a && autre.a && na(moi.a) === na(autre.a) && (autre.n || autre.t)) urg.push({ nom: autre.n || "", lien: "", tel: autre.t || "" });
+    return { champs: o, urgences: urg };
+  }
+  // La mention sous un champ prérempli suit la saisie (D110) : « Enregistré. », ou « Vous avez repris l'information préremplie ».
+  document.addEventListener("input", function (e) {
+    var t = e.target; if (!t || !t.id || t.id.indexOf("f_") !== 0 || !t.closest || !t.closest("#sig-step")) return;
+    var id = t.id.slice(2), pv = (CTX.prefillVals || {})[id]; if (pv == null) return;
+    var sp = document.querySelector('#sig-step .prefill-sous[data-pref="' + id + '"]'); if (!sp) return;
+    sp.textContent = t.value === pv ? "Vous avez repris l'information préremplie." : "Enregistré.";
+  });
+  function commencerQui(avec) {
+    var c = document.querySelector('#sig-step input[name=qui]:checked');
+    if (!c) { toast("Il manque : choisissez qui remplit la convention.", true); return; }
+    CTX.data._qui = c.value;
+    if (avec && c.value !== "autre") {
+      var pr = prefillQui(c.value), ch = pr.champs;
+      var deja = Object.keys(ch).filter(function (k) { return (CTX.data[k] || "").trim() && CTX.data[k] !== ch[k]; });
+      if ((deja.length || (CTX.data.urgences || []).some(function (u) { return u.nom || u.tel; })) && !window.confirm("Le préremplissage va remplacer ce que vous avez déjà tapé. Continuer ?")) return;
+      CTX.prefillIds = {}; CTX.prefillVals = {};
+      Object.keys(ch).forEach(function (k) { CTX.data[k] = ch[k]; CTX.prefillIds[k] = true; CTX.prefillVals[k] = ch[k]; });
+      CTX.data.urgences = pr.urgences;
+    }
+    suivant();
+  }
   function htmlIntroBase() {
     var h = '';
     if (CTX.estTest && !CTX.apercu) h += '<div class="encadre-conseil" style="background:#fbe9e9;border-color:#e6c9ce;color:#7a2e3a"><b>🧪 Lien de TEST.</b> Ce parcours sert à vérifier la chaîne complète. L\'envoi ira dans un espace de test isolé, sans effet sur les vraies conventions.</div>';
     var rc = ROLE_CLAIR[CTX.role] || FORMULAIRES[CTX.role].titre;
-    h += cadreEleve();
+    // Accueil : l'encadré d'avant, préféré par Paul (05/10), avec les deux corrections validées (230 : « en tant que responsable légal », 231 : sans « Référence »).
     h += '<h3 class="serif">Convention de stage</h3>';
-    h += '<div class="identite-sig"><div>Vous remplissez cette convention ' + (/^[aeiouyéèê]/i.test(rc) ? "en tant qu'" : "en tant que ") + '<b>' + esc(rc) + '</b>.</div></div>';
+    h += '<div class="identite-sig">'
+      + '<div>Vous remplissez cette convention ' + (/^[aeiouyéèê]/i.test(rc) ? "en tant qu'" : "en tant que ") + '<b>' + esc(rc) + '</b>.</div>'
+      + '<div class="identite-eleve">Élève concerné : <b>' + esc(CTX.nomEleve || "(à confirmer)") + '</b>' + (CTX.naissance ? ', né(e) le ' + esc(CTX.naissance) : '') + '.</div>'
+      + '</div>';
     h += '<p>Le collège passe aux conventions de stage en ligne. Vous remplissez votre partie en quelques étapes.</p>';
     if (estFirebase()) {
       h += '<div class="demarche"><div class="demarche-t">Comment ça se passe</div><ol>'
@@ -4785,7 +4860,7 @@ window.SIGNATAIRE = (function () {
       h += '<p class="mut">⏱ Durée : ' + DUREE[CTX.role] + '.</p>';
       h += '<div class="encadre-conseil"><b>Un conseil : remplissez votre convention sur un seul appareil.</b> Votre progression est gardée sur cet appareil jusqu\'au bout ; l\'envoi, lui, se fait à la dernière étape, par vous. Gardez donc le même appareil du début à la fin, sinon il faudra reprendre depuis le début.</div>';
     }
-    h += '<div class="sig-actions"><span></span><button class="btn bord" onclick="SIGNATAIRE.suivant()" title="Démarrer le questionnaire">Commencer →</button></div>';
+    h += '<div class="sig-actions"><span></span><button class="btn bord" onclick="SIGNATAIRE.suivant()" title="' + (CTX.role === "PARENTS" && !CTX.completion ? 'Passer à la page suivante : qui remplit la convention.">Continuer →' : 'Démarrer le questionnaire">Commencer →') + '</button></div>';
     return h;
   }
 
@@ -4822,7 +4897,7 @@ window.SIGNATAIRE = (function () {
     var aide = c.aide ? ' title="' + esc(c.aide) + '"' : "";
     if (c.type === "area") inner = '<textarea id="f_' + c.id + '" rows="2"' + aide + dis + '>' + esc(val) + '</textarea>';
     else { var t = c.type === "date" ? "date" : "text"; inner = '<input id="f_' + c.id + '" type="' + t + '" value="' + esc(val) + '"' + aide + dis + '>'; }
-    var note = (CTX.prefillIds && CTX.prefillIds[c.id]) ? '<span class="prefill-sous">Prérempli avec les dernières informations connues de l\'établissement — vérifiez et corrigez si besoin.</span>' : '';
+    var note = (CTX.prefillIds && CTX.prefillIds[c.id]) ? '<span class="prefill-sous" data-pref="' + c.id + '">' + (CTX.data[c.id] === (CTX.prefillVals || {})[c.id] || !(CTX.prefillVals || {})[c.id] ? 'Prérempli par vous, corrigez si besoin.' : 'Enregistré.') + '</span>' : '';
     return '<div class="' + cls + '"><label for="f_' + c.id + '">' + esc(c.label) + (c.req ? ' <span class="req">*</span>' : '') + '</label>' + inner + note + '</div>';
   }
 
@@ -5800,6 +5875,8 @@ function nomConvention(o) {
     attacherSignature: attacherSignature,
     choisirRole: choisirRole,
     suivant: suivant,
+    majQui: majQui,
+    commencerQui: commencerQui,
     precedent: precedent,
     deverrouiller: deverrouiller,
     toutValider: toutValider,
@@ -7795,6 +7872,7 @@ window.DEPOUILLEMENT = (function () {
     if (role === "PARENTS") {
       var r2 = el.resp2 || {};
       if (r1.nom || r1.tel || r1.email || r1.adresse) payload.p = { n: r1.nom, t: r1.tel, m: r1.email, a: r1.adresse };
+      if (r2.nom || r2.tel || r2.email || r2.adresse) payload.p2 = { n: r2.nom, t: r2.tel, m: r2.email, a: r2.adresse };
       var urg = [];
       if (r1.nom || r1.tel) urg.push([r1.nom, r1.tel]);
       if (r2.nom || r2.tel) urg.push([r2.nom, r2.tel]);
@@ -8647,6 +8725,10 @@ window.DEPOUILLEMENT = (function () {
   // Une entrée par version mise en ligne, la plus récente en tête. Dates et versions relevées dans l'historique
   // des envois sur GitHub ; descriptions reconstituées. À COMPLÉTER À CHAQUE LIVRAISON (consigne 8 en tête du fichier).
   var NOUVEAUTES = [
+    { date: "05/10/2026", heure: "18:00", auteur: "Paul Meney", version: "v2026.10.05·L3b", points: [
+      "Côté parents : l'accueil se fait en deux pages ; la seconde demande qui remplit la convention (le responsable 1, le responsable 2 ou une autre personne), et propose de préremplir avec ce que le collège connaît de cette personne. Rien n'est jamais prérempli sans ce choix.",
+      "Les liens fabriqués désormais portent aussi les coordonnées du responsable 2."
+    ] },
     { date: "05/10/2026", heure: "17:00", auteur: "Paul Meney", version: "v2026.10.05·L3a", points: [
       "Côté familles : le nom de l'élève vient en tête de chaque écran, au-dessus du titre ; les phrases validées sont en place (accueil, oubli d'un champ, assurance, signature, chiffrement) ; « Fait à » est demandé avec la signature.",
       "Sur téléphone, chaque champ d'un contact d'urgence prend sa propre ligne."
