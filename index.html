@@ -211,7 +211,7 @@
   .cv-tete{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);border-top:0;padding-bottom:6px}
   .cv-nom b{display:block}.cv-nom span,.cv-petit{display:block;color:var(--mut);font-size:12.5px}
   .mq-chip{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12.5px;font-weight:600;white-space:nowrap}
-  .mq-ok{background:#e3f4ea;color:#1d6a40}.mq-att{background:#fff1d6;color:#8a5a00}.mq-ko{background:#fbe3e6;color:#9b2335}.mq-dem{background:#ece6fb;color:#5b3fa8}
+  .mq-ok{background:#e3f4ea;color:#1d6a40}.mq-att{background:#fff1d6;color:#8a5a00}.mq-ko{background:#fbe3e6;color:#9b2335}.mq-dem{background:#ece6fb;color:#5b3fa8}.mq-info{background:#e7eef8;color:#2b4c7e}
   .mq-alerte{margin-left:6px;color:#9b2335;font-weight:700}
   .cv-tuiles{display:flex;gap:8px;margin:0 0 10px;flex-wrap:wrap}
   .cv-tuile{flex:1;min-width:116px;background:#f7f9fb;border:1px solid var(--ligne);border-radius:10px;padding:8px 11px;cursor:pointer;text-align:left;font:inherit}
@@ -586,7 +586,7 @@
       <span class="annee-wrap">Année <select id="champ-annee" title="Année scolaire affichée. Chaque année garde sa propre liste d'élèves et ses conventions. Depuis le compte de M. Meney, changer d'année change l'année de travail de l'équipe ; depuis un autre compte, seulement ce qui est affiché sur ce poste."></select></span>
       <div class="pousse">
         <button id="btn-autosave" class="btn ghost sm" title="Active ou coupe le téléchargement automatique de la sauvegarde de travail">💾 Auto-sauvegarde : ON</button>
-        <button id="btn-export-json" class="btn ghost sm" title="Télécharger une sauvegarde complète des données (élèves, tuteurs, réglages)">Exporter (.json)</button>
+        <button id="btn-export-json" class="btn ghost sm" title="Télécharge la sauvegarde de la console (élèves, tuteurs, réglages) et une photo complète de la base, en clair, avec les données des familles et des entreprises. À garder en lieu sûr.">Exporter (.json)</button>
         <span class="btn ghost sm file-btn ls-cache" title="Recharger une sauvegarde .json enregistrée précédemment">Reprendre…<input id="file-import-json" type="file" accept=".json" title="Recharger une sauvegarde .json enregistrée précédemment"></span>
       </div>
     </div>
@@ -885,7 +885,7 @@
 
 <div id="toast" class="toast" hidden></div>
 <button id="btn-valider-collab" hidden title="Ouvre la liste de vos modifications de textes, pour les valider ou les abandonner une par une." onclick="window.__ouvrirValidation && window.__ouvrirValidation()">✓ Valider mes modifications (0)</button>
-<div class="app-version">v2026.10.12·L8f</div>
+<div class="app-version">v2026.10.15·L8g-2</div>
 
 <script>
 /* ===== Configuration : système de transmission ====================
@@ -1077,6 +1077,11 @@ window.FB = (function () {
   // Modèle C : le sel (public) et les clés d'année emballées (chiffrées par la clé maîtresse) vivent sur Firebase, lisibles par les seuls comptes.
   function lireSel() { if (!dispo) return Promise.resolve(null); return db.ref("config/sel").once("value").then(function (s) { return s.val(); }); }
   function ecrireSel(sel) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("config/sel").set(sel); }
+  // L8g-2 (J-1) : une lecture brute, pour la photo ; un refus des règles est dit, jamais tu.
+  function lireBrut(chemin) {
+    if (!dispo) return Promise.resolve({ ok: false, err: "Firebase indisponible" });
+    return (chemin ? db.ref(chemin) : db.ref()).once("value").then(function (x) { return { ok: true, val: x.val() }; }, function (e) { return { ok: false, err: String((e && (e.code || e.message)) || e) }; });
+  }
   function lireCleAnnee(annee) { if (!dispo) return Promise.resolve(null); return db.ref("cles/" + encodeCle(annee)).once("value").then(function (s) { return s.val(); }); }
   function ecrireCleAnnee(annee, paquet) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("cles/" + encodeCle(annee)).set(paquet); }
   function lireCanari() { if (!dispo) return Promise.resolve(null); return db.ref("config/canari").once("value").then(function (s) { return s.val(); }); }
@@ -1192,7 +1197,7 @@ window.FB = (function () {
   function deconnecter() { if (dispo) try { auth.signOut(); } catch (e) {} }
   function onAuth(cb) { if (dispo) auth.onAuthStateChanged(cb); else cb(null); }
   function utilisateur() { return (dispo && auth && auth.currentUser) || null; }
-  return { dispo: dispo, ecrireMarque: ecrireMarque, ecrireMarqueQui: ecrireMarqueQui, ecrireFiche: ecrireFiche, lireFiches: lireFiches, lirePrefill: lirePrefill, lirePrefillAnnee: lirePrefillAnnee, ecrirePrefill: ecrirePrefill, supprimerFiche: supprimerFiche, supprimerEleveBase: supprimerEleveBase, etatRetrait: etatRetrait, lireRetire: lireRetire, ecouterEtat: ecouterEtat, ecrireConvention: ecrireConvention, ecouter: ecouter, supprimer: supprimer, viderEspace: viderEspace, lireSel: lireSel, ecrireSel: ecrireSel, lireCleAnnee: lireCleAnnee, ecrireCleAnnee: ecrireCleAnnee, lireCanari: lireCanari, ecrireCanari: ecrireCanari, ecouterCollab: ecouterCollab, ecrireCollab: ecrireCollab, journalPush: journalPush, journalEcouter: journalEcouter, journalPurger: journalPurger, lireEtat: lireEtat, ecrireEtat: ecrireEtat, presenceAnnoncer: presenceAnnoncer, presenceMaj: presenceMaj, presencePartir: presencePartir, presenceEcouter: presenceEcouter, lireContenus: lireContenus, ecrireContenus: ecrireContenus, lireCodes: lireCodes, ecrireCodes: ecrireCodes, ecrireVerif: ecrireVerif, lireVersionTextes: lireVersionTextes, ecrireVersionTextes: ecrireVersionTextes, ecrireCodeActif: ecrireCodeActif, lireCodeActif: lireCodeActif, testerEmpreinte: testerEmpreinte, PLACES: PLACES, COMPLEMENTS: COMPLEMENTS, lireStatuts: lireStatuts, marquerStatut: marquerStatut, supprimerPlace: supprimerPlace, ecrireDemande: ecrireDemande, ecouterDemandes: ecouterDemandes, supprimerDemande: supprimerDemande, ecrireArchive: ecrireArchive, ecouterArchive: ecouterArchive, lirePlace: lirePlace, lireDatesOfficielles: lireDatesOfficielles, ecrireDatesOfficielles: ecrireDatesOfficielles, lirePause: lirePause, ecrirePause: ecrirePause, ecouterPause: ecouterPause, lireSignature: lireSignature, ecrireSignature: ecrireSignature, ecouterSignature: ecouterSignature, lireChefEmail: lireChefEmail, ecrireChefEmail: ecrireChefEmail, ecouterChefEmail: ecouterChefEmail, remarquePush: remarquePush, remarqueMaj: remarqueMaj, remarqueSupprimer: remarqueSupprimer, remarquesEcouter: remarquesEcouter, connecter: connecter, deconnecter: deconnecter, onAuth: onAuth, utilisateur: utilisateur };
+  return { dispo: dispo, ecrireMarque: ecrireMarque, ecrireMarqueQui: ecrireMarqueQui, ecrireFiche: ecrireFiche, lireFiches: lireFiches, lirePrefill: lirePrefill, lirePrefillAnnee: lirePrefillAnnee, ecrirePrefill: ecrirePrefill, supprimerFiche: supprimerFiche, supprimerEleveBase: supprimerEleveBase, etatRetrait: etatRetrait, lireRetire: lireRetire, ecouterEtat: ecouterEtat, ecrireConvention: ecrireConvention, ecouter: ecouter, supprimer: supprimer, viderEspace: viderEspace, lireSel: lireSel, ecrireSel: ecrireSel, lireCleAnnee: lireCleAnnee, lireBrut: lireBrut, ecrireCleAnnee: ecrireCleAnnee, lireCanari: lireCanari, ecrireCanari: ecrireCanari, ecouterCollab: ecouterCollab, ecrireCollab: ecrireCollab, journalPush: journalPush, journalEcouter: journalEcouter, journalPurger: journalPurger, lireEtat: lireEtat, ecrireEtat: ecrireEtat, presenceAnnoncer: presenceAnnoncer, presenceMaj: presenceMaj, presencePartir: presencePartir, presenceEcouter: presenceEcouter, lireContenus: lireContenus, ecrireContenus: ecrireContenus, lireCodes: lireCodes, ecrireCodes: ecrireCodes, ecrireVerif: ecrireVerif, lireVersionTextes: lireVersionTextes, ecrireVersionTextes: ecrireVersionTextes, ecrireCodeActif: ecrireCodeActif, lireCodeActif: lireCodeActif, testerEmpreinte: testerEmpreinte, PLACES: PLACES, COMPLEMENTS: COMPLEMENTS, lireStatuts: lireStatuts, marquerStatut: marquerStatut, supprimerPlace: supprimerPlace, ecrireDemande: ecrireDemande, ecouterDemandes: ecouterDemandes, supprimerDemande: supprimerDemande, ecrireArchive: ecrireArchive, ecouterArchive: ecouterArchive, lirePlace: lirePlace, lireDatesOfficielles: lireDatesOfficielles, ecrireDatesOfficielles: ecrireDatesOfficielles, lirePause: lirePause, ecrirePause: ecrirePause, ecouterPause: ecouterPause, lireSignature: lireSignature, ecrireSignature: ecrireSignature, ecouterSignature: ecouterSignature, lireChefEmail: lireChefEmail, ecrireChefEmail: ecrireChefEmail, ecouterChefEmail: ecouterChefEmail, remarquePush: remarquePush, remarqueMaj: remarqueMaj, remarqueSupprimer: remarqueSupprimer, remarquesEcouter: remarquesEcouter, connecter: connecter, deconnecter: deconnecter, onAuth: onAuth, utilisateur: utilisateur };
 })();
 </script>
 <script>
@@ -4012,6 +4017,29 @@ window.SIGNATAIRE = (function () {
     { id: "ETABLISSEMENT",btn: "L'établissement" }
   ];
 
+  // T-7 (L8g) : le lien avec l'élève, en liste ; Mère ou Père donnent « Parent exerçant l'autorité parentale »,
+  // Tuteur ou tutrice légale donne « Tuteur légal », Autre donne « Autre » avec sa précision.
+  var LIENS = ["Mère", "Père", "Tuteur ou tutrice légale", "Autre"];
+  var STATUT_DU_LIEN = { "Mère": "Parent exerçant l'autorité parentale", "Père": "Parent exerçant l'autorité parentale", "Tuteur ou tutrice légale": "Tuteur légal", "Autre": "Autre" };
+  function deriverStatut(d) {
+    var ch = d.lien_choix || ""; if (!STATUT_DU_LIEN[ch]) return;
+    if (ch !== "Autre") d.lien_precision = "";
+    d.lien = ch === "Autre" ? String(d.lien_precision || "").trim() : ch;
+    d.statut = STATUT_DU_LIEN[ch]; d.statut_precision = ch === "Autre" ? d.lien : "";
+  }
+  // Le lien connu du collège (D110) : la valeur de la liste qui lui correspond, ou rien.
+  function lienDeListe(t) {
+    var x = String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z]+/g, " ").trim();
+    if (/^(la )?(mere|maman)$/.test(x)) return "Mère";
+    if (/^(le )?(pere|papa)$/.test(x)) return "Père";
+    if (/^(le |la )?(tuteur|tutrice)( legale?)?$|^tuteur ou tutrice legale$/.test(x)) return "Tuteur ou tutrice légale";
+    return "";
+  }
+  window.__lienDeListe = lienDeListe;
+  function statutTexte(d) { return (d.statut || "") + (d.statut === "Autre" && d.statut_precision ? " : " + d.statut_precision : ""); }
+  // T-5 (L8g) : une entreprise sans SIRET le voit écrit, à l'écran comme sur la convention.
+  var SANS_SIRET = "Aucun numéro SIRET (déclaré par l'entreprise)";
+  window.__SANS_SIRET = SANS_SIRET;
   var FORMULAIRES = {
     ENTREPRISE: { titre: "Entreprise d'accueil", champs: [
       { id: "raison_sociale", label: "Nom de l'entreprise", req: true, max: 100, aide: "Le nom sous lequel l’entreprise est connue. Il figurera sur la convention." },
@@ -4029,14 +4057,16 @@ window.SIGNATAIRE = (function () {
       { id: "horaires",       label: "Horaires de stage", type: "area", aide: "Les heures d’arrivée et de départ, jour par jour." },
       { id: "chef_nom",       label: "Nom et prénom de la personne qui signe pour l'entreprise (signataire)", req: true, info: "Le signataire est la personne qui signe la convention au nom de l’entreprise : le plus souvent le gérant ou le directeur. Ce n’est pas forcément le tuteur (mais c’est possible), qui accompagne l’élève pendant le stage.", aide: "La personne qui signe pour l’entreprise : elle l’engage." },
       { id: "chef_fonction",  label: "Sa fonction (gérant, directeur, président d'association, maire, chef de service, responsable de magasin…)", req: true, aide: "Sa fonction : gérant, directeur, responsable…" },
-      { id: "fait_a",         label: "Fait à", aide: "La commune où vous signez. Elle figurera sous votre signature." },
+      { id: "fait_a",         label: "Fait à", req: true, aide: "La commune où vous signez. Elle figurera sous votre signature." },   // T-3 (L8g)
       { id: "lu_approuve",    label: "Recopiez ici la mention « Lu et approuvé »", req: true, mention: true, aide: "Recopiez la mention à l’identique : elle vaut confirmation que vous avez lu la convention." }
     ]},
     PARENTS: { titre: "Responsable légal", champs: [
       { id: "resp_nom", label: "Nom et prénom du responsable légal qui signe", req: true, aide: "Le nom et le prénom du responsable légal qui signe cette convention." },
-      { id: "lien",     label: "Lien avec l'élève (père, mère, tuteur…)", req: true, aide: "Votre lien avec l’élève : père, mère, tuteur…" },
-      { id: "adresse",  label: "Adresse", type: "area", aide: "Votre adresse postale, telle qu’elle figurera sur la convention." },
-      { id: "tel",      label: "Téléphone", aide: "Le numéro où vous joindre pendant le stage de votre enfant." },
+      // T-7 (L8g) : le lien est choisi dans une liste ; le statut en découle (statutDuLien), il n'est plus demandé à part.
+      { id: "lien_choix", label: "Votre lien avec l'élève", type: "choix", options: LIENS, req: true, aide: "Choisissez votre lien avec l’élève. Le titre auquel vous signez en découle." },
+      { id: "lien_precision", label: "Précisez votre lien avec l'élève", req: true, si: function (d) { return d.lien_choix === "Autre"; }, aide: "Par exemple : grand-mère, oncle, famille d’accueil." },
+      { id: "adresse",  label: "Adresse", type: "area", req: true, aide: "Votre adresse postale, telle qu’elle figurera sur la convention." },   // T-1 (L8g)
+      { id: "tel",      label: "Téléphone", req: true, aide: "Le numéro où vous joindre pendant le stage de votre enfant." },
       { id: "email",    label: "Courriel", req: true, aide: "L’adresse à laquelle la convention signée vous sera envoyée." },
       { id: "email2",   label: "Confirmez le courriel (tapez-le une seconde fois)", req: true, confirmation: "email", aide: "Tapez de nouveau votre courriel : les deux doivent être identiques, pour éviter une faute de frappe." },
       { id: "urgence",  label: "Contacts en cas d'urgence", type: "area", aide: "Les personnes à prévenir pendant le stage si besoin." },
@@ -4180,7 +4210,7 @@ window.SIGNATAIRE = (function () {
       { titre: "Le signataire", ids: ["chef_nom", "chef_fonction", "fait_a"] }
     ],
     PARENTS: [
-      { titre: "Le responsable légal", ids: ["resp_nom", "lien"] },
+      { titre: "Le responsable légal", ids: ["resp_nom", "lien_choix", "lien_precision"] },
       { titre: "Vos coordonnées", ids: ["adresse", "tel", "email", "email2"] }
     ],
     ETABLISSEMENT: [
@@ -4209,9 +4239,10 @@ window.SIGNATAIRE = (function () {
     // Jours de stage (D85, D90) : l'entreprise dit si elle accueille l'élève tout le stage ou certains jours, et coche les vraies dates.
     if (role === "ENTREPRISE") { steps.push({ type: "accueil", titre: "Les jours de stage" }); steps.push({ type: "horaires", titre: "Les horaires" }); }
     GROUPES[role].forEach(function (g, gi) {
-      steps.push({ type: "fields", titre: g.titre, ids: g.ids, groupe: gi });
-      // Parents (points 13a à 13d) : statut du signataire après son nom ; urgences puis santé après les coordonnées.
-      if (role === "PARENTS" && gi === 0) steps.push({ type: "statut", titre: "Votre statut" });
+      // T-9 (L8g) : le SIRET se donne (ou se déclare absent) sur son propre écran ; il n'est pas redemandé ensuite.
+      var ids = role === "ENTREPRISE" ? g.ids.filter(function (k) { return k !== "siret"; }) : g.ids;
+      steps.push({ type: "fields", titre: g.titre, ids: ids, groupe: gi });
+      // Parents (points 13a à 13d) : urgences puis santé après les coordonnées. T-7 (L8g) : plus d'écran « Votre statut ».
       if (role === "PARENTS" && gi === 1) { steps.push({ type: "urgences", titre: "En cas d'urgence" }); steps.push({ type: "sante", titre: "Santé et aménagements" }); }
     });
     steps.push({ type: "articles", titre: "La convention" });
@@ -4430,17 +4461,50 @@ window.SIGNATAIRE = (function () {
     return b.length > 0 && b.indexOf("refaire") < 0 && b.indexOf("illisible") < 0;
   }
   var LISTE_BESOINS = {
-    PARENTS: { champs: ["à quel titre vous signez (parent, tuteur légal ou autre représentant de l'élève)", "les personnes à prévenir en cas d'urgence, une par une, avec leur téléphone", "la santé de votre enfant (PAI) et les aménagements éventuels"],
+    // T-8 (L8g) : les rubriques devenues obligatoires (adresse, téléphone, « Fait à », lien de chaque contact d'urgence, lien avec l'élève).
+    PARENTS: { champs: ["votre lien avec l'élève (mère, père, tuteur ou tutrice légale, ou autre)", "les personnes à prévenir en cas d'urgence, une par une, avec leur lien avec l'élève et leur téléphone", "la santé de votre enfant (PAI) et les aménagements éventuels"],
+      statut: ["votre lien avec l'élève (mère, père, tuteur ou tutrice légale, ou autre)"], urgences: ["les personnes à prévenir en cas d'urgence, une par une, avec leur lien avec l'élève et leur téléphone"],
+      adresse: ["votre adresse"], tel: ["votre numéro de téléphone"], faita: ["la commune où vous signez"],
       courriel: ["votre adresse courriel, pour vous envoyer la convention"], texte: ["votre lecture du texte de la convention, qui a été précisé, et votre signature"] },
     ENTREPRISE: { champs: ["les jours et les horaires de présence de l'élève, jour par jour", "la fonction du tuteur", "les activités prévues", "la fonction du représentant qui signe"],
-      horaires: ["des horaires de présence dans le cadre légal, jour par jour"], siret: ["le numéro SIRET de votre établissement"],
+      horaires: ["des horaires de présence dans le cadre légal, jour par jour"], siret: ["le numéro SIRET de votre établissement"], faita: ["la commune où vous signez"],
       courriel: ["votre adresse courriel, pour vous envoyer la convention"], texte: ["votre lecture du texte de la convention, qui a été précisé, et votre signature"] }
   };
-  function listeBesoins(role, l) {
-    var t = []; l.forEach(function (b) { (LISTE_BESOINS[role][b] || []).forEach(function (x) { if (t.indexOf(x) < 0) t.push(x); }); });
-    if (role === "ENTREPRISE" && l.indexOf("champs") >= 0) t = t.filter(function (x) { return x !== LISTE_BESOINS.ENTREPRISE.horaires[0]; });
+  function listeBesoins(role, l) { return listeDe(LISTE_BESOINS, role, l); }
+  function listeDe(table, role, l) {
+    var t = []; l.forEach(function (b) { (table[role][b] || []).forEach(function (x) { if (t.indexOf(x) < 0) t.push(x); }); });
+    if (role === "ENTREPRISE" && l.indexOf("champs") >= 0) t = t.filter(function (x) { return x !== table.ENTREPRISE.horaires[0]; });
     return t;
   }
+  // K-1 (L8g-1) : la même liste, rubrique pour rubrique et dans le même ordre, écrite pour Paul (sans « votre ») ;
+  // K-4 : et pour l'élève, à la troisième personne, sur sa checklist.
+  var LISTE_PAUL = {
+    PARENTS: { champs: ["le lien avec l'élève (mère, père, tuteur ou tutrice légale, ou autre)", "les personnes à prévenir en cas d'urgence, une par une, avec leur lien avec l'élève et leur téléphone", "la santé de l'élève (PAI) et les aménagements éventuels"],
+      statut: ["le lien avec l'élève (mère, père, tuteur ou tutrice légale, ou autre)"], urgences: ["les personnes à prévenir en cas d'urgence, une par une, avec leur lien avec l'élève et leur téléphone"],
+      adresse: ["l'adresse"], tel: ["le numéro de téléphone"], faita: ["la commune où l'on signe"],
+      courriel: ["l'adresse courriel, pour envoyer la convention"], texte: ["la lecture du texte de la convention, qui a été précisé, et la signature"] },
+    ENTREPRISE: { champs: ["les jours et les horaires de présence de l'élève, jour par jour", "la fonction du tuteur", "les activités prévues", "la fonction du représentant qui signe"],
+      horaires: ["des horaires de présence dans le cadre légal, jour par jour"], siret: ["le numéro SIRET de l'établissement"], faita: ["la commune où l'on signe"],
+      courriel: ["l'adresse courriel, pour envoyer la convention"], texte: ["la lecture du texte de la convention, qui a été précisé, et la signature"] }
+  };
+  var LISTE_ELEVE = {
+    PARENTS: { champs: ["leur lien avec toi (mère, père, tuteur ou tutrice légale, ou autre)", "les personnes à prévenir en cas d'urgence, chacune avec son lien avec toi et son téléphone", "ta santé (PAI) et les aménagements éventuels"],
+      statut: ["leur lien avec toi (mère, père, tuteur ou tutrice légale, ou autre)"], urgences: ["les personnes à prévenir en cas d'urgence, chacune avec son lien avec toi et son téléphone"],
+      adresse: ["leur adresse"], tel: ["leur numéro de téléphone"], faita: ["la commune où ils signent"],
+      courriel: ["leur adresse courriel, pour leur envoyer la convention"], texte: ["leur lecture du texte de la convention, qui a été précisé, et leur signature"] },
+    ENTREPRISE: { champs: ["les jours et les horaires de ta présence, jour par jour", "la fonction de ton tuteur", "les activités prévues", "la fonction du représentant qui signe"],
+      horaires: ["des horaires de présence dans le cadre légal, jour par jour"], siret: ["son numéro SIRET"], faita: ["la commune où elle signe"],
+      courriel: ["son adresse courriel, pour lui envoyer la convention"], texte: ["sa lecture du texte de la convention, qui a été précisé, et sa signature"] }
+  };
+  // J-2 (L8g-2, point 837) : pour les parents, l'adresse, le téléphone et la commune d'abord, les personnes à prévenir en dernier,
+  // pour qu'aucune rubrique ne se rattache à la précédente. La console (K-1) suit le même ordre.
+  function ordreParents(table, l) {
+    var P = table.PARENTS, t = listeDe(table, "PARENTS", l), tete = [P.adresse[0], P.tel[0], P.faita[0]], urg = P.urgences[0];
+    return tete.filter(function (x) { return t.indexOf(x) >= 0; }).concat(t.filter(function (x) { return tete.indexOf(x) < 0 && x !== urg; }), t.indexOf(urg) >= 0 ? [urg] : []);
+  }
+  window.__listePourPaul = function (role, l) { return /^ENTREPRISE/.test(role) ? listeDe(LISTE_PAUL, "ENTREPRISE", l || []) : ordreParents(LISTE_PAUL, l || []); };
+  window.__listePourEleve = function (role, l) { return /^ENTREPRISE/.test(role) ? listeDe(LISTE_ELEVE, "ENTREPRISE", l || []) : ordreParents(LISTE_ELEVE, l || []); };
+  window.__urgencesEleve = LISTE_ELEVE.PARENTS.urgences[0];
   // Points 339-350 : le message aux familles et aux entreprises dont la partie est à compléter, avec la liste exacte (D118).
   function htmlCompleterOffre(qui) {
     var ent = qui === "ENTREPRISE", base = ent ? (aCompleter("ENTREPRISE") ? "ENTREPRISE" : "ENTREPRISE_2") : (aCompleter("PARENTS") ? "PARENTS" : "PARENTS_2");
@@ -4470,12 +4534,18 @@ window.SIGNATAIRE = (function () {
     CTX.role = CTX.roleLock; CTX.data = {}; CTX.locked = {}; CTX.artChecks = {}; CTX.articlesOK = false; CTX.autorisation = false; CTX.sig = null;
     CTX.prefillIds = {}; CTX.prefillVals = {};
     var bs = CTX.besoins, a = function (x) { return bs.indexOf(x) >= 0; };
-    var st = (CTX.roleLock === "PARENTS" && a("champs") && respConnus().length) ? [{ type: "intro-completion" }] : [];
+    var st = (CTX.roleLock === "PARENTS" && (a("champs") || a("urgences")) && respConnus().length) ? [{ type: "intro-completion" }] : [];
     if (CTX.roleLock === "ENTREPRISE") {
       if (a("siret")) st.push({ type: "siret", titre: "Votre entreprise" });
       if (a("champs") || a("horaires")) st = st.concat([{ type: "accueil", titre: "Les jours de stage" }, { type: "horaires", titre: "Les horaires" }]);
       if (a("champs")) st.push({ type: "fields", titre: "Compléments", ids: ["tuteur_fonction", "activites", "chef_fonction"], groupe: 99 });
-    } else if (a("champs")) st = st.concat([{ type: "statut", titre: "Votre statut" }, { type: "urgences", titre: "En cas d'urgence" }, { type: "sante", titre: "Santé et aménagements" }]);
+    } else {
+      // T-7, T-8 (L8g) : le lien avec l'élève (d'où le statut), les coordonnées qui manquent, les urgences, la santé.
+      if (a("champs") || a("statut")) st.push({ type: "fields", titre: "Votre lien avec l'élève", ids: ["lien_choix", "lien_precision"], groupe: 96 });
+      var coord = ["adresse", "tel"].filter(a); if (coord.length) st.push({ type: "fields", titre: "Vos coordonnées", ids: coord, groupe: 97 });
+      if (a("champs") || a("urgences")) st.push({ type: "urgences", titre: "En cas d'urgence" });
+      if (a("champs")) st.push({ type: "sante", titre: "Santé et aménagements" });
+    }
     if (a("courriel")) st.push({ type: "fields", titre: "Votre courriel", ids: ["email", "email2"], groupe: 98 });
     CTX.steps = st.concat([{ type: "articles", titre: "La convention" }, { type: "mention", titre: "Lu et approuvé" }, { type: "signature", titre: "Signature" }, { type: "recap", titre: "Vérification" }, { type: "fin" }]);
     CTX.stepIndex = 0; renderStep();
@@ -4507,7 +4577,8 @@ window.SIGNATAIRE = (function () {
       h += '<p>Pour ' + esc(CTX.nomEleve || "cet élève") + ', la partie entreprise de la convention a déjà été envoyée au collège. Ce lien est le même pour toute entreprise qui accueille l\'élève : indiquez ce que vous souhaitez faire.</p>' + offre;
       if (!st.ENTREPRISE_2) {
         h += '<div class="choix-place"><button class="btn ghost" style="border-width:1.5px" onclick="SIGNATAIRE.secondLieu()" title="Une autre entreprise a rempli la première convention, et vous accueillez l\'élève les jours où elle ne le peut pas : vous remplissez la convention de ce second lieu.">Nous sommes une autre entreprise : le second lieu de stage</button>'
-          + '<span class="mut">L\'élève partage son stage entre deux entreprises, et vous l\'accueillez les jours où la première ne le peut pas.</span></div>';
+          + '<span class="mut">L\'élève partage son stage entre deux entreprises, et vous l\'accueillez les jours où la première ne le peut pas.</span></div>'
+          + '<div class="encadre-conseil" id="msg-jours-pris" hidden>' + esc(MSG_JOURS_PRIS) + '</div>';
       } else {
         h += '<div class="encadre-conseil">Les deux lieux de stage de cet élève ont déjà envoyé leur partie de la convention.</div>';
       }
@@ -4557,11 +4628,18 @@ window.SIGNATAIRE = (function () {
     var v = brouillonAvis()[id] || "";
     return '<label class="champ"><span>' + lib + (req ? ' *' : '') + '</span>' + (type === "area" ? '<textarea id="' + id + '" rows="3" title="' + aide + '">' + esc(v) + '</textarea>' : '<input id="' + id + '" type="text" value="' + esc(v) + '" title="' + aide + '">') + '</label>';
   }
+  // T-9 (L8g) : la même question, la même réponse : le lien avec l'élève se choisit dans la même liste que pour signer.
+  function champLienAvis() {
+    var b = brouillonAvis(), v = b["av-lien"] || "";
+    return '<label class="champ"><span>Votre lien avec l\'élève *</span><select id="av-lien" title="Choisissez votre lien avec l\'élève." onchange="var p=document.getElementById(\'av-lien-precision\');if(p)p.closest(\'label\').hidden=this.value!==\'Autre\'"><option value="">Choisissez…</option>'
+      + LIENS.map(function (o) { return '<option value="' + esc(o) + '"' + (v === o ? " selected" : "") + '>' + esc(o) + '</option>'; }).join("") + '</select></label>'
+      + '<label class="champ"' + (v === "Autre" ? "" : " hidden") + '><span>Précisez votre lien avec l\'élève *</span><input id="av-lien-precision" type="text" value="' + esc(b["av-lien-precision"] || "") + '" title="Par exemple : grand-mère, oncle, famille d\'accueil."></label>';
+  }
   function htmlAccord() {
     return cadreEleve() + '<h3 class="serif">Votre accord pour la convention de stage</h3>'
       + '<p>La signature d\'un seul responsable légal suffit. Si vous le souhaitez, le collège note aussi votre accord, avec votre nom et la date.</p>'
       + champAvis("av-nom", "Vos nom et prénom", true, "", "Votre nom, tel qu\'il sera noté par le collège.")
-      + champAvis("av-lien", "Votre lien avec l\'élève (père, mère, tuteur…)", true, "", "Par exemple : père, mère, tuteur légal.")
+      + champLienAvis()
       + '<div class="sig-actions"><button class="btn ghost" onclick="SIGNATAIRE.retourPorte()" title="Revenir sans rien envoyer.">← Retour</button>'
       + '<button class="btn bord" onclick="SIGNATAIRE.envoyerAvis()" title="Transmet votre accord au collège.">Transmettre mon accord au collège</button></div>';
   }
@@ -4572,7 +4650,7 @@ window.SIGNATAIRE = (function () {
       + '<p>Votre opposition prend effet à partir du moment où le collège vous répond ; en attendant, la convention présente est valide.</p>'
       + '<p class="mut">Ce bouton prévient le collège dès maintenant. Pour qu\'il puisse vous répondre, indiquez votre courriel.</p>'
       + champAvis("av-nom", "Vos nom et prénom", true, "", "Votre nom, pour que le collège sache qui s\'oppose.")
-      + champAvis("av-lien", "Votre lien avec l\'élève (père, mère, tuteur…)", true, "", "Par exemple : père, mère, tuteur légal.")
+      + champLienAvis()
       + champAvis("av-email", "Votre courriel", true, "", "L\'adresse à laquelle le collège vous répondra.")
       + champAvis("av-email2", "Confirmez votre courriel (tapez-le une seconde fois)", true, "", "Tapez de nouveau votre courriel : les deux doivent être identiques.")
       + champAvis("av-message", "Votre message au collège (facultatif)", false, "area", "Ce que vous souhaitez dire au collège, si vous le voulez.")
@@ -4584,6 +4662,7 @@ window.SIGNATAIRE = (function () {
     var nom = g("av-nom"), lien = g("av-lien"), em = g("av-email"), em2 = g("av-email2"), msg = g("av-message");
     if (!nom) { toast("Il manque : « Vos nom et prénom ».", true); return; }
     if (!lien) { toast("Il manque : « Votre lien avec l'élève ».", true); return; }
+    if (lien === "Autre") { lien = g("av-lien-precision"); if (!lien) { toast("Il manque : « Précisez votre lien avec l'élève ».", true); return; } }
     if (opp) {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)) { toast("Ce courriel ne semble pas valide (exemple : nom@domaine.fr).", true); return; }
       if (em.toLowerCase() !== em2.toLowerCase()) { toast("Les deux courriels ne sont pas identiques.", true); return; }
@@ -4614,11 +4693,18 @@ window.SIGNATAIRE = (function () {
       + '<p class="mut" style="margin:4px 0 8px">L\'entreprise du second lieu a déjà envoyé sa partie de la convention.</p>'
       + '<div class="choix-place"><button class="btn ghost" style="border-width:1.5px" onclick="SIGNATAIRE.secondeConventionParents()"' + (inactif ? " disabled" : "") + ' title="Vous remplissez et signez la convention du second lieu de stage de votre enfant.">Remplir la convention du second lieu de stage</button></div></div>';
   }
+  // T-9 (L8g) : les jours sont déclarés par les entreprises. Quand la première n'accueille l'élève que certains jours,
+  // « un seul lieu de stage » contredirait sa déclaration : la page dit pourquoi un second lieu est nécessaire.
+  function e1CertainsJours() {
+    var off = CTX.datesOff || [], pris = String((CTX.statut || {}).ENTREPRISE_j || "").split(",").filter(Boolean);
+    return off.length > 0 && pris.length > 0 && !off.every(function (d) { return pris.indexOf(d) >= 0; });
+  }
   function htmlQuestionSecondLieu(inactif) {
     var off = inactif ? " disabled" : "", b = function (fn, lib, aide) { return '<div class="choix-place"><button class="btn ghost" style="border-width:1.5px" onclick="SIGNATAIRE.' + fn + '()"' + off + ' title="' + aide + '">' + lib + '</button></div>'; };
     return '<div class="second-lieu" id="question-second-lieu"><div class="second-lieu-t">Votre enfant a-t-il un second lieu de stage ?</div>'
       + b("secondeConventionParents", "Oui, mon enfant a un second lieu de stage", "Votre enfant fait son stage dans deux entreprises : vous signez aussi la convention du second lieu.")
-      + b("unSeulLieu", "Non, mon enfant n\'a qu\'un seul lieu de stage", "Vaut attestation, à votre nom : le collège note que votre enfant fait tout son stage dans une seule entreprise. Votre parcours est alors terminé.")
+      + (e1CertainsJours() ? '<p class="mut" id="e1-certains-jours" style="margin:4px 0 8px">L\'entreprise accueille votre enfant seulement certains jours du stage : un second lieu de stage est nécessaire pour les autres jours.</p>'
+        : b("unSeulLieu", "Non, mon enfant n\'a qu\'un seul lieu de stage", "Vaut attestation, à votre nom : le collège note que votre enfant fait tout son stage dans une seule entreprise. Votre parcours est alors terminé."))
       + b("pasEncore", "Je ne sais pas encore", "La question vous sera reposée quand vous rouvrirez ce lien.")
       + '</div>';
   }
@@ -4644,15 +4730,30 @@ window.SIGNATAIRE = (function () {
       + '<div class="choix-place"><button class="btn bord" onclick="SIGNATAIRE.secondeConventionParents()"' + off + ' title="Votre enfant fait son stage dans deux entreprises : vous signez aussi la convention du second lieu.">Si votre enfant a un second lieu de stage, continuez ici</button></div>'
       + '<div class="choix-place"><button class="btn ghost" onclick="SIGNATAIRE.attester()"' + off + ' title="Confirme au collège que votre enfant fait tout son stage dans une seule entreprise. Votre dossier est alors complet.">J\'atteste que mon enfant n\'a qu\'un seul lieu de stage</button></div></div>';
   }
+  // H-2 (L8g) : tous les jours déjà pris par la première entreprise : pas d'écran sans issue, la page le dit dès le bouton.
+  var MSG_JOURS_PRIS = "Tous les jours du stage sont déjà pris par la première entreprise. Contactez le collège.";
+  function joursTousPrisParE1() {
+    var off = CTX.datesOff || [], pris = String((CTX.statut || {}).ENTREPRISE_j || "").split(",").filter(Boolean);
+    return off.length > 0 && off.every(function (d) { return pris.indexOf(d) >= 0; });
+  }
+  // T-9 (L8g) : une nouvelle place repart vide ; rien de la convention précédente (réponses, étapes validées, signature) n'y reste.
+  // Les étapes validées étaient repérées par leur numéro, qui ne désigne pas le même écran d'une place à l'autre.
+  function viderPourNouvellePlace() {
+    CTX.data = {}; CTX.locked = {}; CTX.artChecks = {}; CTX.articlesOK = false; CTX.autorisation = false; CTX.exactitude = false; CTX.sig = null;
+    CTX.prefillIds = {}; CTX.prefillVals = {}; CTX._horTente = false; CTX._vus = {};
+  }
   function secondLieu() {
+    if (joursTousPrisParE1()) { var z = $("msg-jours-pris"); if (z) z.hidden = false; else toast(MSG_JOURS_PRIS, true); return; }
     CTX.place = "ENTREPRISE_2";
     // Arrivé ici après un envoi refusé : tout est déjà rempli et signé, on envoie directement à la place du second lieu.
     if (CTX.pretAEnvoyer && CTX.sig) { envoyerConvention(); return; }
+    viderPourNouvellePlace();
     ouvrirPlace();
   }
   function secondeConventionParents() {
     CTX.place = "PARENTS_2";
     if (CTX.pretAEnvoyer && CTX.sig) { envoyerConvention(); return; }
+    viderPourNouvellePlace();
     var prof = null; try { prof = JSON.parse(lsGet(cleProfilParents()) || "null"); } catch (e) {}
     if (prof && prof.champs && Object.keys(prof.champs).length) { CTX._profilParents = prof.champs; CTX.steps = [{ type: "reutiliser" }]; CTX.stepIndex = 0; renderStep(); return; }
     ouvrirPlace();
@@ -4811,6 +4912,11 @@ window.SIGNATAIRE = (function () {
     lireAccueil();
     if (!CTX.data.accueil) { toast("Merci d'indiquer si vous accueillez l'élève pour tout son stage.", true); return false; }
     if (!CTX.data.dates.length) { toast("Merci d'indiquer au moins une date de présence de l'élève.", true); return false; }
+    // H-1 (L8g) : « seulement certains jours » avec tous les jours cochés n'a pas de sens.
+    var pris = joursPrisAilleurs(), libres = (CTX.datesOff || []).filter(function (d) { return pris.indexOf(d) < 0; });
+    if (CTX.data.accueil === "partiel" && !pris.length && libres.length && libres.every(function (d) { return CTX.data.dates.indexOf(d) >= 0; })) {
+      toast("Vous avez coché tous les jours du stage : choisissez « Oui, tous les jours du stage ».", true); return false;
+    }
     return true;
   }
 
@@ -4871,6 +4977,22 @@ window.SIGNATAIRE = (function () {
   }
   window.__alertesHorairesDe = alertesHorairesDe;
   function alertesHoraires() { return alertesHorairesDe(CTX.data.horaires_jours || {}, libDate); }
+  // T-6 (L8g) : une plage commencée a sa fin ; l'après-midi commence après la fin du matin (ni chevauchement, ni après-midi avant le matin).
+  function incoherencesHoraires(hj, jours, libJ) {
+    var t = [];
+    jours.forEach(function (d) {
+      var v = hj[d] || {};
+      [["m1", "m2", "le matin"], ["a1", "a2", "l'après-midi"]].forEach(function (x) {
+        var a = minutes(v[x[0]]), b = minutes(v[x[1]]);
+        if (a != null && !v[x[1]]) t.push(libJ(d) + " : " + x[2] + " commence à " + hTexte(v[x[0]]) + " : indiquez aussi son heure de fin.");
+        if (b != null && !v[x[0]]) t.push(libJ(d) + " : " + x[2] + " finit à " + hTexte(v[x[1]]) + " : indiquez aussi son heure de début.");
+      });
+      var m1 = minutes(v.m1), m2 = minutes(v.m2), a1 = minutes(v.a1), a2 = minutes(v.a2);
+      if (m1 != null && m2 != null && a1 != null && a2 != null && m2 > m1 && a2 > a1 && a1 < m2) t.push(libJ(d) + " : l'après-midi doit commencer après la fin du matin.");
+    });
+    return t;
+  }
+  window.__incoherencesHoraires = function (hj, libJ) { return incoherencesHoraires(hj || {}, Object.keys(hj || {}).sort(), libJ || function (x) { return x; }); };
   function motsNom(t) { return String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z]+/g, " ").trim().split(" ").filter(function (w) { return w.length > 1; }); }
   // Signataire au nom de l'élève, ou au même nom de famille (stage chez un parent ?) : on le signale, sans bloquer.
   function alerteSignataire(signataire, eleve) {
@@ -4911,6 +5033,7 @@ window.SIGNATAIRE = (function () {
       if (nomDeLEleve(v, CTX.nomEleve)) return { bloque: true, texte: id === "chef_nom" ? "Ce nom est celui de l'élève. Indiquez la personne qui signe pour l'entreprise." : "Ce nom est celui de l'élève. Indiquez la personne qui sera son tuteur dans l'entreprise." };
       if (memeNomFamille(v, CTX.nomEleve)) return { alerte: true, texte: "Ce nom de famille est aussi celui de l'élève : vérifiez qu'il s'agit bien de " + (id === "chef_nom" ? "la personne qui signe pour l'entreprise." : "son tuteur dans l'entreprise.") };
     }
+    if (CTX.role === "PARENTS" && id === "resp_nom" && nomDeLEleve(v, CTX.nomEleve)) return { bloque: true, texte: "Ce nom est celui de l'élève. Indiquez le responsable légal qui signe cette convention." };   // T-9 (L8g)
     if (id === "tel" && !telValide(v)) return { bloque: true, texte: "Ce numéro de téléphone semble incomplet : un numéro français a 10 chiffres (exemple : 06 12 34 56 78)." };
     if (id === "fait_a" && !communeValide(v)) return { bloque: true, texte: "Indiquez le nom complet de la commune où vous signez (exemple : Doué-en-Anjou)." };
     if (id === "raison_sociale" && longueurVisible(v) > 100) return { bloque: true, texte: "" };
@@ -4945,6 +5068,10 @@ window.SIGNATAIRE = (function () {
   });
   document.addEventListener("change", function (e) {
     var t = e.target; if (!t || !t.id || t.id.indexOf("f_") !== 0 || !t.closest || !t.closest("#sig-step")) return;
+    if (t.id === "f_lien_choix") {   // T-7 (L8g) : « Autre » ouvre sa précision, sans redessiner l'écran
+      CTX.data.lien_choix = t.value;
+      var pr = $("f_lien_precision"), w = pr && pr.closest(".fieldwrap"); if (w) w.hidden = t.value !== "Autre";
+    }
     majControle(t.id.slice(2), true);
   });
   // D114 (suite) : les conventions déjà remplies depuis cet appareil, en cartes repliées, puis la convention de l'élève du lien.
@@ -5056,7 +5183,8 @@ window.SIGNATAIRE = (function () {
         + '<span class="hor-plage">Matin : de ' + inp("m1", "Début du matin") + ' <span class="hor-a">à ' + inp("m2", "Fin du matin") + '</span></span>'
         + '<span class="hor-plage">Après-midi : de ' + inp("a1", "Début de l\'après-midi") + ' <span class="hor-a">à ' + inp("a2", "Fin de l\'après-midi") + '</span></span>'
         + (k === 0 && js.length > 1 ? '<span class="hor-copies"><button class="btn ghost sm" type="button" id="hor-copie-m" onclick="SIGNATAIRE.copierDemi(\'m\')" title="Recopie les horaires du matin de ce premier jour sur les autres jours. Si d\'autres jours ont déjà un matin différent, on vous demande avant de le remplacer.">Copier le matin sur les autres jours</button>'
-          + '<button class="btn ghost sm" type="button" id="hor-copie-a" onclick="SIGNATAIRE.copierDemi(\'a\')" title="Recopie les horaires de l\'après-midi de ce premier jour sur les autres jours. Si d\'autres jours ont déjà un après-midi différent, on vous demande avant de le remplacer.">Copier l\'après-midi sur les autres jours</button></span>' : '')
+          + '<button class="btn ghost sm" type="button" id="hor-copie-a" onclick="SIGNATAIRE.copierDemi(\'a\')" title="Recopie les horaires de l\'après-midi de ce premier jour sur les autres jours. Si d\'autres jours ont déjà un après-midi différent, on vous demande avant de le remplacer.">Copier l\'après-midi sur les autres jours</button></span>'
+          + '<span class="mut" id="hor-copie-aide" style="display:block;font-size:12.5px;margin-top:4px">Pour copier, remplissez d\'abord le matin (ou l\'après-midi) du premier jour, avec son début et sa fin.</span>' : '')   // J-2 (point 839)
         + '</div>';
     });
     h += '</div><div id="hor-alertes"></div>';
@@ -5065,12 +5193,13 @@ window.SIGNATAIRE = (function () {
   function majAlertesHoraires() {
     lireHoraires();
     var z = $("hor-alertes"); if (!z) return;
-    var t = alertesHoraires();
+    var t = (CTX._horTente ? incoherencesHoraires(CTX.data.horaires_jours || {}, joursHoraires(), libDate) : []).concat(alertesHoraires());
     // D104 : hors du cadre légal, on ne peut pas continuer ; chaque message nomme le jour à corriger.
     z.innerHTML = t.length ? '<div class="encadre-conseil" style="border-color:#e3a3a3;background:#fdecec;color:#8a1c1c">À corriger avant de continuer :<br>' + t.map(esc).join("<br>") + '<div style="margin-top:6px;font-size:12px;opacity:.85">' + esc(SOURCE_HORAIRES) + '</div></div>' : "";
     var js = joursHoraires(), v0 = (CTX.data.horaires_jours || {})[js[0]] || {};
     var bm = $("hor-copie-m"), ba = $("hor-copie-a");
     if (bm) bm.disabled = !plageValide(v0.m1, v0.m2); if (ba) ba.disabled = !plageValide(v0.a1, v0.a2);
+    var ai = $("hor-copie-aide"); if (ai) ai.hidden = !((bm && bm.disabled) || (ba && ba.disabled));   // J-2 (point 839) : la raison des boutons grisés, écrite
   }
   function normHeure(t) {
     var x = String(t || "").trim().toLowerCase().replace(/\s+/g, "").replace(/[h.]/g, ":");
@@ -5095,33 +5224,17 @@ window.SIGNATAIRE = (function () {
     CTX.data.horaires_jours = hj; renderStep();
   }
   function validerHoraires() {
-    lireHoraires();
+    lireHoraires(); CTX._horTente = true;
     var hj = CTX.data.horaires_jours || {}, manque = joursHoraires().filter(function (d) { var v = hj[d] || {}; return !((v.m1 && v.m2) || (v.a1 && v.a2)); });
     if (manque.length) { toast("Il manque une plage horaire pour : " + manque.map(libDate).join(", ") + ".", true); return false; }
     var incompris = [];
     joursHoraires().forEach(function (d) { var v = hj[d] || {}; ["m1", "m2", "a1", "a2"].forEach(function (k) { if (v[k] && minutes(v[k]) == null) incompris.push(libDate(d) + " : heure non comprise « " + v[k] + " »"); }); });
-    var t = incompris.concat(alertesHoraires());
+    var t = incompris.concat(incoherencesHoraires(hj, joursHoraires(), libDate), alertesHoraires());
     if (t.length) { majAlertesHoraires(); toast("À corriger : " + t[0] + (t.length > 1 ? " (et " + (t.length - 1) + " autre(s) point(s), listés sous les horaires)" : "") + ".", true); return false; }
     return true;
   }
 
 
-  // ---- Parents : statut du signataire (D10) -------------------------------------------------------------
-  var STATUTS = ["Parent exerçant l'autorité parentale", "Tuteur légal", "Autre"];
-  function htmlStatut() {
-    var v = CTX.data.statut || "", h = '<h3 class="serif">Votre statut</h3><p class="mut">À quel titre signez-vous cette convention ?</p><div class="champ">';
-    STATUTS.forEach(function (s) { h += '<label class="radio"><input type="radio" name="statut" title="À quel titre vous signez cette convention." value="' + esc(s) + '"' + (v === s ? " checked" : "") + ' onchange="SIGNATAIRE.statut(this.value)"> ' + esc(s) + '</label>'; });
-    h += '</div>';
-    if (v === "Autre") h += '<div class="form-grid"><div class="fieldwrap full"><label for="f_statut_precision">Précisez <span class="req">*</span></label><input id="f_statut_precision" type="text" title="Précisez à quel titre vous signez cette convention." value="' + esc(CTX.data.statut_precision || "") + '"></div></div>';
-    return h + navHTML(true);
-  }
-  function choisirStatut(v) { var p = $("f_statut_precision"); if (p) CTX.data.statut_precision = p.value.trim(); CTX.data.statut = v; renderStep(); }
-  function validerStatut() {
-    var p = $("f_statut_precision"); if (p) CTX.data.statut_precision = p.value.trim();
-    if (!CTX.data.statut) { toast("Merci d'indiquer à quel titre vous signez.", true); return false; }
-    if (CTX.data.statut === "Autre" && !CTX.data.statut_precision) { toast("Merci de préciser votre statut.", true); return false; }
-    return true;
-  }
   // ---- Parents : contacts d'urgence en liste (D95, D99) -------------------------------------------------
   function urgencesInitiales() {
     if (CTX.data.urgences && CTX.data.urgences.length) return CTX.data.urgences;
@@ -5152,14 +5265,23 @@ window.SIGNATAIRE = (function () {
     // « Fait à » est lu sur l'écran de la signature (236).
     CTX.data.urgence = l.filter(function (u) { return u.nom || u.tel; }).map(function (u) { return u.nom + (u.lien ? " (" + u.lien + ")" : "") + (u.tel ? " : " + u.tel : ""); }).join("\n");
   }
+  function lireUrgencesDe(l) { CTX.data.urgence = l.filter(function (u) { return u.nom || u.tel; }).map(function (u) { return u.nom + (u.lien ? " (" + u.lien + ")" : "") + (u.tel ? " : " + u.tel : ""); }).join("\n"); }
   function ajouterUrgence() { lireUrgences(); CTX.data.urgences = CTX.data.urgences.concat([{ nom: "", lien: "", tel: "" }]); renderStep(); }
   function retirerUrgence(i) { lireUrgences(); CTX.data.urgences.splice(i, 1); renderStep(); }
   function validerUrgences() {
     lireUrgences();
-    var ok = CTX.data.urgences.filter(function (u) { return u.nom && u.tel; });
-    if (!ok.length) { toast("Merci d'indiquer au moins une personne à prévenir, avec son téléphone.", true); return false; }
-    var incomplet = CTX.data.urgences.filter(function (u) { return (u.nom || u.tel || u.lien) && !(u.nom && u.tel); });
-    if (incomplet.length) { toast("Chaque contact d'urgence a besoin d'un nom et d'un téléphone (ou retirez la ligne).", true); return false; }
+    // T-4 (L8g) : chaque ligne a son nom, son lien avec l'élève et son téléphone ; une ligne restée vide est retirée.
+    var pleines = CTX.data.urgences.filter(function (u) { return u.nom || u.tel || u.lien; });
+    if (pleines.length && pleines.length < CTX.data.urgences.length) { CTX.data.urgences = pleines; lireUrgencesDe(pleines); }
+    var ok = CTX.data.urgences.filter(function (u) { return u.nom && u.lien && u.tel; });
+    if (!ok.length && !pleines.length) { toast("Merci d'indiquer au moins une personne à prévenir, avec son lien avec l'élève et son téléphone.", true); return false; }
+    var incomplet = CTX.data.urgences.filter(function (u) { return !(u.nom && u.lien && u.tel); })[0];
+    if (incomplet) {
+      var manque = [!incomplet.nom ? "son nom" : "", !incomplet.lien ? "son lien avec l'élève" : "", !incomplet.tel ? "son téléphone" : ""].filter(Boolean);
+      toast("Il manque " + (manque.length > 1 ? manque.slice(0, -1).join(", ") + " et " + manque[manque.length - 1] : manque[0]) + (incomplet.nom ? " pour « " + incomplet.nom + " »" : " sur une ligne") + " (ou retirez la ligne).", true); return false;
+    }
+    var eleveU = CTX.data.urgences.filter(function (u) { return nomDeLEleve(u.nom, CTX.nomEleve); })[0];   // T-9 (L8g)
+    if (eleveU) { toast("« " + eleveU.nom + " » est le nom de l'élève : indiquez une personne à prévenir pendant son stage.", true); return false; }
     var telFaux = CTX.data.urgences.filter(function (u) { return u.tel && !telValide(u.tel); })[0];
     if (telFaux) { toast("Le téléphone de « " + telFaux.nom + " » semble incomplet : un numéro français a 10 chiffres (exemple : 06 12 34 56 78).", true); return false; }
     return true;
@@ -5303,7 +5425,6 @@ window.SIGNATAIRE = (function () {
     else if (st.type === "attestation-ok") box.innerHTML = htmlMessage("Attestation transmise ✓", "Merci : le collège a bien reçu votre attestation. Votre dossier est complet de votre côté.");
     else if (st.type === "fin-retour") box.innerHTML = CTX._finHtml || "";
     else if (st.type === "accueil") box.innerHTML = htmlAccueil();
-    else if (st.type === "statut") box.innerHTML = htmlStatut();
     else if (st.type === "code") { box.innerHTML = htmlCode(); var ic = $("f_code"); if (ic) { ic.focus(); ic.addEventListener("keydown", function (e) { if (e.key === "Enter") validerCode(); }); } }
     else if (st.type === "code-abandon") box.innerHTML = htmlCodeAbandon();
     else if (st.type === "intro-completion") box.innerHTML = htmlIntroCompletion();
@@ -5405,10 +5526,11 @@ window.SIGNATAIRE = (function () {
     var r1 = CTX.prefillP || (u[0] ? { n: u[0][0], t: u[0][1] } : {}), r2 = CTX.prefillP2 || (u[1] ? { n: u[1][0], t: u[1][1] } : {});
     var moi = cle === "r2" ? r2 : r1, autre = cle === "r2" ? r1 : r2, o = {};
     if (moi.n) o.resp_nom = moi.n; if (moi.t) o.tel = moi.t; if (moi.m) o.email = moi.m; if (moi.a) o.adresse = moi.a;
-    var urg = [{ nom: moi.n || "", lien: "", tel: moi.t || "" }];
+    var lc = lienDeListe(moi.l); if (lc) o.lien_choix = lc;   // T-7 (L8g) : la valeur de la liste qui correspond au lien connu, ou rien
+    var urg = [{ nom: moi.n || "", lien: lc || "", tel: moi.t || "" }];
     // D112 : l'autre responsable n'entre dans les urgences que s'il habite à la même adresse, ce qui ne se sait qu'avec les deux adresses.
     var na = function (x) { return String(x || "").toLowerCase().replace(/[^a-z0-9]/g, ""); };
-    if (moi.a && autre.a && na(moi.a) === na(autre.a) && (autre.n || autre.t)) urg.push({ nom: autre.n || "", lien: "", tel: autre.t || "" });
+    if (moi.a && autre.a && na(moi.a) === na(autre.a) && (autre.n || autre.t)) urg.push({ nom: autre.n || "", lien: lienDeListe(autre.l) || "", tel: autre.t || "" });
     return { champs: o, urgences: urg };
   }
   // La mention sous un champ prérempli suit la saisie (D110) : « Enregistré. », ou « Vous avez repris l'information préremplie ».
@@ -5429,7 +5551,6 @@ window.SIGNATAIRE = (function () {
     var v = function (id) { var e = $(id); return e ? e.value : null; }, c = function (id) { var e = $(id); return e ? !!e.checked : null; };
     if (type === "meme-appareil" && c("chk-chez-parent") != null) CTX.data.stage_chez_parent = c("chk-chez-parent");
     if (type === "siret" && v("f_siret_ent") != null) CTX.data.siret = v("f_siret_ent").replace(/\s+/g, "");
-    if (type === "statut" && v("f_statut_precision") != null) CTX.data.statut_precision = v("f_statut_precision");   // F-16 (L8e)
     if (type === "mention") {
       if (v("f_lu_approuve") != null) CTX.data.lu_approuve = v("f_lu_approuve");
       if (c("chk-autorisation") != null) CTX.autorisation = c("chk-autorisation");
@@ -5475,7 +5596,10 @@ window.SIGNATAIRE = (function () {
       + '<button class="btn bord" onclick="SIGNATAIRE.suivant()" title="Vérifie le numéro ; si le collège connaît déjà votre entreprise, il vous propose de reprendre ses informations.">Continuer →</button></span></div>';
     return h;
   }
-  function sansSiret() { CTX.data._sansSiret = true; CTX.data.siret = ""; CTX._fiches = null; go(CTX.stepIndex + 1); }
+  function sansSiret() {
+    // T-9 (L8g) : un numéro tapé et « pas de numéro » ne vont pas ensemble.
+    if (String((($("f_siret_ent") || {}).value) || "").replace(/\s+/g, "")) { toast("Un numéro SIRET est indiqué : effacez-le pour continuer sans numéro, ou appuyez sur « Continuer ».", true); return; }
+    CTX.data._sansSiret = true; CTX.data.siret = ""; CTX._fiches = null; go(CTX.stepIndex + 1); }
   function validerSiret() {
     var z = $("siret-fiches"), choix = document.querySelector('#sig-step input[name=fiche]:checked');
     var d = String((($("f_siret_ent") || {}).value) || "").replace(/\s+/g, "");
@@ -5578,6 +5702,7 @@ window.SIGNATAIRE = (function () {
     var inner;
     var aide = c.aide ? ' title="' + esc(c.aide) + '"' : "";
     if (c.type === "area") inner = '<textarea id="f_' + c.id + '" rows="2"' + aide + dis + '>' + esc(val) + '</textarea>';
+    else if (c.type === "choix") inner = '<select id="f_' + c.id + '"' + aide + dis + '><option value="">Choisissez…</option>' + c.options.map(function (o) { return '<option value="' + esc(o) + '"' + (val === o ? " selected" : "") + '>' + esc(o) + '</option>'; }).join("") + '</select>';
     else { var t = c.type === "date" ? "date" : "text"; inner = '<input id="f_' + c.id + '" type="' + t + '" value="' + esc(val) + '"' + aide + dis + '>'; }
     var note = (CTX.prefillIds && CTX.prefillIds[c.id]) ? '<span class="prefill-sous" data-pref="' + c.id + '">' + (CTX.data[c.id] === (CTX.prefillVals || {})[c.id] || !(CTX.prefillVals || {})[c.id] ? 'Prérempli par vous, corrigez si besoin.' : 'Enregistré.') + '</span>' : '';
     if (c.id === "lieu_stage" && CTX.role === "ENTREPRISE" && !CTX.data._lieuModifie) note += '<span class="prefill-sous" id="lieu-defaut">(l\'adresse de l\'entreprise est enregistrée ici par défaut)</span>';
@@ -5586,7 +5711,7 @@ window.SIGNATAIRE = (function () {
     var infoT = c.info ? '<span class="info-texte" id="info_' + c.id + '" hidden>' + esc(c.info) + '</span>' : '';
     var m = locked ? "" : controleChamp(c.id, val);
     var err = '<span class="' + (m && m.alerte ? 'champ-alerte' : 'champ-err') + '" id="err_' + c.id + '" role="alert"' + (m && m.texte && CTX._vus && CTX._vus[c.id] ? '' : ' hidden') + '>' + esc(m ? m.texte : "") + '</span>';
-    return '<div class="' + cls + '"><label for="f_' + c.id + '">' + esc(c.label) + (c.req ? ' <span class="req">*</span>' : '') + '</label>' + info + infoT + inner + note + err + '</div>';
+    return '<div class="' + cls + '"' + (c.si && !c.si(CTX.data) ? " hidden" : "") + '><label for="f_' + c.id + '">' + esc(c.label) + (c.req ? ' <span class="req">*</span>' : '') + '</label>' + info + infoT + inner + note + err + '</div>';
   }
 
   function htmlArticles() {
@@ -5614,9 +5739,15 @@ window.SIGNATAIRE = (function () {
     return h + navHTML(true, "Continuer →");
   }
 
+  // T-2, T-3, T-8 (L8g) : « Fait à » est demandé sur l'écran de la signature aux parents, et en complétion quand il manque.
+  // Hors complétion, l'entreprise le donne avec son signataire.
+  function faitAIci() {
+    if (CTX.completion) return (CTX.besoins || []).indexOf("faita") >= 0;
+    return CTX.role === "PARENTS";
+  }
   function htmlSignature() {
     var h = '<h3 class="serif">Signature</h3><p class="mut">Signez dans le cadre, au doigt ou à la souris.</p>';
-    if (CTX.role === "PARENTS") h += '<div class="form-grid" style="margin-bottom:10px"><div class="fieldwrap"><label for="f_fait_a">Fait à (commune où vous signez)</label><input id="f_fait_a" type="text" title="La commune où vous signez. Elle figurera sous votre signature." value="' + esc(CTX.data.fait_a || "") + '"></div></div>';
+    if (faitAIci()) h += '<div class="form-grid" style="margin-bottom:10px"><div class="fieldwrap"><label for="f_fait_a">Fait à (commune où vous signez) <span class="req">*</span></label><input id="f_fait_a" type="text" title="La commune où vous signez. Elle figurera sous votre signature." value="' + esc(CTX.data.fait_a || "") + '"></div></div>';
     h += '<canvas id="sig-canvas" class="sig-canvas"></canvas>';
     h += '<div><button type="button" class="mini" onclick="SIGNATAIRE.effacerSignature()" title="Efface votre signature pour la recommencer.">Effacer</button></div>';
     h += '<label class="chk"><input type="checkbox" id="chk-exactitude" title="À cocher pour confirmer que les informations saisies sont exactes."' + (CTX.exactitude ? ' checked' : '') + '> Je confirme que les informations sont exactes.</label>';
@@ -5629,8 +5760,10 @@ window.SIGNATAIRE = (function () {
       h += '<div class="recap-bloc"><div class="recap-t">' + esc(g.titre) + ' <button type="button" class="lien-modif" onclick="SIGNATAIRE.modifier(' + gi + ')" title="Revient à cette étape pour corriger une information avant l\'envoi.">Modifier</button></div>';
       g.ids.forEach(function (id) {
         var c = champDef(CTX.role, id); if (!c || c.confirmation) return;   // D117 : le courriel retapé n'est qu'une vérification
-        var v = CTX.data[id] || '—';
+        if (c.si && !c.si(CTX.data)) return;
+        var v = CTX.data[id] || (id === "siret" && CTX.data._sansSiret ? SANS_SIRET : '—');   // T-5 (L8g)
         h += '<div class="recap-l"><span>' + esc(c.label) + '</span><b>' + esc(c.type === "date" ? frDate(v) : v) + '</b></div>';
+        if (id === "lien_choix") h += '<div class="recap-l"><span>Statut</span><b>' + esc(statutTexte(CTX.data) || '—') + '</b></div>';   // T-7 (L8g)
       });
       h += '</div>';
     });
@@ -5639,18 +5772,20 @@ window.SIGNATAIRE = (function () {
       lignes.forEach(function (l) { h += '<div class="recap-l"><span>' + esc(l[0]) + '</span><b style="white-space:pre-line">' + esc(l[1] || "—") + '</b></div>'; });
       h += '</div>';
     }
-    var aEtape = function (t) { return !CTX.completion || CTX.steps.some(function (x) { return x.type === t || (t === "fields" && x.type === "fields" && x.groupe === 99); }); };
+    var aEtape = function (t) { return !CTX.completion || CTX.steps.some(function (x) { return x.type === t || (x.type === "fields" && t === "g" + x.groupe); }); };
     if (CTX.data.email) h = h.replace('<div class="recap">', '<p class="envoye-par" id="recap-adresse">La convention signée vous sera envoyée à : <b>' + esc(CTX.data.email) + '</b></p><div class="recap">');
-    if (CTX.completion && CTX.data.email) blocPerso("Votre courriel", "fields", [["Courriel", CTX.data.email]]);
+    if (CTX.completion && CTX.data.email && aEtape("g98")) blocPerso("Votre courriel", "g98", [["Courriel", CTX.data.email]]);
     if (CTX.completion && CTX.data.siret) blocPerso("Votre entreprise", "siret", [["Numéro SIRET", CTX.data.siret]]);
-    if (CTX.completion && CTX.role === "ENTREPRISE" && aEtape("fields")) blocPerso("Compléments", "fields", [["Fonction du tuteur", CTX.data.tuteur_fonction], ["Activités prévues", CTX.data.activites], ["Fonction du représentant", CTX.data.chef_fonction]]);
+    if (CTX.completion && CTX.role === "ENTREPRISE" && aEtape("g99")) blocPerso("Compléments", "g99", [["Fonction du tuteur", CTX.data.tuteur_fonction], ["Activités prévues", CTX.data.activites], ["Fonction du représentant", CTX.data.chef_fonction]]);
     if (CTX.role === "ENTREPRISE" && aEtape("accueil")) {
       blocPerso("Les jours de stage", "accueil", [["Accueil", CTX.data.accueil === "partiel" ? "Seulement certains jours" : "Tout le stage"], ["Dates", (CTX.data.dates || []).map(libDate).join(", ")]]);
       blocPerso("Les horaires", "horaires", [["Horaires", CTX.data.horaires]]);
     }
-    if (CTX.role === "PARENTS" && aEtape("statut")) {
-      blocPerso("Votre statut", "statut", [["Statut", (CTX.data.statut || "") + (CTX.data.statut === "Autre" && CTX.data.statut_precision ? " : " + CTX.data.statut_precision : "")]]);
-      blocPerso("En cas d'urgence", "urgences", [["Contacts", CTX.data.urgence]]);
+    if (CTX.completion && CTX.role === "PARENTS" && aEtape("g96")) blocPerso("Votre lien avec l'élève", "g96", [["Lien avec l'élève", CTX.data.lien], ["Statut", statutTexte(CTX.data)]]);
+    var g97 = CTX.completion ? (CTX.steps.filter(function (x) { return x.type === "fields" && x.groupe === 97; })[0] || { ids: [] }).ids : [];
+    if (g97.length) blocPerso("Vos coordonnées", "g97", g97.map(function (k) { return [k === "adresse" ? "Adresse" : "Téléphone", CTX.data[k]]; }));
+    if (CTX.role === "PARENTS" && aEtape("urgences")) blocPerso("En cas d'urgence", "urgences", [["Contacts", CTX.data.urgence]]);
+    if (CTX.role === "PARENTS" && aEtape("sante")) {
       blocPerso("Santé et aménagements", "sante", [["PAI", CTX.data.pai === "oui" ? "Oui — trousse fournie par " + (String(CTX.data.pai_trousse || "…").replace("l'établissement scolaire", "le collège")) : "Non"], ["Précisions", CTX.data.pai_precisions], ["Aménagements", CTX.data.amenagements_oui === "oui" ? CTX.data.amenagements : "Aucun"]]);
     }
     h += '<div class="recap-bloc"><div class="recap-l"><span>Articles</span><b>' + (tousArticlesOK() ? 'tous validés ✓' : 'à valider') + '</b></div>'
@@ -5676,6 +5811,8 @@ window.SIGNATAIRE = (function () {
         + 'Élève : ' + esc(CTX.nomEleve || '') + (CTX.code ? ' · réf. ' + esc(CTX.code) : '') + '.</div>';
       h += '<p class="mut">Vos informations sont parties chiffrées : seul le collège peut les lire. Vous pouvez fermer cette page.</p>';
       var st = CTX.statut || {};
+      // H-3 (L8g) : la convention 2 des parents est une déclaration, validée quand une entreprise remplit la deuxième convention.
+      if (CTX.place === "PARENTS_2" && !st.ENTREPRISE_2) h += '<div class="encadre-conseil" id="msg-declaration">Votre déclaration sera validée si une entreprise remplit effectivement la deuxième convention. N\'oubliez pas de lui transmettre le QR code ou le lien.</div>';
       if ((CTX.place === "PARENTS" || CTX.place === "PARENTS_C") && secondLieuUtile()) h += htmlQuestionSecondLieu(false);
       else if ((CTX.place === "PARENTS" || CTX.place === "PARENTS_C") && secondeAttendue()) h += htmlSecondeAttendue(false);
       h += htmlAutreEleve();
@@ -5715,7 +5852,6 @@ window.SIGNATAIRE = (function () {
     if (st.type === "intro" || st.type === "choix-role" || st.type === "intro-completion") return true;
     if (st.type === "accueil") return validerAccueil();
     if (st.type === "horaires") return validerHoraires();
-    if (st.type === "statut") return validerStatut();
     if (st.type === "urgences") return validerUrgences();
     if (st.type === "sante") return validerSante();
     if (st.type === "fields") {
@@ -5724,7 +5860,7 @@ window.SIGNATAIRE = (function () {
       var manquant = null;
       st.ids.forEach(function (id) {
         var c = champDef(CTX.role, id); if (!c || c.mention) return;
-        if (c.req && !(CTX.data[id] || "").trim() && !manquant) manquant = c.label;
+        if (c.req && (!c.si || c.si(CTX.data)) && !(CTX.data[id] || "").trim() && !manquant) manquant = c.label;
       });
       if (manquant) { toast("Il manque : « " + manquant + " ».", true); return false; }
       // D117 : un courriel valide, tapé deux fois à l'identique
@@ -5737,6 +5873,7 @@ window.SIGNATAIRE = (function () {
       var premier = null;
       st.ids.forEach(function (id) { var m = majControle(id, true); if (m && m.bloque && !premier) premier = m.texte || (id === "raison_sociale" ? "Maximum de caractères autorisé dépassé" : ""); });
       if (premier) { toast(premier, true); return false; }
+      if (st.ids.indexOf("lien_choix") >= 0) deriverStatut(CTX.data);   // T-7 (L8g)
       lieuSuitAdresse();
       CTX.locked[CTX.stepIndex] = true;
       return true;
@@ -5759,7 +5896,10 @@ window.SIGNATAIRE = (function () {
     }
     if (st.type === "signature") {
       var ex = $("chk-exactitude"); CTX.exactitude = !!(ex && ex.checked);
-      if (CTX.role === "PARENTS") { var fa = $("f_fait_a"); if (fa) CTX.data.fait_a = fa.value.trim(); }
+      if (faitAIci()) {
+        var fa = $("f_fait_a"); if (fa) CTX.data.fait_a = fa.value.trim();
+        if (!CTX.data.fait_a) { toast("Il manque : « Fait à (commune où vous signez) ».", true); return false; }
+      }
       if (CTX.data.fait_a && !communeValide(CTX.data.fait_a)) { toast("Indiquez le nom complet de la commune où vous signez (exemple : Doué-en-Anjou).", true); return false; }
       if (_vierge) { toast("Merci de signer dans le cadre.", true); return false; }
       if (!CTX.exactitude) { toast("Il manque : cochez « Je confirme que les informations sont exactes ».", true); return false; }
@@ -5786,7 +5926,12 @@ window.SIGNATAIRE = (function () {
     if (idx < 0) idx = 1 + groupeIndex;
     CTX.locked[idx] = false; go(idx);
   }
-  function modifierEtape(type) { var idx = indexType(type); go(idx); }
+  function modifierEtape(type) {
+    var g = /^g(\d+)$/.exec(type), idx = indexType(type);
+    if (g) CTX.steps.forEach(function (s, k) { if (s.type === "fields" && s.groupe === +g[1]) idx = k; });
+    if (g) CTX.locked[idx] = false;
+    go(idx);
+  }
   function deposer() { if (CTX.lienDepot) window.open(CTX.lienDepot, "_blank"); }
   function reutiliserProfil() {
     var ch = CTX.profilEntreprise || {};
@@ -6238,7 +6383,7 @@ window.SIGNATAIRE = (function () {
     sousTitre("L'entreprise d'accueil");
     ligne("Entreprise", ent.raison_sociale);
     ligne("Adresse", ent.adresse);
-    ligne("N° SIRET", ent.siret);
+    ligne("N° SIRET", ent.siret || (ent._sansSiret ? SANS_SIRET : ""));   // T-5 (L8g)
     ligne("Tuteur", (ent.tuteur_ent || "") + (ent.tuteur_fonction ? " — " + ent.tuteur_fonction : ""));
     ligne("Coordonnées", [ent.tel, ent.email].filter(Boolean).join("\n"));   // C2-26 : le courriel de l'entreprise aussi, sur sa propre ligne
     ligne("Lieu de stage effectif", String(ent.lieu_stage || "").trim() || ent.adresse);   // D-4 : vide, c'est l'adresse de l'entreprise (point 267)
@@ -6662,7 +6807,6 @@ function nomConvention(o) {
     retourFin: retourFin,
     effacerMesInfos: effacerMesInfos,
     accueil: choisirAccueil,
-    statut: choisirStatut,
     ajouterUrgence: ajouterUrgence,
     retirerUrgence: retirerUrgence,
     sante: choisirSante,
@@ -6698,6 +6842,16 @@ window.DEPOUILLEMENT = (function () {
   var ROLES = ["ENTREPRISE", "PARENTS", "ETABLISSEMENT"];
   var ROLE_COURT = { ENTREPRISE: "Entreprise", PARENTS: "Parents", ETABLISSEMENT: "Établissement" };
   var _resolver = function () { return null; };
+  // L8g-2 (J-1) : la photo rejoue le calcul de la console pour chaque année et chaque niveau, sans rien écrire ni afficher.
+  // Pendant ce calcul (synchrone), _calc fournit les données de l'année photographiée ; sinon, celles de la console ouverte.
+  var _calc = null;
+  function resolCalc(code) { return _calc ? _calc.resolver(code) : _resolver(code); }
+  function classeCalc(code) { return _calc ? _calc.classeDe(code) : (window.__classeDe && window.__classeDe(code)); }
+  function dOffDe(n) { return _calc ? _calc.datesOff(n) : ((window.__datesOffDe && window.__datesOffDe(n)) || []); }
+  function dOffNiveau() { return _calc ? _calc.datesOff(_calc.niveau === "3e" ? "3e" : "4e") : ((window.__datesOffNiveau && window.__datesOffNiveau()) || []); }
+  function avisCalc(code) { return _calc ? _calc.avisDe(code) : ((window.__avisDe && window.__avisDe(code)) || {}); }
+  function demandesCodesCalc() { return _calc ? _calc.demandesCodes() : ((window.__demandesCodes && window.__demandesCodes()) || []); }
+  function demandesDeCalc(code) { return _calc ? _calc.demandesDe(code) : ((window.__demandesDe && window.__demandesDe(code)) || []); }
 
   function init(resolver) { if (typeof resolver === "function") _resolver = resolver; }
 
@@ -6758,11 +6912,21 @@ window.DEPOUILLEMENT = (function () {
     var d = vb.data || {}, ch = d.champs || {}, n = [];
     // D119 (« même règle pour le tuteur ») et G-3 (L8f) : signataire ou tuteur au nom exact de l'élève de la convention, et lui seul.
     if (/^ENTREPRISE/.test(b) && window.__nomDeLEleve && (window.__nomDeLEleve(ch.chef_nom, eleve) || window.__nomDeLEleve(ch.tuteur_ent, eleve))) return ["refaire"];
-    if ((d._f || 0) < (window.VERSION_FORMULAIRE || 2)) n.push("champs");
+    var vf = (d._f || 0) >= (window.VERSION_FORMULAIRE || 2), plein = function (x) { return String(x == null ? "" : x).trim() !== ""; };
+    if (!vf) n.push("champs");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(ch.email || "").trim())) n.push("courriel");
+    // T-8 (L8g) : les rubriques devenues obligatoires, quand elles manquent ; la version du formulaire ne monte pas.
+    if (/^PARENTS/.test(b)) {
+      if (!plein(ch.adresse)) n.push("adresse");
+      if (!plein(ch.tel)) n.push("tel");
+      if (vf && !plein(ch.statut)) n.push("statut");
+      if (vf && Array.isArray(ch.urgences) && ch.urgences.some(function (u) { return u && (plein(u.nom) || plein(u.tel)) && !plein(u.lien); })) n.push("urgences");
+    }
+    if (!plein(ch.fait_a)) n.push("faita");
     if (/^ENTREPRISE/.test(b)) {
       if (!ch._sansSiret && !(ch.siret && window.__siretValide && window.__siretValide(ch.siret))) n.push("siret");
-      if ((d._f || 0) >= (window.VERSION_FORMULAIRE || 2) && window.__alertesHorairesDe && window.__alertesHorairesDe(ch.horaires_jours || {}, function (x) { return x; }).length) n.push("horaires");
+      // T-6, T-9 (L8g) : des horaires reçus incohérents (plage sans fin, après-midi avant ou sur le matin) se corrigent aussi.
+      if (vf && ((window.__alertesHorairesDe && window.__alertesHorairesDe(ch.horaires_jours || {}, function (x) { return x; }).length) || (window.__incoherencesHoraires && window.__incoherencesHoraires(ch.horaires_jours || {}).length))) n.push("horaires");
     }
     if ((d._tv || 0) < (window.__versionTextes || 0)) n.push("texte");
     return n;
@@ -6772,11 +6936,27 @@ window.DEPOUILLEMENT = (function () {
   function joursCouvertsPartie(code, ch) {
     var ds = (ch.dates || []).filter(Boolean).slice().sort();
     if (ds.length || !(ch.date_debut || ch.date_fin)) return ds;
-    var cl = String((window.__classeDe && window.__classeDe(code)) || "");
+    var cl = String(classeCalc(code) || "");
     var niv = /^\s*3/.test(cl) || (!cl && /^3/.test(String(code || ""))) ? "3e" : "4e";
-    var off = (window.__datesOffDe && window.__datesOffDe(niv)) || [], a = ch.date_debut || ch.date_fin, z = ch.date_fin || ch.date_debut;
+    var off = dOffDe(niv) || [], a = ch.date_debut || ch.date_fin, z = ch.date_fin || ch.date_debut;
     return off.filter(function (d) { return d >= a && d <= z; });
   }
+  // H-4 à H-6 (L8g) : les dates officielles du niveau de l'élève (sa classe, sinon le premier chiffre de son code).
+  function offDeCode(code, classe) {
+    var cl = String(classe || classeCalc(code) || "");
+    var niv = /^\s*3/.test(cl) || (!cl && /^3/.test(String(code || ""))) ? "3e" : "4e";
+    return (dOffDe(niv) || []).slice().sort();
+  }
+  function aujourdhuiIso() { var d = new Date(); return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); }
+  function unMoisAvant(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || "")); if (!m) return "9999-12-31";
+    var y = +m[1], mo = +m[2] - 1, j = +m[3]; if (mo < 1) { mo = 12; y--; }
+    j = Math.min(j, new Date(y, mo, 0).getDate());
+    return y + "-" + ("0" + mo).slice(-2) + "-" + ("0" + j).slice(-2);
+  }
+  window.__unMoisAvant = unMoisAvant;
+  var DECL_SANS_OBJET = "Déclaration des parents sans objet : l'entreprise 1 accueille l'élève tous les jours.";
+  var ALERTE_SECOND = "Alerter la famille pour qu'elle trouve un second lieu de stage";
   function repasserMarques() { if (_dernier && _dernier.parCode) Object.keys(_dernier.parCode).forEach(function (c) { poserMarques(c, _dernier.parCode[c].volets); }); }
   // La console pose d'elle-même les marques à son ouverture (D118, D108, D119) : compte de M. Meney seulement.
   var _marquesPosees = {};
@@ -6800,7 +6980,20 @@ window.DEPOUILLEMENT = (function () {
   // E-3 : un complément ajoute ce que le collège demande ; il ne remplace jamais une information déjà envoyée et juste.
   function fusionComplement(c0, cc) {
     var r = Object.assign({}, c0, cc), plein = function (x) { return String(x == null ? "" : x).trim() !== ""; };
-    ["raison_sociale", "adresse", "tuteur_ent", "tel", "chef_nom", "lieu_stage", "resp_nom", "lien"].forEach(function (k) { if (plein(c0[k])) r[k] = c0[k]; });
+    ["raison_sociale", "adresse", "tuteur_ent", "tel", "chef_nom", "lieu_stage", "resp_nom", "lien", "statut", "statut_precision", "fait_a"].forEach(function (k) { if (plein(c0[k])) r[k] = c0[k]; });
+    // T-8 (L8g) : le lien d'un contact d'urgence s'ajoute à la ligne envoyée ; rien de ce qui a été envoyé n'est remplacé.
+    if (Array.isArray(c0.urgences) && c0.urgences.length && Array.isArray(cc.urgences)) {
+      var nn = function (x) { return String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, ""); };
+      var meme = function (a, b) { return (nn(a.nom) && nn(a.nom) === nn(b.nom)) || (nn(a.tel) && nn(a.tel) === nn(b.tel)); };
+      var u = c0.urgences.map(function (x) {
+        if (plein(x.lien)) return x;
+        var m = cc.urgences.filter(function (y) { return meme(x, y) && plein(y.lien); })[0];
+        return m ? Object.assign({}, x, { lien: m.lien }) : x;
+      });
+      cc.urgences.forEach(function (y) { if ((plein(y.nom) || plein(y.tel)) && !u.some(function (x) { return meme(x, y); })) u.push(y); });
+      r.urgences = u;
+      r.urgence = u.filter(function (x) { return x.nom || x.tel; }).map(function (x) { return x.nom + (x.lien ? " (" + x.lien + ")" : "") + (x.tel ? " : " + x.tel : ""); }).join("\n");
+    }
     if (/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(c0.email || "").trim())) { r.email = c0.email; if ("email2" in c0) r.email2 = c0.email2; }
     if (c0.siret && window.__siretValide && window.__siretValide(c0.siret)) r.siret = c0.siret;
     return r;
@@ -6828,13 +7021,14 @@ window.DEPOUILLEMENT = (function () {
         if (comp && v[b]) {
           var d0 = v[b].data, dc = comp.data;
           v[b] = { data: Object.assign({}, d0, { champs: fusionComplement(d0.champs || {}, dc.champs || {}), signature: dc.signature || d0.signature, hash: dc.hash || d0.hash, ts: dc.ts || d0.ts }),
-            date: comp.date, dateOrigine: v[b].date, complement: comp };
+            date: comp.date, dateOrigine: v[b].date, complement: comp, dataOrigine: d0 };
         } else if (comp) v[b] = comp;
         if (v[b]) { v[b].besoins = besoinsPartie(v[b], b, (v[b].data && v[b].data.eleve) || ""); v[b].aCompleter = v[b].besoins.some(function (x) { return x !== "refaire"; }); v[b].aRefaire = v[b].besoins.indexOf("refaire") >= 0; }
       });
-      poserMarques(c, v);
+      if (!_calc) poserMarques(c, v);   // L8g-2 : la photo calcule sans rien écrire
     });
     var codes = Object.keys(parCode).sort();
+    if (!codes.length && _calc) return { lignes: [], retirees: [], illisibles: illisibles };
     if (!codes.length) {
       _lignes = [];
       afficher('<p class="mut">Aucune convention reçue pour ' + ((window.__anneeAffichee && window.__anneeAffichee()) || "l'instant") + '.</p>'
@@ -6843,7 +7037,7 @@ window.DEPOUILLEMENT = (function () {
     }
 
     var nbComplets = 0;
-    var datesOff = (window.__datesOffNiveau && window.__datesOffNiveau()) || [];
+    var datesOff = dOffNiveau() || [];
     function courtes(ent) {
       var ds = (ent && ent.dates) || [];
       if (ds.length) return ds.map(function (d) { var x = new Date(String(d) + "T12:00:00"); return isNaN(x.getTime()) ? d : x.toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "2-digit" }); }).join(", ");
@@ -6867,20 +7061,31 @@ window.DEPOUILLEMENT = (function () {
     }
     var lignes = codes.map(function (code) {
       var g = parCode[code], v = g.volets;
-      var el = _resolver(code) || {};
+      var el = resolCalc(code) || {};
       var nom = ((el.prenom || "") + " " + (el.nom || "")).trim() || (v.ENTREPRISE && v.ENTREPRISE.data.eleve) || (v.PARENTS && v.PARENTS.data.eleve) || "—";
       var ent = v.ENTREPRISE ? v.ENTREPRISE.data.champs || {} : {};
       var ent2 = v.ENTREPRISE_2 ? v.ENTREPRISE_2.data.champs || {} : {};
       // D114 ; E-2 : jamais la fiche d'une partie à refaire (D119) ; une fiche fausse déjà déposée pour ce SIRET est retirée.
-      if (window.__deposerFiche) [["ENTREPRISE", ent], ["ENTREPRISE_2", ent2]].forEach(function (x) {
+      if (!_calc && window.__deposerFiche) [["ENTREPRISE", ent], ["ENTREPRISE_2", ent2]].forEach(function (x) {
         if (!v[x[0]]) return;
         if (v[x[0]].aRefaire) { if (window.__nettoyerFiches) window.__nettoyerFiches(x[1].siret, x[1]); }   // G-3 : jamais de fiche d'une partie à refaire
         else window.__deposerFiche(x[1]);
       });
       var ill = g.illisibles || [], illR = ill.map(function (x) { return x.role; });
-      var secondAttendu = ent.accueil === "partiel" || !!v.ENTREPRISE_2 || !!v.PARENTS_2 || illR.indexOf("ENTREPRISE_2") >= 0 || illR.indexOf("PARENTS_2") >= 0;
+      // H-4, H-5 (L8g) : seuls les jours déclarés par les entreprises font attendre un second lieu. La convention 2 des parents
+      // sans entreprise 2 est une déclaration : visible, non bloquante, validée quand une entreprise 2 envoie ; sans objet
+      // quand l'entreprise 1 accueille l'élève tous les jours.
+      var offEl = offDeCode(code, el.classe), joursE1 = v.ENTREPRISE ? joursCouvertsPartie(code, ent) : [];
+      var e1Tout = !!v.ENTREPRISE && offEl.length > 0 && offEl.every(function (d) { return joursE1.indexOf(d) >= 0; });
+      var e2Vu = !!v.ENTREPRISE_2 || illR.indexOf("ENTREPRISE_2") >= 0;
+      var secondAttendu = (ent.accueil === "partiel" && !e1Tout) || e2Vu;
+      var declaration = (!!v.PARENTS_2 || illR.indexOf("PARENTS_2") >= 0) && !e2Vu;
+      var declSansObjet = declaration && e1Tout, declAttente = declaration && !e1Tout;
+      // H-6 (L8g) : un mois avant le premier jour officiel du niveau de l'élève, une déclaration non validée ou un second lieu
+      // attendu sans entreprise 2 devient une alerte.
+      var alerteSecond = !!offEl.length && (declAttente || (secondAttendu && !e2Vu)) && aujourdhuiIso() >= unMoisAvant(offEl[0]);
       var conv1 = !!(v.ENTREPRISE && v.PARENTS), conv2 = !!(v.ENTREPRISE_2 && v.PARENTS_2);
-      var aCompl = ["ENTREPRISE", "ENTREPRISE_2", "PARENTS", "PARENTS_2"].some(function (b) { return v[b] && v[b].aCompleter; });
+      var aCompl = ["ENTREPRISE", "ENTREPRISE_2", "PARENTS", "PARENTS_2"].some(function (b) { return v[b] && v[b].aCompleter && (b !== "PARENTS_2" || secondAttendu); });
       var aRef = ["ENTREPRISE", "ENTREPRISE_2", "PARENTS", "PARENTS_2"].some(function (b) { return v[b] && v[b].aRefaire; });
       var complet = conv1 && (!secondAttendu || conv2) && !aCompl && !ill.length && !aRef;   // C2-4, E-4 : jamais « Complet » avec une partie illisible ou à refaire
       if (complet) nbComplets++;
@@ -6891,12 +7096,19 @@ window.DEPOUILLEMENT = (function () {
         if (!v[r] && il) { parties.push("⚠ " + lib + " · reçue le " + heureDe(il.date) + " · illisible : la clé de l'année ne l'ouvre pas. Elle ne se complète pas : libérez-la, puis elle se refait avec le même lien."); return; }
         if (!v[r]) { parties.push("— " + lib + " : " + (r.indexOf("_2") > 0 ? "attendue" : "manquante")); return; }
         if (v[r].complement) { parties.push("✓ " + lib + " · reçue le " + heureDe(v[r].dateOrigine) + " · complétée le " + heureDe(v[r].date)); return; }
-        parties.push((v[r].aCompleter ? "◐ " : "✓ ") + lib + " · reçue le " + heureDe(v[r].date) + (v[r].aCompleter ? " · à compléter (rubriques du modèle officiel)" : ""));
+        // K-1 (L8g-1) : les rubriques demandées, les mêmes que dans la liste donnée à la famille ou à l'entreprise, écrites pour Paul.
+        var lc = v[r].aCompleter && window.__listePourPaul ? window.__listePourPaul(r, v[r].besoins || []) : [];
+        parties.push((v[r].aCompleter ? "◐ " : "✓ ") + lib + " · reçue le " + heureDe(v[r].date) + (v[r].aCompleter ? (lc.length ? " · à compléter : " + lc.join(", ") : " · à compléter (rubriques du modèle officiel)") : ""));
       }
-      partie("ENTREPRISE", secondAttendu ? "Entreprise — lieu 1" : "Entreprise");
-      partie("PARENTS", secondAttendu ? "Parents — convention 1" : "Parents");
+      partie("ENTREPRISE", secondAttendu || declaration ? "Entreprise — lieu 1" : "Entreprise");
+      partie("PARENTS", secondAttendu || declaration ? "Parents — convention 1" : "Parents");
       if (secondAttendu) { partie("ENTREPRISE_2", "Entreprise — lieu 2"); partie("PARENTS_2", "Parents — convention 2"); }
+      else if (declaration) {
+        partie("PARENTS_2", "Parents — convention 2 (déclaration d'un second lieu)");
+        parties.push(declSansObjet ? DECL_SANS_OBJET : "Déclaration des parents : second lieu. Elle sera validée quand une entreprise remplira la deuxième convention.");
+      }
       var aVerifier = [];
+      if (alerteSecond) aVerifier.push(ALERTE_SECOND + " : le stage commence le " + libJour(offEl[0]) + ", et aucune entreprise n'a encore rempli la convention du second lieu.");
       [["ENTREPRISE", "lieu 1"], ["ENTREPRISE_2", "lieu 2"]].forEach(function (x) {
         if (v[x[0]] && v[x[0]].aRefaire) aVerifier.push("La partie de l'entreprise" + (v.ENTREPRISE_2 ? " (" + x[1] + ")" : "") + " porte le nom de l'élève comme signataire ou comme tuteur : elle est à refaire par l'entreprise elle-même (D119). La famille en est prévenue ; libérez la partie pour que l'entreprise la refasse avec son lien.");
       });
@@ -6976,29 +7188,31 @@ window.DEPOUILLEMENT = (function () {
       var sansCourrielPar = !!(v.PARENTS && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(((v.PARENTS.data || {}).champs || {}).email || "").trim()));
       if (sansCourrielPar) aVerifier.push("Pas d'adresse courriel pour les parents : la convention ne pourra pas leur être envoyée par courriel. Passez par École Directe (message prêt dans le détail).");
       return { code: code, affNom: nom, classe: el.classe || "", nom: nomTri, recu: recu, complet: complet, horairesHors: horHors, sansCourrielPar: sansCourrielPar, illisibles: illR, entARefaire: ["ENTREPRISE", "ENTREPRISE_2"].filter(function (b) { return v[b] && v[b].aRefaire; }), aCompleter: aCompl, sansCode: sansCode,
-        sansEnt: !v.ENTREPRISE, sansPar: !v.PARENTS, secondManquant: secondAttendu && !v.ENTREPRISE_2, parents2: !!v.ENTREPRISE_2 && !v.PARENTS_2, deux: !!(v.ENTREPRISE_2 || v.PARENTS_2),
+        sansEnt: !v.ENTREPRISE, sansPar: !v.PARENTS, secondManquant: secondAttendu && !v.ENTREPRISE_2, parents2: !!v.ENTREPRISE_2 && !v.PARENTS_2, deux: !!v.ENTREPRISE_2 || (!!v.PARENTS_2 && secondAttendu),   // H-4 (L8g) : une déclaration seule ne fait pas deux lieux
+        declaration: declAttente && !secondAttendu, declSansObjet: declSansObjet, alerteSecond: alerteSecond, offEl: offEl,
         entreprise: ent.raison_sociale || "", entreprise2: v.ENTREPRISE_2 ? (ent2.raison_sociale || "—") : "", dates: periode(ent), dates2: v.ENTREPRISE_2 ? periode(ent2) : "",
         jours: nbCouverts, joursPrevus: nbPrevus,
-        parties: parties, aVerifier: aVerifier, aConv1: !!(v.ENTREPRISE || v.PARENTS), aConv2: !!(v.ENTREPRISE_2 || v.PARENTS_2), aAttest: !!v.ATTESTATION,
+        parties: parties, aVerifier: aVerifier, aConv1: !!(v.ENTREPRISE || v.PARENTS), aConv2: secondAttendu && !!(v.ENTREPRISE_2 || v.PARENTS_2), aAttest: !!v.ATTESTATION,
         volets: v, emails: { ent: [ent.email, ent2.email].filter(Boolean), par: [v.PARENTS && (v.PARENTS.data.champs || {}).email, v.PARENTS_2 && (v.PARENTS_2.data.champs || {}).email].filter(Boolean) } };
     });
     // Cloisonnement par niveau : on ne montre que les élèves importés dans le niveau choisi.
     // Un élève inconnu de la liste reste visible, pour ne jamais perdre une convention reçue.
-    var _niv = (window.__niveauActif && window.__niveauActif()) || "";
+    var _niv = (_calc ? _calc.niveau : (window.__niveauActif && window.__niveauActif())) || "";
     if (_niv === "4e" || _niv === "3e") {
       var duNiveau = {};
-      try { ((window.__elevesDe && window.__elevesDe(_niv)) || []).forEach(function (e) { if (e && e.code) duNiveau[e.code] = 1; }); } catch (e) {}
+      try { ((_calc ? _calc.elevesDe(_niv) : (window.__elevesDe && window.__elevesDe(_niv))) || []).forEach(function (e) { if (e && e.code) duNiveau[e.code] = 1; }); } catch (e) {}
       var connus = {};
       try {
         ["4e", "3e"].forEach(function (k) {
-          ((window.__elevesDe && window.__elevesDe(k)) || []).forEach(function (e) { if (e && e.code) connus[e.code] = 1; });
+          ((_calc ? _calc.elevesDe(k) : (window.__elevesDe && window.__elevesDe(k))) || []).forEach(function (e) { if (e && e.code) connus[e.code] = 1; });
         });
       } catch (e) {}
       lignes = lignes.filter(function (l) { return duNiveau[l.code] || !connus[l.code]; });
       nbComplets = lignes.filter(function (l) { return l.complet; }).length;
     }
     // G-1 (L8f) : un élève retiré (D123) n'est plus mêlé aux élèves ordinaires ; ses lignes restent connues pour son ZIP.
-    var retires = (window.__codesRetiresTous && window.__codesRetiresTous()) || {};
+    var retires = (_calc ? _calc.retires : (window.__codesRetiresTous && window.__codesRetiresTous())) || {};
+    if (_calc) return { lignes: lignes.filter(function (l) { return !retires[l.code]; }), retirees: lignes.filter(function (l) { return retires[l.code]; }), illisibles: illisibles };
     _lignesRetirees = lignes.filter(function (l) { return retires[l.code]; });
     lignes = lignes.filter(function (l) { return !retires[l.code]; });
     nbComplets = lignes.filter(function (l) { return l.complet; }).length;
@@ -7010,9 +7224,9 @@ window.DEPOUILLEMENT = (function () {
   // ===== Livraison B : filtres, tri, sélection, ZIP, PDF unique, adresses (D70, D71, D87, D88) =====
   // E-4 : « Complet » au sens exact (tuile, filtre, état, boutons) : toutes les parties présentes, lisibles, à jour,
   // et ni opposition en cours ni convention suspendue.
-  function avisLigne(l) { return (window.__avisDe && window.__avisDe(l.code)) || {}; }
+  function avisLigne(l) { return avisCalc(l.code) || {}; }
   // F-15 (L8e) : une demande de refaire en attente : la partie va être refaite, le dossier ne part pas comme fini.
-  function demandeEnAttente(l) { return ((window.__demandesCodes && window.__demandesCodes()) || []).indexOf(l.code) >= 0; }
+  function demandeEnAttente(l) { return (demandesCodesCalc() || []).indexOf(l.code) >= 0; }
   function estComplet(l) { var av = avisLigne(l); return !!l.complet && !av.suspendue && !(av.opposition && !(av.suite && av.suite.accordObtenu)) && !demandeEnAttente(l); }
   function raisonsIncomplet(l) {
     var r = [], av = avisLigne(l);
@@ -7042,6 +7256,8 @@ window.DEPOUILLEMENT = (function () {
       if (FILTRE.etat === "sans-ent" && !l.sansEnt) return false;
       if (FILTRE.etat === "sans-par" && !l.sansPar) return false;
       if (FILTRE.etat === "second" && !l.secondManquant) return false;
+      if (FILTRE.etat === "declaration" && !(l.declaration || l.declSansObjet)) return false;   // H-4, H-5 (L8g)
+      if (FILTRE.etat === "alerte" && !l.alerteSecond) return false;   // H-6 (L8g)
       if (FILTRE.etat === "deux" && !l.deux) return false;
       if (FILTRE.etat === "demande" && dem.indexOf(l.code) < 0) return false;
       if (FILTRE.etat === "completer" && !l.aCompleter) return false;
@@ -7083,7 +7299,7 @@ window.DEPOUILLEMENT = (function () {
       + '<div class="sel-ligne">'
       + '<label title="N\'afficher que les élèves de cette classe.">Classe <select id="fc-classe">' + opt("", "Toutes", FILTRE.classe) + Object.keys(classes).sort().map(function (c) { return opt(esc(c), esc(c), FILTRE.classe); }).join("") + '</select></label>'
       + '<label title="N\'afficher que les élèves dans cet état.">État <select id="fc-etat">' + opt("", "Tous", FILTRE.etat) + opt("complet", "Complets", FILTRE.etat) + opt("incomplet", "Incomplets", FILTRE.etat)
-      + opt("sans-ent", "Partie entreprise manquante", FILTRE.etat) + opt("sans-par", "Partie parents manquante", FILTRE.etat) + opt("second", "Second lieu attendu", FILTRE.etat) + opt("deux", "Deux lieux de stage", FILTRE.etat) + opt("demande", "Demande de refaire en attente", FILTRE.etat) + opt("illisible", "Partie illisible", FILTRE.etat) + opt("completer", "À compléter (modèle officiel)", FILTRE.etat) + opt("sanscode", "Parents : envoi sans le code du collège", FILTRE.etat) + '</select></label>'
+      + opt("sans-ent", "Partie entreprise manquante", FILTRE.etat) + opt("sans-par", "Partie parents manquante", FILTRE.etat) + opt("second", "Second lieu attendu", FILTRE.etat) + opt("declaration", "Déclaration des parents : second lieu", FILTRE.etat) + opt("alerte", "Alerter la famille (second lieu)", FILTRE.etat) + opt("deux", "Deux lieux de stage", FILTRE.etat) + opt("demande", "Demande de refaire en attente", FILTRE.etat) + opt("illisible", "Partie illisible", FILTRE.etat) + opt("completer", "À compléter (modèle officiel)", FILTRE.etat) + opt("sanscode", "Parents : envoi sans le code du collège", FILTRE.etat) + '</select></label>'
       + '<label title="Ordre d\'affichage.">Tri <select id="fc-tri">' + opt("recent", "Réception : plus récente d\'abord", FILTRE.tri) + opt("ancien", "Réception : plus ancienne d\'abord", FILTRE.tri) + opt("nom", "Nom", FILTRE.tri) + opt("classe", "Classe, puis nom", FILTRE.tri) + '</select></label></div>'
       + tuilesHTML(duNiveau.length ? duNiveau : vis)
       + '<div class="sel-ligne"><span title="Date de réception de la partie la plus récente de l\'élève.">Reçues entre le</span> <input type="date" id="fc-du" value="' + esc(FILTRE.du) + '" title="Début de la période (incluse)."> <span>et le</span> <input type="date" id="fc-au" value="' + esc(FILTRE.au) + '" title="Fin de la période (incluse).">'
@@ -7174,10 +7390,10 @@ window.DEPOUILLEMENT = (function () {
   }
   // ---- Liste aérée (D102) : une ligne par élève, un seul état, tout le détail replié ----
   function etatDe(l) {
-    var av = (window.__avisDe && window.__avisDe(l.code)) || {};
+    var av = avisCalc(l.code) || {};
     if (av.suspendue) return ["mq-ko", "Suspendue"];
     if (av.opposition && !(av.suite && av.suite.accordObtenu)) return ["mq-ko", "Opposition"];
-    var dem = (window.__demandesCodes && window.__demandesCodes()) || [];
+    var dem = demandesCodesCalc() || [];
     if (dem.indexOf(l.code) >= 0) return ["mq-dem", "Demande de refaire"];
     if ((l.illisibles || []).length) return ["mq-ko", "Partie illisible"];   // C2-4
     if ((l.entARefaire || []).length) return ["mq-ko", "Entreprise à refaire"];
@@ -7244,6 +7460,10 @@ window.DEPOUILLEMENT = (function () {
       if (parMq && etat !== "Partie parents manquante") m.push('<span class="cv-mchip mq-ko">Parents manquants</span>');
     }
     if (l.secondManquant && etat !== "Second lieu attendu") m.push('<span class="cv-mchip mq-att">Second lieu attendu</span>');
+    // H-4 à H-6 (L8g) : la déclaration des parents se voit, sans bloquer ; l'alerte, un mois avant le stage.
+    if (l.declaration) m.push('<span class="cv-mchip mq-info" title="Les parents ont signé la convention 2 : la déclaration sera validée quand une entreprise remplira la deuxième convention. Elle n\'empêche pas « Complet ».">Déclaration des parents : second lieu</span>');
+    if (l.declSansObjet) m.push('<span class="cv-mchip mq-info" title="' + esc(DECL_SANS_OBJET) + '">Déclaration des parents sans objet</span>');
+    if (l.alerteSecond) m.push('<span class="cv-mchip mq-ko" title="Le stage commence dans moins d\'un mois, et aucune entreprise n\'a encore rempli la convention du second lieu.">' + esc(ALERTE_SECOND) + '</span>');
     if (l.jours && l.joursPrevus && l.jours < l.joursPrevus) {
       m.push('<span class="cv-motif"><b>' + l.jours + ' journée' + (l.jours > 1 ? "s" : "") + ' sur ' + l.joursPrevus + '</b></span>');
     }
@@ -7270,7 +7490,10 @@ window.DEPOUILLEMENT = (function () {
     var provAide = "Document provisoire, avec le filigrane « PROVISOIRE » : " + raisons + ". Ne pas le transmettre.";
     var h = '<div class="cv-det" data-det-code="' + c + '"><div class="cv-blocs">'
       + '<div class="cv-bloc"><h5>Parties reçues</h5><div>' + l.parties.map(esc).join("<br>") + '</div></div>'
-      + '<div class="cv-bloc"><h5>À vérifier</h5><div>' + (l.aVerifier.length ? l.aVerifier.map(function (t) { return "⚠ " + esc(t); }).join("<br>") : '<span class="mut">Rien à signaler.</span>') + '</div></div></div>';
+      // K-2, K-3 (L8g-1) : un dossier qui n'est pas complet le dit en tête, en clair (c'est aussi la raison de « Préparer l'envoi » grisé) ;
+      // « Rien à signaler. » seulement pour un élève « Complet » sans point à vérifier. La ligne ne compte pas parmi les points à vérifier.
+      + '<div class="cv-bloc"><h5>À vérifier</h5><div>' + (complet ? "" : '<b class="cv-incomplet">' + esc("Dossier incomplet : " + raisons + ".") + '</b>' + (l.aVerifier.length ? "<br>" : ""))
+      + (l.aVerifier.length ? l.aVerifier.map(function (t) { return "⚠ " + esc(t); }).join("<br>") : (complet ? '<span class="mut">Rien à signaler.</span>' : "")) + '</div></div></div>';
     h += avisHTML(l, admin);
     if (l.sansCourrielPar) {
       var sed = ((window.__avisDe && window.__avisDe(l.code)) || {}).suiviED || {};
@@ -7282,6 +7505,8 @@ window.DEPOUILLEMENT = (function () {
     }
     h += '<div class="cv-actions">'
       + '<button class="btn ghost sm" type="button" onclick="window.DEPOUILLEMENT.genChecklists(\'' + c + '\')" title="Une demi-page à remettre à cet élève : ce qu\'il lui reste à faire.">🖶 Checklist</button>'
+      // K-4 (L8g-1) : tant que la partie illisible n'est pas libérée, la checklist dirait de la refaire alors que le lien est fermé.
+      + ((l.illisibles || []).length ? '<span class="cv-rappel" style="font-size:12.5px;color:#9b2335;align-self:center">' + esc("Libérez d'abord la partie illisible : sinon " + ((l.illisibles || []).some(function (x) { return /^ENTREPRISE/.test(x); }) ? "l'entreprise" : "la famille") + " ne pourra pas la refaire.") + '</span>' : "")
       + (l.aConv1 ? '<button class="btn ghost sm" type="button" onclick="window.DEPOUILLEMENT.voirConvention(\'' + c + '\')" title="Ouvre la convention' + (l.aConv2 ? " du premier lieu de stage" : "") + ' à l\'écran, sans l\'enregistrer sur votre appareil.">👁 Visualiser' + (l.aConv2 ? " (lieu 1)" : "") + '</button>' : "")
       + (l.aConv2 ? '<button class="btn ghost sm" type="button" onclick="window.DEPOUILLEMENT.voirConvention(\'' + c + '\', 2)" title="Ouvre la convention du second lieu de stage à l\'écran, sans l\'enregistrer sur votre appareil.">👁 Visualiser (lieu 2)</button>' : "")
       + (l.aConv1 ? '<button class="btn sm" type="button" onclick="window.DEPOUILLEMENT.genConvention(\'' + c + '\')" title="' + esc(complet ? "Fabrique la convention complète" + (l.deux ? " du premier lieu" : "") + " (PDF)." : provAide) + '">' + (complet ? "Convention" + (l.deux ? " 1" : "") + " (PDF)" : "Aperçu provisoire" + (l.deux ? " 1" : "")) + '</button>' : "")
@@ -7297,6 +7522,7 @@ window.DEPOUILLEMENT = (function () {
     if (admin) (l.entARefaire || []).forEach(function (pl) {
       h += '<div class="cv-actions"><button class="btn ghost sm danger" type="button" onclick="window.__libererPourEntreprise && window.__libererPourEntreprise(\'' + c + '\',\'' + pl + '\')" title="Archive la partie de l\'entreprise qui porte le nom de l\'élève comme signataire ou comme tuteur, puis la supprime : l\'entreprise la refait elle-même avec son lien (D119).">Libérer la partie de l\'entreprise' + (pl === "ENTREPRISE_2" ? " (lieu 2)" : "") + ' pour qu\'elle la refasse</button></div>';
     });
+    if (admin && l.declSansObjet) h += '<div class="cv-actions"><button class="btn ghost sm danger" type="button" onclick="window.__libererDeclaration && window.__libererDeclaration(\'' + c + '\')" title="La convention 2 des parents n\'a plus d\'objet : l\'entreprise 1 accueille l\'élève tous les jours. Ce bouton l\'archive (elle reste dans l\'historique et dans le ZIP de l\'élève), puis la supprime. Coût : si la famille a vraiment un second lieu, elle devra signer de nouveau la convention 2 avec son lien. Réservé à l\'administrateur.">Libérer la convention 2 des parents</button></div>';   // H-5 (L8g)
     if (admin && l.aAttest) h += '<div class="cv-info" data-info-txt="' + c + '"' + (FILTRE.infos[l.code] ? "" : " hidden") + '>À utiliser seulement si la famille vous confirme que son enfant a bien un second lieu de stage. L\'attestation est d\'abord archivée, puis retirée : la famille pourra alors signer la convention du second lieu avec son lien habituel. Si c\'est l\'entreprise qui s\'est trompée en déclarant « seulement certains jours », ne retirez rien : c\'est à l\'entreprise de demander à refaire sa convention, avec son lien.</div>';
     h += historiqueHTML(l);
     return h + '</div>';
@@ -7332,6 +7558,17 @@ window.DEPOUILLEMENT = (function () {
     }
     return h + '</div></div>';
   }
+  // K-1 (L8g-1) : ce qui a été complété, seulement quand on peut l'établir à coup sûr : la partie d'origine manquait de
+  // rubriques qui se lisent dans ses données, et le complément les a toutes apportées. Sinon, null (la ligne reste comme avant).
+  function completeesSures(vb, pl) {
+    if (!vb || !vb.dataOrigine || !window.__listePourPaul) return null;
+    var avant = besoinsPartie({ data: vb.dataOrigine }, pl, (vb.dataOrigine || {}).eleve || "");
+    var surs = ["courriel", "adresse", "tel", "faita", "statut", "urgences", "siret"];
+    if (!avant.length || avant.some(function (n) { return surs.indexOf(n) < 0; })) return null;
+    var apres = besoinsPartie({ data: Object.assign({}, vb.data, { _f: vb.dataOrigine._f, _tv: 1e9 }) }, pl, (vb.data || {}).eleve || "");
+    if (avant.some(function (n) { return apres.indexOf(n) >= 0; })) return null;
+    var l = window.__listePourPaul(pl, avant); return l.length ? l : null;
+  }
   // Historique d'une convention (Q76) : une section repliable par partie ; événements du plus récent au plus ancien.
   function historiqueHTML(l) {
     var v = l.volets, noms = { ENTREPRISE: l.deux ? "Entreprise — lieu 1" : "Entreprise", PARENTS: l.deux ? "Parents — convention 1" : "Parents", ENTREPRISE_2: "Entreprise — lieu 2", PARENTS_2: "Parents — convention 2", ATTESTATION: "Attestation « un seul lieu »" };
@@ -7339,7 +7576,7 @@ window.DEPOUILLEMENT = (function () {
     var total = 0, sections = "";
     ["ENTREPRISE", "PARENTS", "ENTREPRISE_2", "PARENTS_2", "ATTESTATION"].forEach(function (pl) {
       var ev = [];
-      if (v[pl] && v[pl].complement) { ev.push({ t: v[pl].dateOrigine ? v[pl].dateOrigine.getTime() : 0, txt: "Reçue" }); ev.push({ t: v[pl].date ? v[pl].date.getTime() : 0, txt: "Complétée (rubriques du modèle officiel), nouvelle signature" }); }
+      if (v[pl] && v[pl].complement) { var cq = completeesSures(v[pl], pl); ev.push({ t: v[pl].dateOrigine ? v[pl].dateOrigine.getTime() : 0, txt: "Reçue" }); ev.push({ t: v[pl].date ? v[pl].date.getTime() : 0, txt: cq ? "Complétée : " + cq.join(", ") + " ; nouvelle signature" : "Complétée (rubriques du modèle officiel), nouvelle signature" }); }
       else if (v[pl]) ev.push({ t: v[pl].date ? v[pl].date.getTime() : 0, txt: "Reçue" + (v[pl].aCompleter ? " (avant les nouvelles rubriques, à compléter)" : "") });
       dem.filter(function (d) { return d.place === pl || (pl.indexOf("ENTREPRISE") === 0 && d.place === "ENTREPRISE" && (d.o || {}).qui === "entreprise"); })
         .forEach(function (d) { ev.push({ t: d.ts || 0, txt: "Demande de refaire" + ((d.o || {}).raison ? " — « " + d.o.raison + " »" : "") }); });
@@ -7513,36 +7750,65 @@ window.DEPOUILLEMENT = (function () {
   function tachesDe(l) {
     var t = [], prevus = l.joursPrevus || 5, couverts = l.jours || 0, v = l.volets || {};
     var mots = ["", "un jour", "deux jours", "trois jours", "quatre jours", "cinq jours", "six jours"];
+    // K-4 (L8g-1) : la checklist se déduit de ce que dit la console ; chaque raison de l'état de l'élève a sa tâche.
+    var ill = (l.illisibles || []).map(function (x) { return x.replace(/_C$/, ""); });
+    var illEnt = ill.some(function (x) { return /^ENTREPRISE/.test(x); }), illPar = ill.some(function (x) { return /^PARENTS/.test(x); });
+    if (illEnt) t.push(["Ton entreprise doit remplir de nouveau sa partie de la convention, avec le même lien : le collège n'a pas pu la lire.", ""]);
     if ((l.entARefaire || []).length) t.push(["Ton entreprise doit remplir et signer elle-même sa partie de la convention.",
       "La partie de la convention de l'entreprise doit être remplie et signée par l'entreprise, avec le lien que tes parents lui transmettent."]);
-    else if (l.sansEnt) t.push(["Ton maître de stage doit remplir sa partie de la convention.",
+    else if (l.sansEnt && !illEnt) t.push(["Ton maître de stage doit remplir sa partie de la convention.",
       "Sans sa partie de la convention, celle-ci ne peut pas être signée, et sans convention signée tu ne peux pas faire ton stage."]);
-    if (l.sansPar) t.push(["Tes parents doivent remplir leur partie de la convention.",
+    if (illPar) t.push(["Tes parents doivent remplir de nouveau leur partie de la convention, avec le même lien : le collège n'a pas pu la lire.", ""]);
+    if (l.sansPar && !illPar) t.push(["Tes parents doivent remplir leur partie de la convention.",
       "La convention est signée par ton entreprise, par tes parents et par le collège. Il manque leur accord et leurs coordonnées en cas d'urgence."]);
-    var entC = ["ENTREPRISE", "ENTREPRISE_2"].some(function (b) { return v[b] && v[b].aCompleter; }), parC = ["PARENTS", "PARENTS_2"].some(function (b) { return v[b] && v[b].aCompleter; });
-    if (entC || parC) t.push([(entC && parC ? "Ton entreprise et tes parents doivent" : entC ? "Ton entreprise doit" : "Tes parents doivent") + " reprendre la convention pour la compléter et la signer.",
-      "Le collège a besoin de quelques informations en plus : " + (entC && parC ? "elles sont demandées en rouvrant le lien de la convention." : "elles sont demandées en rouvrant le lien de la convention.")]);
+    var besoinsDe = function (bs) { var n = []; bs.forEach(function (b) { if (v[b] && v[b].aCompleter) (v[b].besoins || []).forEach(function (x) { if (n.indexOf(x) < 0) n.push(x); }); }); return n; };
+    var et = function (l_) { return l_.length > 1 ? l_.slice(0, -1).join(", ") + " et " + l_[l_.length - 1] : (l_[0] || ""); };
+    var lE = window.__listePourEleve ? window.__listePourEleve("ENTREPRISE", besoinsDe(["ENTREPRISE", "ENTREPRISE_2"])) : [];
+    var lP = window.__listePourEleve ? window.__listePourEleve("PARENTS", besoinsDe(["PARENTS", "PARENTS_2"])) : [];
+    if (["ENTREPRISE", "ENTREPRISE_2"].some(function (b) { return v[b] && v[b].aCompleter; }))
+      t.push(["Ton entreprise doit reprendre la convention pour la compléter et la signer" + (lE.length ? " : il manque " + et(lE) + "." : "."), "Elle le fait en rouvrant le lien de la convention."]);
+    if (["PARENTS", "PARENTS_2"].some(function (b) { return v[b] && v[b].aCompleter; }))
+      t.push(["Tes parents doivent reprendre la convention pour la compléter et la signer" + (lP.length ? " : il manque " + (lP.length > 1 && lP[lP.length - 1] === window.__urgencesEleve ? lP.slice(0, -1).join(", ") + ", et " + lP[lP.length - 1] : et(lP)) + "." : "."), "Ils le font en rouvrant le lien de la convention."]);   // J-2 (point 837)
+    var av = avisLigne(l);
+    if (av.suspendue || (av.opposition && !(av.suite && av.suite.accordObtenu))) t.push(["Le collège doit d'abord échanger avec ta famille : ta convention ne peut pas encore être signée.", ""]);
+    if (demandeEnAttente(l)) {
+      var dps = (demandesDeCalc(l.code) || []).map(function (d) { return d.place; });
+      if (!dps.length || dps.some(function (p) { return /^ENTREPRISE/.test(p); })) t.push(["Ton entreprise a demandé à refaire sa partie de la convention : le collège la lui rouvre, puis elle la refait avec le même lien.", ""]);
+      if (dps.some(function (p) { return /^PARENTS/.test(p); })) t.push(["Tes parents ont demandé à refaire leur partie de la convention : le collège la leur rouvre, puis ils la refont avec le même lien.", ""]);
+    }
     if (couverts && couverts < prevus) {
       t.push(["Tu dois trouver encore " + (prevus - couverts) + " journée" + ((prevus - couverts) > 1 ? "s" : "") + " de stage : ton stage en compte " + couverts + ", il en faut " + prevus + ".",
         "La séquence d'observation du collège dure " + (mots[prevus] || prevus + " jours") + ", en une fois ou en plusieurs périodes. "
         + "Deux possibilités : demande à ton entreprise si elle peut t'accueillir les journées qui restent, ou trouve un second lieu d'accueil. "
         + "Dans ce second cas, chaque entreprise remplit sa propre convention : tu auras deux conventions, une par lieu."]);
     }
-    if (l.secondManquant) t.push(["Pour ton second lieu, l'entreprise doit remplir sa partie de la convention.",
+    // H-7 (L8g) : avant l'alerte, la tâche d'avant ; à partir de l'alerte, la date limite (point 252) du niveau de l'élève.
+    var lim = dateLimite(l);
+    if (l.alerteSecond && lim) t.push(["Tu dois trouver ton second lieu de stage : ton entreprise doit remplir sa partie de la convention avant le " + frLimite(lim) + ".",
+      "Chaque lieu a sa propre convention : celle du second lieu reste à établir, et ton stage commence bientôt."]);
+    else if (l.secondManquant || l.declaration) t.push(["Pour ton second lieu, l'entreprise doit remplir sa partie de la convention.",
       "Chaque lieu a sa propre convention : celle du premier lieu n'attend plus rien, celle du second reste à établir."]);
     if (l.parents2) t.push(["Pour ton second lieu, tes parents doivent remplir leur partie de la convention.",
       "Chaque lieu a sa propre convention : tes parents signent les deux."]);
     if (l.horairesHors) t.push(["Ton entreprise doit corriger les horaires de ton stage.", "Les horaires doivent rester dans le cadre légal : 7 heures par jour au plus, entre 6 h et 20 h, avec une pause."]);
-    if (l.sansEnt && l.sansPar && !l.entreprise) t = [["Tu dois trouver une entreprise pour ton stage : parles-en à ton professeur principal.",
+    if (l.sansEnt && l.sansPar && !l.entreprise && !illEnt && !illPar) t = [["Tu dois trouver une entreprise pour ton stage : parles-en à ton professeur principal.",
       "Le centre d'information et d'orientation peut t'aider : CIO de Saumur, 3 rue de Sévigné, 02 41 51 02 30, cio.saumur@ac-nantes.fr, du lundi au vendredi de 9 h à 12 h et de 14 h à 17 h."]];
     return t;
   }
   // 252 : « À faire avant le [vendredi qui précède J-10] : ton stage commence le [date]. »
-  function echeance() {
-    var off = ((window.__datesOffNiveau && window.__datesOffNiveau()) || []).slice().sort();
-    if (!off.length) return "";
-    var debut = new Date(off[0] + "T12:00:00"), lim = new Date(debut.getTime() - 10 * 864e5);
+  // H-7 (L8g) : l'échéance se calcule avec les dates officielles du niveau de l'élève, dans les deux onglets.
+  function offLigne(l) { return ((l && l.offEl && l.offEl.length ? l.offEl : dOffNiveau()) || []).slice().sort(); }
+  function dateLimite(l) {
+    var off = offLigne(l); if (!off.length) return null;
+    var lim = new Date(new Date(off[0] + "T12:00:00").getTime() - 10 * 864e5);
     while (lim.getDay() !== 5) lim = new Date(lim.getTime() - 864e5);
+    return lim;
+  }
+  function frLimite(d) { return d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }); }
+  function echeance(l) {
+    var off = offLigne(l);
+    if (!off.length) return "";
+    var debut = new Date(off[0] + "T12:00:00"), lim = dateLimite(l);
     var fr = function (d, j) { return d.toLocaleDateString("fr-FR", { weekday: j ? "long" : undefined, day: "numeric", month: "long" }); };
     var auj = new Date(); auj.setHours(12, 0, 0, 0);
     return (auj > lim ? "À faire dès que possible" : "À faire avant le " + fr(lim, true)) + " : ton stage commence le " + fr(debut, true) + ".";
@@ -7559,7 +7825,7 @@ window.DEPOUILLEMENT = (function () {
     if (t.length) {
       doc.setFont("helvetica", "normal"); doc.setFontSize(9.6);
       doc.text("Au " + dateFrSimple() + ", pour que ta convention soit complète, il reste à faire :", M, y); y += 5.5;
-      var ech = echeance();
+      var ech = echeance(l);
       if (ech) { doc.setFont("helvetica", "bold"); doc.setTextColor(155, 28, 44); doc.text(ech, M, y); doc.setTextColor(33); doc.setFont("helvetica", "normal"); y += 5.5; }
       t.forEach(function (x) {
         doc.setDrawColor(155, 28, 44); doc.setLineWidth(0.4); doc.rect(M, y - 3, 3.4, 3.4);
@@ -7800,7 +8066,23 @@ window.DEPOUILLEMENT = (function () {
     return zip.generateAsync({ type: "blob" });
   }
   function ligneRetiree(code) { return (_lignesRetirees || []).filter(function (x) { return x.code === code; })[0] || null; }
-  return { repasserMarques: repasserMarques, init: init, archiveEleves: archiveEleves, ligneRetiree: ligneRetiree, telecharger: telecharger, importerZip: importerZip, exportCSV: exportCSV, genConvention: genConvention, voirConvention: voirConvention, genChecklists: genChecklists, rafraichir: function () { if (_lignes.length) afficherTable(); }, voletsDe: function (code) { return (_dernier && _dernier.parCode[code]) ? _dernier.parCode[code].volets : {}; }, genToutes: genToutes, envoyer: envoyer, genFichesTuteurs: genFichesTuteurs, injecterTest: injecterTest, nbRecues: nbRecues };
+  // L8g-2 (J-1) : ce que la console conclut, élève par élève, pour un niveau d'une année photographiée (calcul sans effet).
+  function conclusions(resultats, ctx) {
+    var sauf = _calc; _calc = ctx;
+    try {
+      var r = rendre(resultats) || { lignes: [], retirees: [] };
+      var une = function (l, retire) {
+        var complet = estComplet(l), rs = raisonsIncomplet(l), t = tachesDe(l), e = etatDe(l), besoins = {};
+        ["ENTREPRISE", "ENTREPRISE_2", "PARENTS", "PARENTS_2"].forEach(function (b) { if (l.volets[b]) besoins[b] = (l.volets[b].besoins || []).slice(); });
+        var puces = []; String(motifsHTML(l)).replace(/<span class="(?:cv-mchip|cv-motif)[^"]*"[^>]*>([\s\S]*?)<\/span>/g, function (m, x) { puces.push(x.replace(/<[^>]+>/g, "")); return m; });
+        return { code: l.code, eleve: l.affNom, classe: l.classe, etat: e[1], complet: complet, puces: puces, raisons: complet ? [] : rs,
+          parties_recues: l.parties.slice(), a_verifier: (complet ? [] : ["Dossier incomplet : " + rs.join(", ") + "."]).concat(l.aVerifier).length ? (complet ? [] : ["Dossier incomplet : " + rs.join(", ") + "."]).concat(l.aVerifier) : ["Rien à signaler."],
+          besoins: besoins, checklist: t.length ? t.map(function (x) { return { tache: propre(x[0]), detail: x[1] }; }) : [{ tache: "Ta convention est complète.", detail: "Tu n'as plus rien à faire." }], retire: !!retire };
+      };
+      return r.lignes.map(function (l) { return une(l, false); }).concat(r.retirees.map(function (l) { return une(l, true); }));
+    } finally { _calc = sauf; }
+  }
+  return { conclusions: conclusions, checklistDe: function (code) { var l = ligneDe(code); return l ? { complet: estComplet(l), raisons: raisonsIncomplet(l), taches: tachesDe(l).map(function (x) { return x[0]; }), ent: !!(l.volets.ENTREPRISE || l.volets.ENTREPRISE_2) || (l.illisibles || []).some(function (x) { return /^ENTREPRISE/.test(x); }), par: !!(l.volets.PARENTS || l.volets.PARENTS_2) } : null; }, repasserMarques: repasserMarques, init: init, archiveEleves: archiveEleves, ligneRetiree: ligneRetiree, telecharger: telecharger, importerZip: importerZip, exportCSV: exportCSV, genConvention: genConvention, voirConvention: voirConvention, genChecklists: genChecklists, rafraichir: function () { if (_lignes.length) afficherTable(); }, voletsDe: function (code) { return (_dernier && _dernier.parCode[code]) ? _dernier.parCode[code].volets : {}; }, genToutes: genToutes, envoyer: envoyer, genFichesTuteurs: genFichesTuteurs, injecterTest: injecterTest, nbRecues: nbRecues };
 })();
 </script>
 <script>/* =====================================================================
@@ -8144,6 +8426,7 @@ window.DEPOUILLEMENT = (function () {
         if (/t[ée]l/.test(hn) && !r.tel) r.tel = String(row[j] || "").trim();
         else if (/(e-?mail|courriel)/.test(hn) && !r.email) r.email = String(row[j] || "").trim();
         else if (/adresse/.test(hn) && !r.adresse) r.adresse = String(row[j] || "").trim().replace(/\s+/g, " ");
+        else if (/^lien|parent[eé]|qualit[eé]/.test(hn) && !r.lien) r.lien = String(row[j] || "").trim();   // T-7 (L8g), si la liste le donne
       }
       return r;
     }
@@ -8872,8 +9155,10 @@ window.DEPOUILLEMENT = (function () {
     // Les coordonnées du responsable ne partent QUE dans le lien Parents
     if (role === "PARENTS") {
       var r2 = el.resp2 || {};
-      if (r1.nom || r1.tel || r1.email || r1.adresse) payload.p = { n: r1.nom, t: r1.tel, m: r1.email, a: r1.adresse };
-      if (r2.nom || r2.tel || r2.email || r2.adresse) payload.p2 = { n: r2.nom, t: r2.tel, m: r2.email, a: r2.adresse };
+      // T-7 (L8g) : le lien du responsable avec l'élève, quand la liste du collège le donne.
+      var l1 = r1.lien || el.lien1 || "", l2 = r2.lien || "";
+      if (r1.nom || r1.tel || r1.email || r1.adresse) { payload.p = { n: r1.nom, t: r1.tel, m: r1.email, a: r1.adresse }; if (l1) payload.p.l = l1; }
+      if (r2.nom || r2.tel || r2.email || r2.adresse) { payload.p2 = { n: r2.nom, t: r2.tel, m: r2.email, a: r2.adresse }; if (l2) payload.p2.l = l2; }
       var urg = [];
       if (r1.nom || r1.tel) urg.push([r1.nom, r1.tel]);
       if (r2.nom || r2.tel) urg.push([r2.nom, r2.tel]);
@@ -9465,7 +9750,119 @@ window.DEPOUILLEMENT = (function () {
     document.body.appendChild(a); a.click();
     setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 100);
   }
-  function exporterJSON() { autoTelechargerJSON("manuel"); }
+  // L8g-2 (J-1) : « Exporter (.json) » ajoute à la sauvegarde une photo complète de l'application, en clair, pour la conscience.
+  // Jamais de clé : ni clé d'année, ni clé maîtresse, rien du nœud « cles » (elles restent en mémoire, chiffrées sur Firebase).
+  // L'auto-sauvegarde, elle, ne met pas la photo dans ses fichiers.
+  var _photoEnCours = false;
+  function exporterJSON() {
+    if (_photoEnCours) return;
+    if (!window.FB || !window.FB.dispo || !window.FB.lireBrut) { autoTelechargerJSON("manuel"); return; }
+    _photoEnCours = true; toast("Photo de l'application en cours…");
+    construirePhoto().then(function (photo) {
+      var o = stateAExporter(); o.photo = photo;
+      telechargerBlob(nomFichierJSON(), JSON.stringify(o, null, 2)); _lastSig = signature();
+      toast("Sauvegarde et photo téléchargées.");
+    }, function (e) { toast("Photo impossible : " + ((e && e.message) || e) + ". La sauvegarde seule est téléchargée.", true); autoTelechargerJSON("manuel"); })
+      .then(function () { _photoEnCours = false; });
+  }
+  var PHOTO_GLOBAUX = ["config", "journal", "etat", "contenus", "remarques", "presence", "signature", "pause", "textes_version"];
+  var PHOTO_PAR_ANNEE = ["conventions", "codes", "verif", "demandes", "archive", "dates_officielles", "codes_actifs", "codes_retires", "prefill", "fiches"];
+  var PHOTO_TECH = ["ts", "v", "f", "tv", "e", "c", "q", "j", "statut"];
+  var NON_LISIBLE = "non lisible avec ce compte";
+  function construirePhoto() {
+    var u = (window.FB.utilisateur && window.FB.utilisateur()) || {};
+    var photo = { faite_le: new Date().toISOString(), version: (($("app-version") || document.querySelector(".app-version") || {}).textContent || "").trim(),
+      compte: u.email || "", annee_de_travail: STATE.annee, exclu: "Le nœud des clés de chiffrement n'est jamais exporté : aucune clé ne quitte la console.", base: {}, non_lisible: {}, conclusions: {} };
+    var lire = window.FB.lireBrut, base = photo.base, nl = photo.non_lisible, cles = {};
+    var parse = function (x) { if (typeof x !== "string") return x; try { return JSON.parse(x); } catch (e) { return x; } };
+    var ouvrirMaitre = function (p) { return _maitre ? window.CRYPTO.deballerCle(_maitre, p).then(parse) : Promise.reject(new Error("clé maîtresse absente")); };
+    var ouvrirAnnee = function (an, p) { return cles[an] ? window.CRYPTO.dechiffrer(cles[an], p).then(parse) : Promise.reject(new Error("clé de l'année absente")); };
+    // Un élément chiffré, déchiffré en entier ; ses données techniques gardées telles quelles ; illisible, il reste tel quel, et c'est dit.
+    var element = function (p, ouvrir) {
+      if (!p || typeof p !== "object" || !p.ct) return Promise.resolve(p);
+      var t = {}; Object.keys(p).forEach(function (k) { if (PHOTO_TECH.indexOf(k) >= 0) t[k] = p[k]; });
+      return ouvrir(p).then(function (o) { t.contenu = o; return t; }, function () { var b = JSON.parse(JSON.stringify(p)); b.illisible = "illisible avec la clé de l'année"; return b; });
+    };
+    var annees = {}; [STATE.annee, "demo"].concat(Object.keys(STATE.annees || {})).forEach(function (a) { if (a) annees[a] = 1; });
+    return lire("").then(function (racine) {
+      photo.racine = racine.ok ? "lisible : tous les nœuds de la base sont dans la photo" : "non lisible avec ce compte : un nœud absent de la liste connue ne peut pas être découvert (" + racine.err + ")";
+      return lire("cles").then(function (rc) {
+        Object.keys((rc.ok && rc.val) || {}).forEach(function (a) { annees[a] = 1; });
+        if (racine.ok) Object.keys(racine.val || {}).forEach(function (k) { if (k !== "cles" && PHOTO_GLOBAUX.indexOf(k) < 0 && PHOTO_PAR_ANNEE.indexOf(k) < 0) base[k] = racine.val[k]; });
+        // Les clés des années, en mémoire seulement, pour déchiffrer
+        return Promise.all(Object.keys(annees).map(function (a) {
+          if (STATE.cles && STATE.cles[a]) { cles[a] = STATE.cles[a]; return null; }
+          var pk = rc.ok && rc.val ? rc.val[a] : null;
+          if (!pk || !pk.ct || !_maitre) return null;
+          return window.CRYPTO.deballerCle(_maitre, pk).then(function (k) { cles[a] = k; }, function () {});
+        }));
+      });
+    }).then(function () {
+      var lectures = PHOTO_GLOBAUX.map(function (n) { return lire(n).then(function (r) { if (r.ok) base[n] = r.val; else nl[n] = NON_LISIBLE + " (" + r.err + ")"; }); });
+      PHOTO_PAR_ANNEE.forEach(function (n) {
+        base[n] = {};
+        Object.keys(annees).forEach(function (a) {
+          lectures.push(lire(n + "/" + a).then(function (r) { if (r.ok) { if (r.val != null) base[n][a] = r.val; } else nl[n + "/" + a] = NON_LISIBLE + " (" + r.err + ")"; }));
+        });
+      });
+      return Promise.all(lectures);
+    }).then(function () {
+      // Déchiffrer, nœud par nœud
+      var t = [];
+      var parAnnee = function (n, f) { Object.keys(base[n] || {}).forEach(function (a) { f(a, base[n][a]); }); };
+      parAnnee("conventions", function (a, codes) { Object.keys(codes || {}).forEach(function (c) { Object.keys(codes[c] || {}).forEach(function (r) { t.push(element(codes[c][r], function (p) { return ouvrirAnnee(a, p); }).then(function (x) { codes[c][r] = x; })); }); }); });
+      parAnnee("demandes", function (a, codes) { Object.keys(codes || {}).forEach(function (c) { Object.keys(codes[c] || {}).forEach(function (r) { t.push(element(codes[c][r], function (p) { return ouvrirAnnee(a, p); }).then(function (x) { codes[c][r] = x; })); }); }); });
+      parAnnee("prefill", function (a, l) { Object.keys(l || {}).forEach(function (h) { t.push(element(l[h], function (p) { return ouvrirAnnee(a, p); }).then(function (x) { l[h] = x; })); }); });
+      parAnnee("archive", function (a, l) { Object.keys(l || {}).forEach(function (id) { var rec = l[id]; if (rec && rec.contenu && rec.contenu.ct) t.push(element(rec.contenu, function (p) { return ouvrirAnnee(a, p); }).then(function (x) { rec.contenu = x; })); }); });
+      parAnnee("codes", function (a, p) { if (p && p.ct) t.push(element(p, ouvrirMaitre).then(function (x) { base.codes[a] = x; })); });
+      ["etat", "contenus", "signature"].forEach(function (n) { if (base[n] && base[n].ct) t.push(element(base[n], ouvrirMaitre).then(function (x) { base[n] = x; })); });
+      ["journal", "remarques"].forEach(function (n) {
+        Object.keys(base[n] || {}).forEach(function (id) {
+          var it = base[n][id]; if (!it || typeof it !== "object") return;
+          if (it.ct) t.push(element(it, ouvrirMaitre).then(function (x) { Object.keys(it).forEach(function (k) { if (["iv", "ct", "repIv", "repCt"].indexOf(k) < 0 && !(k in x) && k.indexOf("rep") !== 0) x[k] = it[k]; }); base[n][id] = x; return x; }).then(function (x) {
+            if (it.repCt) return ouvrirMaitre({ iv: it.repIv, ct: it.repCt }).then(function (rp) { x.reponse = rp; }, function () { x.reponse = { illisible: "illisible avec la clé maîtresse", repIv: it.repIv, repCt: it.repCt }; });
+          }));
+        });
+      });
+      return Promise.all(t);
+    }).then(function () {
+      // Ce que la console en conclut, élève par élève, pour chaque année et chaque niveau
+      Object.keys(annees).forEach(function (a) { photo.conclusions[a] = conclusionsAnnee(a, base); });
+      return photo;
+    });
+  }
+  // L8g-2 : les listes, les dates, les avis et les demandes de l'année photographiée, pour rejouer le calcul de la console.
+  function conclusionsAnnee(a, base) {
+    var niveaux = a === "demo" ? { demo: (STATE.niveaux || {}).demo || {} } : (a === STATE.annee ? { "4e": STATE.niveaux["4e"] || {}, "3e": STATE.niveaux["3e"] || {} } : ((STATE.annees || {})[a] || {}));
+    if (a !== "demo" && !Object.keys(niveaux).length) niveaux = { "4e": {}, "3e": {} };   // une année sans liste : ses élèves restent inconnus, visibles dans les deux niveaux
+    var tous = []; Object.keys(niveaux).forEach(function (n) { ((niveaux[n] || {}).eleves || []).forEach(function (e) { tous.push({ n: n, e: e }); }); });
+    var resolver = function (code) { var x = tous.filter(function (t) { return t.e.code === code; })[0]; if (!x) return null; var tel = ((niveaux[x.n] || {}).tuteursTel || {})[x.e.tuteur] || ""; return Object.assign({}, x.e, { tuteurTel: tel }); };
+    var dAn = a === "demo" ? STATE.annee : a, dates = ((base.dates_officielles || {})[dAn]) || {};
+    var dems = [], AVIS = { ACCORD: 1, OPPOSITION: 1, SUITE_OPPOSITION: 1, SUIVI_ED: 1 };
+    Object.keys((base.demandes || {})[a] || {}).forEach(function (c) { var pl = base.demandes[a][c] || {}; Object.keys(pl).forEach(function (p) { var x = pl[p] || {}; dems.push({ code: c, place: p, ts: x.ts || 0, o: x.contenu || {} }); }); });
+    var avis = dems.filter(function (d) { return AVIS[d.place]; }), demandes = dems.filter(function (d) { return !AVIS[d.place]; });
+    var retires = {}; Object.keys(niveaux).forEach(function (n) { ((niveaux[n] || {}).codesRetires || []).forEach(function (c) { retires[c] = 1; }); });
+    // Les parties, comme la console les reçoit (même forme que surSnapshot)
+    var res = [], conv = (base.conventions || {})[a] || {};
+    Object.keys(conv).forEach(function (c) {
+      Object.keys(conv[c] || {}).forEach(function (r) {
+        var x = conv[c][r]; if (!x) return;
+        if (x.illisible) { res.push({ illisible: true, code: c, role: r, date: x.ts ? new Date(x.ts) : null }); return; }
+        var o = x.contenu; if (!o || typeof o !== "object") return;
+        var dt = x.ts ? new Date(x.ts) : new Date();
+        res.push({ nom: (o.code || c) + "_" + r, date: dt, data: { code: o.code, role: o.role || r, eleve: o.eleve, naissance: o.naissance || "", annee: a, champs: o.champs, hash: o.hash, ts: dt.toISOString(), signature: o.signature || o.sig || "", _f: +x.f || 0, _tv: +x.tv || 0, _code: o.avecCode, _c: x.c || "", _j: x.j || "" } });
+      });
+    });
+    var out = {};
+    Object.keys(niveaux).forEach(function (n) {
+      var ctx = { niveau: n, resolver: resolver, classeDe: function () { return ""; }, datesOff: function (k) { return (dates[k] || []).filter(Boolean).slice().sort(); },
+        avisDe: function (code) { return avisDeListe(avis, code); }, demandesCodes: function () { return demandes.map(function (d) { return d.code; }); },
+        demandesDe: function (code) { return demandes.filter(function (d) { return d.code === code; }); },
+        elevesDe: function (k) { return ((niveaux[k] || {}).eleves) || []; }, retires: retires };
+      out[n] = window.DEPOUILLEMENT && window.DEPOUILLEMENT.conclusions ? window.DEPOUILLEMENT.conclusions(res, ctx) : [];
+    });
+    return out;
+  }
   function autoTelechargerJSON() {
     telechargerBlob(nomFichierJSON(), JSON.stringify(stateAExporter(), null, 2));
     _lastSig = signature();
@@ -9479,7 +9876,7 @@ window.DEPOUILLEMENT = (function () {
     reader.onload = function (e) {
       $("file-import-json").value = "";
       var s;
-      try { s = JSON.parse(e.target.result); if (!s || !s.niveaux) throw new Error("ce fichier n'est pas une sauvegarde de la console"); }
+      try { s = JSON.parse(e.target.result); if (s && typeof s === "object") delete s.photo; if (!s || !s.niveaux) throw new Error("ce fichier n'est pas une sauvegarde de la console"); }   // L8g-2 : la photo n'entre jamais dans la console
       catch (err) { toast("Reprise impossible : " + err.message, true); return; }
       _reprise = s;
       var an = s.annee || STATE.annee, memeAnnee = an === STATE.annee;
@@ -9818,6 +10215,23 @@ window.DEPOUILLEMENT = (function () {
   // Une entrée par version mise en ligne, la plus récente en tête. Dates et versions relevées dans l'historique
   // des envois sur GitHub ; descriptions reconstituées. À COMPLÉTER À CHAQUE LIVRAISON (consigne 8 en tête du fichier).
   var NOUVEAUTES = [
+    { date: "15/10/2026", heure: "09:01", auteur: "Paul Meney", version: "v2026.10.15·L8g-2", points: [
+      "« Exporter (.json) » ajoute à la sauvegarde une photo complète de l'application, en clair : toute la base, déchiffrée (les parties illisibles sont dites telles), et ce que la console conclut pour chaque élève (état, raisons, « À vérifier », tâches de sa checklist). Aucune clé de chiffrement n'est jamais dans le fichier. À garder en lieu sûr.",
+      "L'auto-sauvegarde ne met pas la photo dans ses fichiers, et « Reprendre… » l'ignore : rien de la photo n'entre dans la console ni dans la base.",
+      "Checklist : pour les parents, l'adresse, le téléphone et la commune d'abord, les personnes à prévenir en dernier. Horaires de l'entreprise : sous « Copier le matin… » et « Copier l'après-midi… » grisés, la ligne dit pourquoi."
+    ] },
+    { date: "13/10/2026", heure: "20:15", auteur: "Paul Meney", version: "v2026.10.13·L8g-1", points: [
+      "Conventions reçues : le détail d'une partie à compléter nomme les rubriques demandées (« à compléter : l'adresse, le numéro de téléphone… »), les mêmes que dans la liste donnée à la famille ou à l'entreprise ; l'historique dit ce qui a été complété quand c'est sûr.",
+      "« À vérifier » commence, pour un dossier qui n'est pas complet, par « Dossier incomplet : » et ses raisons ; « Rien à signaler. » ne s'affiche plus que pour un élève « Complet ». C'est aussi la raison écrite de « Préparer l'envoi » grisé.",
+      "La checklist de l'élève suit l'état de la console : une partie illisible à refaire, les rubriques exactes à compléter, l'échange du collège avec la famille, une demande de refaire en attente. « Tu dois trouver une entreprise » ne s'affiche plus quand une partie d'entreprise existe. La feuille d'un dossier complet ne change pas."
+    ] },
+    { date: "13/10/2026", heure: "12:34", auteur: "Paul Meney", version: "v2026.10.13·L8g", points: [
+      "Le second lieu : ce sont les entreprises qui disent les jours, jamais la famille. La convention 2 signée par les parents est une déclaration, validée quand une entreprise remplit la deuxième convention ; elle ne bloque plus « Complet ». Si l'entreprise 1 accueille l'élève tous les jours, elle est « sans objet », et « Libérer la convention 2 des parents » l'archive puis la supprime.",
+      "Un mois avant le premier jour du stage du niveau de l'élève, une déclaration non validée ou un second lieu attendu sans entreprise 2 devient « Alerter la famille pour qu'elle trouve un second lieu de stage », et la checklist donne la date limite.",
+      "Entreprises : « seulement certains jours » avec tous les jours cochés est refusé ; l'entreprise du second lieu est prévenue dès le bouton quand tous les jours sont déjà pris ; sans SIRET, la convention imprime « Aucun numéro SIRET (déclaré par l'entreprise) ».",
+      "Aucune convention avec des trous : l'adresse et le téléphone des parents, « Fait à » des deux côtés, le lien de chaque personne à prévenir sont obligatoires ; les horaires refusent une plage sans fin et un après-midi qui ne suit pas le matin.",
+      "Le lien avec l'élève se choisit dans une liste (Mère, Père, Tuteur ou tutrice légale, Autre à préciser) ; le statut en découle, et l'écran « Votre statut » disparaît. Les parties déjà reçues gardent leur lien et leur statut ; celles à qui manque une rubrique devenue obligatoire sont « À compléter », et le même « Compléter » la demande, sans rien remplacer."
+    ] },
     { date: "12/10/2026", heure: "17:57", auteur: "Paul Meney", version: "v2026.10.12·L8f", points: [
       "Le lien n'est plus qu'une porte d'entrée : ce que le collège connaît de l'élève (son nom, sa date de naissance, ses responsables) vient du collège. La console de M. Meney le dépose, chiffré, pour chaque élève de la liste, et le tient à jour. Un lien donné en septembre montre donc les responsables par leur nom dans « Qui remplit ? », et peut préremplir après le choix.",
       "« Qui remplit ? » : « Une autre personne », sans parenthèse.",
@@ -11269,11 +11683,13 @@ window.DEPOUILLEMENT = (function () {
     Promise.all(taches).then(function (res) { if (window.DEPOUILLEMENT) DEPOUILLEMENT.injecterTest(res.filter(Boolean)); });
   }
   var _unsubDemandes = null, _demandes = [], _avis = [], _unsubArchive = null, _archive = [];
-  window.__avisDe = function (code) {
-    var r = {}; _avis.forEach(function (d) { if (d.code !== code) return; if (d.place === "ACCORD") r.accord = d; else if (d.place === "OPPOSITION") r.opposition = d; else if (d.place === "SUIVI_ED") r.suiviED = d.o || {}; else r.suite = d.o || {}; });
+  window.__avisDe = function (code) { return avisDeListe(_avis, code); };
+  function avisDeListe(liste, code) {
+    var r = {}; liste.forEach(function (d) { if (d.code !== code) return; if (d.place === "ACCORD") r.accord = d; else if (d.place === "OPPOSITION") r.opposition = d; else if (d.place === "SUIVI_ED") r.suiviED = d.o || {}; else r.suite = d.o || {}; });
     r.suspendue = !!(r.opposition && r.suite && r.suite.courrierRecu && !r.suite.accordObtenu);
     return r;
-  };
+  }
+  window.__avisDeListe = avisDeListe;
   function ecrireSuiteOpposition(code, maj, quoi) {
     var cle = STATE.cles[espaceAnnee()]; if (!cle || !estAdmin()) { toast("Réservé à l'administrateur.", true); return; }
     var av = window.__avisDe(code), suite = Object.assign({}, av.suite || {}, maj);
@@ -11343,6 +11759,15 @@ window.DEPOUILLEMENT = (function () {
     archiverPuis(code, place, "D119 : partie de l'entreprise au nom de l'élève (signataire ou tuteur), à refaire par l'entreprise")
       .then(function (rec) { return archiverPuis(code, place + "_C", "complément de la partie libérée").then(function () { return rec; }); })
       .then(function (rec) { journal("suppression", "a libéré la partie " + place + " de " + code + " (D119, à refaire par l'entreprise)"); toast(rec ? "Partie archivée puis libérée : l'entreprise peut la refaire avec son lien." : "Partie déjà absente."); })
+      .catch(function () { toast("Libération annulée : l'archivage n'a pas pu être confirmé.", true); });
+  };
+  // H-5 (L8g) : la convention 2 des parents sans objet (l'entreprise 1 accueille l'élève tous les jours) : archivée, puis supprimée.
+  window.__libererDeclaration = function (code) {
+    if (!estAdmin()) { toast("Réservé à l'administrateur.", true); return; }
+    if (!confirm("Libérer la convention 2 des parents ?\n\nL'entreprise 1 accueille l'élève tous les jours : la déclaration d'un second lieu n'a plus d'objet. Elle est d'abord archivée (historique et ZIP de l'élève), puis supprimée. Si la famille a vraiment un second lieu, elle signera de nouveau la convention 2 avec son lien.")) return;
+    archiverPuis(code, "PARENTS_2", "H-5 : déclaration des parents sans objet, l'entreprise 1 accueille l'élève tous les jours")
+      .then(function (rec) { return archiverPuis(code, "PARENTS_2_C", "complément de la convention 2 libérée").then(function () { return rec; }); })
+      .then(function (rec) { journal("suppression", "a libéré la convention 2 des parents de " + code + " (sans objet, archivée)"); toast(rec ? "Convention 2 des parents archivée puis libérée." : "Convention 2 des parents déjà absente."); })
       .catch(function () { toast("Libération annulée : l'archivage n'a pas pu être confirmé.", true); });
   };
   window.__retirerAttestation = function (code) {
