@@ -885,7 +885,7 @@
 
 <div id="toast" class="toast" hidden></div>
 <button id="btn-valider-collab" hidden title="Ouvre la liste de vos modifications de textes, pour les valider ou les abandonner une par une." onclick="window.__ouvrirValidation && window.__ouvrirValidation()">✓ Valider mes modifications (0)</button>
-<div class="app-version">v2026.10.15·L8g-2</div>
+<div class="app-version">v2026.10.15·L8g-3</div>
 
 <script>
 /* ===== Configuration : système de transmission ====================
@@ -4505,6 +4505,23 @@ window.SIGNATAIRE = (function () {
   window.__listePourPaul = function (role, l) { return /^ENTREPRISE/.test(role) ? listeDe(LISTE_PAUL, "ENTREPRISE", l || []) : ordreParents(LISTE_PAUL, l || []); };
   window.__listePourEleve = function (role, l) { return /^ENTREPRISE/.test(role) ? listeDe(LISTE_ELEVE, "ENTREPRISE", l || []) : ordreParents(LISTE_ELEVE, l || []); };
   window.__urgencesEleve = LISTE_ELEVE.PARENTS.urgences[0];
+  // M-1 (L8g-3) : une partie de l'ancienne version (besoin « champs ») a donné le lien, les personnes à prévenir, les dates et les horaires :
+  // ils sont « à préciser » ou « à redonner », et « il manque » ne reste que pour les autres besoins, à la suite (« il manque aussi »).
+  var PRECISER = {
+    ELEVE: { PARENTS: "ils doivent préciser à quel titre ils signent, ta santé (PAI) et les aménagements éventuels, et redonner les personnes à prévenir en cas d'urgence, chacune avec son lien avec toi et son téléphone",
+      ENTREPRISE: "elle doit préciser tes jours et tes horaires de présence, jour par jour, la fonction de ton tuteur, les activités prévues et la fonction du représentant qui signe" },
+    PAUL: { PARENTS: "à quel titre ils signent, la santé de l'élève (PAI) et les aménagements, les personnes à prévenir à redonner avec leur lien",
+      ENTREPRISE: "les jours et les horaires jour par jour, la fonction du tuteur, les activités, la fonction du représentant" }
+  };
+  // Les autres besoins d'une telle partie : ceux que « préciser » ne couvre pas (le lien, les personnes à prévenir et les horaires y sont).
+  function autresQueChamps(l) { return (l || []).filter(function (x) { return ["champs", "statut", "urgences", "horaires"].indexOf(x) < 0; }); }
+  function aussiDe(table, role, l, siret) {
+    var t = /^ENTREPRISE/.test(role) ? listeDe(table, "ENTREPRISE", autresQueChamps(l)) : ordreParents(table, autresQueChamps(l));
+    return t.map(function (x) { return x === table.ENTREPRISE.siret[0] ? siret : x; });
+  }
+  window.__aPreciser = function (l) { return (l || []).indexOf("champs") >= 0; };
+  window.__preciserEleve = function (role, l) { return { preciser: PRECISER.ELEVE[/^ENTREPRISE/.test(role) ? "ENTREPRISE" : "PARENTS"], aussi: aussiDe(LISTE_ELEVE, role, l, "le numéro SIRET de son établissement") }; };
+  window.__preciserPaul = function (role, l) { return { preciser: PRECISER.PAUL[/^ENTREPRISE/.test(role) ? "ENTREPRISE" : "PARENTS"], aussi: aussiDe(LISTE_PAUL, role, l, "le numéro SIRET") }; };
   // Points 339-350 : le message aux familles et aux entreprises dont la partie est à compléter, avec la liste exacte (D118).
   function htmlCompleterOffre(qui) {
     var ent = qui === "ENTREPRISE", base = ent ? (aCompleter("ENTREPRISE") ? "ENTREPRISE" : "ENTREPRISE_2") : (aCompleter("PARENTS") ? "PARENTS" : "PARENTS_2");
@@ -7098,6 +7115,12 @@ window.DEPOUILLEMENT = (function () {
         if (v[r].complement) { parties.push("✓ " + lib + " · reçue le " + heureDe(v[r].dateOrigine) + " · complétée le " + heureDe(v[r].date)); return; }
         // K-1 (L8g-1) : les rubriques demandées, les mêmes que dans la liste donnée à la famille ou à l'entreprise, écrites pour Paul.
         var lc = v[r].aCompleter && window.__listePourPaul ? window.__listePourPaul(r, v[r].besoins || []) : [];
+        // M-1 (L8g-3) : une partie de l'ancienne version, « à préciser », puis ce qui manque vraiment.
+        if (v[r].aCompleter && window.__aPreciser && window.__aPreciser(v[r].besoins)) {
+          var pp = window.__preciserPaul(r, v[r].besoins);
+          parties.push("◐ " + lib + " · reçue le " + heureDe(v[r].date) + " · à préciser : " + pp.preciser + (pp.aussi.length ? " ; il manque : " + pp.aussi.join(", ") : ""));
+          return;
+        }
         parties.push((v[r].aCompleter ? "◐ " : "✓ ") + lib + " · reçue le " + heureDe(v[r].date) + (v[r].aCompleter ? (lc.length ? " · à compléter : " + lc.join(", ") : " · à compléter (rubriques du modèle officiel)") : ""));
       }
       partie("ENTREPRISE", secondAttendu || declaration ? "Entreprise — lieu 1" : "Entreprise");
@@ -7765,9 +7788,15 @@ window.DEPOUILLEMENT = (function () {
     var et = function (l_) { return l_.length > 1 ? l_.slice(0, -1).join(", ") + " et " + l_[l_.length - 1] : (l_[0] || ""); };
     var lE = window.__listePourEleve ? window.__listePourEleve("ENTREPRISE", besoinsDe(["ENTREPRISE", "ENTREPRISE_2"])) : [];
     var lP = window.__listePourEleve ? window.__listePourEleve("PARENTS", besoinsDe(["PARENTS", "PARENTS_2"])) : [];
-    if (["ENTREPRISE", "ENTREPRISE_2"].some(function (b) { return v[b] && v[b].aCompleter; }))
+    // M-1 (L8g-3) : une partie de l'ancienne version (« champs ») : « préciser » et « redonner », puis « il manque aussi ».
+    var pE = window.__aPreciser && window.__aPreciser(besoinsDe(["ENTREPRISE", "ENTREPRISE_2"])) ? window.__preciserEleve("ENTREPRISE", besoinsDe(["ENTREPRISE", "ENTREPRISE_2"])) : null;
+    var pP = window.__aPreciser && window.__aPreciser(besoinsDe(["PARENTS", "PARENTS_2"])) ? window.__preciserEleve("PARENTS", besoinsDe(["PARENTS", "PARENTS_2"])) : null;
+    var aussi = function (p) { return p.aussi.length ? " ; il manque aussi " + et(p.aussi) : ""; };
+    if (pE) t.push(["Ton entreprise doit reprendre la convention pour la compléter et la signer : " + pE.preciser + aussi(pE) + ".", "Elle le fait en rouvrant le lien de la convention."]);
+    else if (["ENTREPRISE", "ENTREPRISE_2"].some(function (b) { return v[b] && v[b].aCompleter; }))
       t.push(["Ton entreprise doit reprendre la convention pour la compléter et la signer" + (lE.length ? " : il manque " + et(lE) + "." : "."), "Elle le fait en rouvrant le lien de la convention."]);
-    if (["PARENTS", "PARENTS_2"].some(function (b) { return v[b] && v[b].aCompleter; }))
+    if (pP) t.push(["Tes parents doivent reprendre la convention pour la compléter et la signer : " + pP.preciser + aussi(pP) + ".", "Ils le font en rouvrant le lien de la convention."]);
+    else if (["PARENTS", "PARENTS_2"].some(function (b) { return v[b] && v[b].aCompleter; }))
       t.push(["Tes parents doivent reprendre la convention pour la compléter et la signer" + (lP.length ? " : il manque " + (lP.length > 1 && lP[lP.length - 1] === window.__urgencesEleve ? lP.slice(0, -1).join(", ") + ", et " + lP[lP.length - 1] : et(lP)) + "." : "."), "Ils le font en rouvrant le lien de la convention."]);   // J-2 (point 837)
     var av = avisLigne(l);
     if (av.suspendue || (av.opposition && !(av.suite && av.suite.accordObtenu))) t.push(["Le collège doit d'abord échanger avec ta famille : ta convention ne peut pas encore être signée.", ""]);
@@ -10215,6 +10244,10 @@ window.DEPOUILLEMENT = (function () {
   // Une entrée par version mise en ligne, la plus récente en tête. Dates et versions relevées dans l'historique
   // des envois sur GitHub ; descriptions reconstituées. À COMPLÉTER À CHAQUE LIVRAISON (consigne 8 en tête du fichier).
   var NOUVEAUTES = [
+    { date: "15/10/2026", heure: "14:11", auteur: "Paul Meney", version: "v2026.10.15·L8g-3", points: [
+      "Checklist : pour une partie envoyée avec l'ancienne version, ce que les parents ou l'entreprise ont déjà donné (leur lien, les personnes à prévenir, les dates et les horaires) est dit « à préciser » ou « à redonner » ; « il manque » ne reste que pour ce qui manque vraiment (par exemple le numéro SIRET).",
+      "Conventions reçues : le détail d'une telle partie dit de même « à préciser : … », puis « il manque : … » s'il y a lieu ; la photo de l'export reprend ces lignes."
+    ] },
     { date: "15/10/2026", heure: "09:01", auteur: "Paul Meney", version: "v2026.10.15·L8g-2", points: [
       "« Exporter (.json) » ajoute à la sauvegarde une photo complète de l'application, en clair : toute la base, déchiffrée (les parties illisibles sont dites telles), et ce que la console conclut pour chaque élève (état, raisons, « À vérifier », tâches de sa checklist). Aucune clé de chiffrement n'est jamais dans le fichier. À garder en lieu sûr.",
       "L'auto-sauvegarde ne met pas la photo dans ses fichiers, et « Reprendre… » l'ignore : rien de la photo n'entre dans la console ni dans la base.",
