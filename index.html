@@ -785,6 +785,7 @@
 
         <div class="admin-bloc">
           <h4>Textes de la convention</h4>
+          <p class="hint" id="admin-articles-partage" style="margin-top:0">Ce que vous modifiez ici est ce que les familles et les entreprises lisent et signent, et ce qui est imprimé sur la convention.</p>
           <p class="hint" style="margin-top:0">Les huit articles ont une portée juridique : toute modification apparaîtra sur les conventions signées. Le texte d'origine reste récupérable.</p>
           <div id="admin-articles"></div>
         </div>
@@ -885,7 +886,7 @@
 
 <div id="toast" class="toast" hidden></div>
 <button id="btn-valider-collab" hidden title="Ouvre la liste de vos modifications de textes, pour les valider ou les abandonner une par une." onclick="window.__ouvrirValidation && window.__ouvrirValidation()">✓ Valider mes modifications (0)</button>
-<div class="app-version">v2026.10.15·L8g-3</div>
+<div class="app-version">v2026.11.02·L8g-8</div>
 
 <script>
 /* ===== Configuration : système de transmission ====================
@@ -1158,6 +1159,12 @@ window.FB = (function () {
   function lireChefEmail() { if (!dispo) return Promise.resolve(null); return db.ref("config/chefEmail").once("value").then(function (s) { return s.val(); }); }
   function ecrireChefEmail(v) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("config/chefEmail").set(v); }
   function ecouterChefEmail(cb) { if (!dispo) return; db.ref("config/chefEmail").on("value", function (s) { cb(s.val() || ""); }); }
+  // R-1 (L8g-5) : les textes de la convention, en clair, lisibles sans connexion ; écrits par le compte de Paul seul.
+  function lireTextesPartages() { if (!dispo) return Promise.resolve(null); return db.ref("textes_partages").once("value").then(function (s) { return s.val(); }); }
+  function ecrireTextesPartages(o) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("textes_partages").set(o); }
+  // S-3 (L8g-6) : un seul texte change dans la base ; et chaque console suit les textes partagés.
+  function majTextesPartages(maj) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("textes_partages").update(maj); }
+  function ecouterTextesPartages(cb) { if (!dispo) return function () {}; var r = db.ref("textes_partages"), f = r.on("value", function (s) { cb(s.val()); }, function () {}); return function () { r.off("value", f); }; }
   function lireContenus() { if (!dispo) return Promise.resolve(null); return db.ref("contenus").once("value").then(function (s) { return s.val(); }); }
   function ecrireContenus(o) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("contenus").set(o); }
   // Remarques d'amélioration : chaque entrée est chiffrée ; le statut et la réponse restent modifiables.
@@ -1197,7 +1204,7 @@ window.FB = (function () {
   function deconnecter() { if (dispo) try { auth.signOut(); } catch (e) {} }
   function onAuth(cb) { if (dispo) auth.onAuthStateChanged(cb); else cb(null); }
   function utilisateur() { return (dispo && auth && auth.currentUser) || null; }
-  return { dispo: dispo, ecrireMarque: ecrireMarque, ecrireMarqueQui: ecrireMarqueQui, ecrireFiche: ecrireFiche, lireFiches: lireFiches, lirePrefill: lirePrefill, lirePrefillAnnee: lirePrefillAnnee, ecrirePrefill: ecrirePrefill, supprimerFiche: supprimerFiche, supprimerEleveBase: supprimerEleveBase, etatRetrait: etatRetrait, lireRetire: lireRetire, ecouterEtat: ecouterEtat, ecrireConvention: ecrireConvention, ecouter: ecouter, supprimer: supprimer, viderEspace: viderEspace, lireSel: lireSel, ecrireSel: ecrireSel, lireCleAnnee: lireCleAnnee, lireBrut: lireBrut, ecrireCleAnnee: ecrireCleAnnee, lireCanari: lireCanari, ecrireCanari: ecrireCanari, ecouterCollab: ecouterCollab, ecrireCollab: ecrireCollab, journalPush: journalPush, journalEcouter: journalEcouter, journalPurger: journalPurger, lireEtat: lireEtat, ecrireEtat: ecrireEtat, presenceAnnoncer: presenceAnnoncer, presenceMaj: presenceMaj, presencePartir: presencePartir, presenceEcouter: presenceEcouter, lireContenus: lireContenus, ecrireContenus: ecrireContenus, lireCodes: lireCodes, ecrireCodes: ecrireCodes, ecrireVerif: ecrireVerif, lireVersionTextes: lireVersionTextes, ecrireVersionTextes: ecrireVersionTextes, ecrireCodeActif: ecrireCodeActif, lireCodeActif: lireCodeActif, testerEmpreinte: testerEmpreinte, PLACES: PLACES, COMPLEMENTS: COMPLEMENTS, lireStatuts: lireStatuts, marquerStatut: marquerStatut, supprimerPlace: supprimerPlace, ecrireDemande: ecrireDemande, ecouterDemandes: ecouterDemandes, supprimerDemande: supprimerDemande, ecrireArchive: ecrireArchive, ecouterArchive: ecouterArchive, lirePlace: lirePlace, lireDatesOfficielles: lireDatesOfficielles, ecrireDatesOfficielles: ecrireDatesOfficielles, lirePause: lirePause, ecrirePause: ecrirePause, ecouterPause: ecouterPause, lireSignature: lireSignature, ecrireSignature: ecrireSignature, ecouterSignature: ecouterSignature, lireChefEmail: lireChefEmail, ecrireChefEmail: ecrireChefEmail, ecouterChefEmail: ecouterChefEmail, remarquePush: remarquePush, remarqueMaj: remarqueMaj, remarqueSupprimer: remarqueSupprimer, remarquesEcouter: remarquesEcouter, connecter: connecter, deconnecter: deconnecter, onAuth: onAuth, utilisateur: utilisateur };
+  return { dispo: dispo, ecrireMarque: ecrireMarque, ecrireMarqueQui: ecrireMarqueQui, ecrireFiche: ecrireFiche, lireFiches: lireFiches, lirePrefill: lirePrefill, lirePrefillAnnee: lirePrefillAnnee, ecrirePrefill: ecrirePrefill, supprimerFiche: supprimerFiche, supprimerEleveBase: supprimerEleveBase, etatRetrait: etatRetrait, lireRetire: lireRetire, ecouterEtat: ecouterEtat, ecrireConvention: ecrireConvention, ecouter: ecouter, supprimer: supprimer, viderEspace: viderEspace, lireSel: lireSel, ecrireSel: ecrireSel, lireCleAnnee: lireCleAnnee, lireBrut: lireBrut, ecrireCleAnnee: ecrireCleAnnee, lireCanari: lireCanari, ecrireCanari: ecrireCanari, ecouterCollab: ecouterCollab, ecrireCollab: ecrireCollab, journalPush: journalPush, journalEcouter: journalEcouter, journalPurger: journalPurger, lireEtat: lireEtat, ecrireEtat: ecrireEtat, presenceAnnoncer: presenceAnnoncer, presenceMaj: presenceMaj, presencePartir: presencePartir, presenceEcouter: presenceEcouter, lireContenus: lireContenus, ecrireContenus: ecrireContenus, lireCodes: lireCodes, ecrireCodes: ecrireCodes, ecrireVerif: ecrireVerif, lireVersionTextes: lireVersionTextes, ecrireVersionTextes: ecrireVersionTextes, lireTextesPartages: lireTextesPartages, ecrireTextesPartages: ecrireTextesPartages, majTextesPartages: majTextesPartages, ecouterTextesPartages: ecouterTextesPartages, ecrireCodeActif: ecrireCodeActif, lireCodeActif: lireCodeActif, testerEmpreinte: testerEmpreinte, PLACES: PLACES, COMPLEMENTS: COMPLEMENTS, lireStatuts: lireStatuts, marquerStatut: marquerStatut, supprimerPlace: supprimerPlace, ecrireDemande: ecrireDemande, ecouterDemandes: ecouterDemandes, supprimerDemande: supprimerDemande, ecrireArchive: ecrireArchive, ecouterArchive: ecouterArchive, lirePlace: lirePlace, lireDatesOfficielles: lireDatesOfficielles, ecrireDatesOfficielles: ecrireDatesOfficielles, lirePause: lirePause, ecrirePause: ecrirePause, ecouterPause: ecouterPause, lireSignature: lireSignature, ecrireSignature: ecrireSignature, ecouterSignature: ecouterSignature, lireChefEmail: lireChefEmail, ecrireChefEmail: ecrireChefEmail, ecouterChefEmail: ecouterChefEmail, remarquePush: remarquePush, remarqueMaj: remarqueMaj, remarqueSupprimer: remarqueSupprimer, remarquesEcouter: remarquesEcouter, connecter: connecter, deconnecter: deconnecter, onAuth: onAuth, utilisateur: utilisateur };
 })();
 </script>
 <script>
@@ -4137,6 +4144,62 @@ window.SIGNATAIRE = (function () {
       if (ch) ch.valeur = CONTENUS.etab.chef;
     } catch (e) {}
   };
+  // R-1 (L8g-5) : la mise en forme d'un article. Seuls le gras, l'italique, le souligné et les retours à la ligne sont gardés ;
+  // toute autre balise n'est que du texte : jamais interprétée, jamais montrée ni imprimée en toutes lettres.
+  // Un texte sans balise (les articles d'origine) reste tel quel, à l'écran comme sur la convention.
+  function estMisEnForme(c) { return /<\/?[a-z][^>]*>|&(#[0-9]+|#x[0-9a-f]+|[a-z][a-z0-9]*);/i.test(String(c == null ? "" : c)); }
+  function segmentsDe(c) {
+    var s = String(c == null ? "" : c), out = [];
+    if (!estMisEnForme(s)) return [{ t: s, g: false, i: false, u: false }];
+    var d = new DOMParser().parseFromString("<!doctype html><body>" + s + "</body>", "text/html");
+    var BLOC = /^(DIV|P|LI|UL|OL|H[1-6]|BLOCKQUOTE|PRE|TABLE|TR)$/, IGNORE = /^(SCRIPT|STYLE|TEMPLATE|NOSCRIPT|IFRAME|OBJECT|HEAD|TITLE)$/;
+    var finBloc = false;
+    var dernier = function () { return out.length ? out[out.length - 1].t : ""; };
+    var nl = function () { out.push({ t: "\n" }); finBloc = false; };
+    var texte = function (t, st) {
+      t = String(t).replace(/[ \t\r\n\f]+/g, " ");
+      if (!t) return;
+      if (finBloc) { if (out.length && dernier() !== "\n") nl(); finBloc = false; }
+      if (t.charAt(0) === " " && (!out.length || / $|\n$/.test(dernier()))) t = t.slice(1);
+      if (t) out.push({ t: t, g: st.g, i: st.i, u: st.u });
+    };
+    (function marche(n, st) {
+      for (var k = n.firstChild; k; k = k.nextSibling) {
+        if (k.nodeType === 3) { texte(k.nodeValue, st); continue; }
+        if (k.nodeType !== 1) continue;
+        var tag = String(k.nodeName).toUpperCase();
+        if (IGNORE.test(tag)) continue;
+        if (tag === "BR") { nl(); continue; }
+        var st2 = { g: st.g || tag === "B" || tag === "STRONG", i: st.i || tag === "I" || tag === "EM", u: st.u || tag === "U" };
+        if (BLOC.test(tag)) { if (out.length && dernier() !== "\n") nl(); finBloc = false; marche(k, st2); finBloc = true; }
+        else marche(k, st2);
+      }
+    })(d.body, { g: false, i: false, u: false });
+    while (out.length && out[out.length - 1].t === "\n") out.pop();
+    return out;
+  }
+  function htmlDeTexte(c) {
+    if (!estMisEnForme(c)) return esc(String(c == null ? "" : c));
+    return segmentsDe(c).map(function (x) {
+      if (x.t === "\n") return "<br>";
+      var h = esc(x.t); if (x.u) h = "<u>" + h + "</u>"; if (x.i) h = "<i>" + h + "</i>"; if (x.g) h = "<b>" + h + "</b>"; return h;
+    }).join("");
+  }
+  window.__texteArticle = {
+    misEnForme: estMisEnForme, segments: segmentsDe, html: htmlDeTexte,
+    brut: function (c) { return segmentsDe(c).map(function (x) { return x.t; }).join(""); },
+    // ce qui est partagé : le texte d'origine tel quel, ou la forme nettoyée (gras, italique, souligné, retours à la ligne)
+    partage: function (c) { return estMisEnForme(c) ? htmlDeTexte(c) : String(c == null ? "" : c); }
+  };
+  // R-1 : sur les pages des familles et des entreprises, les textes partagés par la console de Paul ; sinon, ceux d'origine.
+  var CLES_ETAB_PARTAGEES = ["nom", "chef", "adresse", "ville", "tel"];
+  function appliquerTextesPartages(o) {
+    if (!o || typeof o !== "object") return;
+    var etab = {}, arts = [];
+    CLES_ETAB_PARTAGEES.forEach(function (k) { var v = o.etab && o.etab[k]; if (typeof v === "string" && v.trim() && v.length <= 2000) etab[k] = v; });
+    for (var i = 0; i < ARTICLES.length; i++) { var a = o.articles && o.articles[i]; arts.push(typeof a === "string" && a.trim() && a.length <= 30000 ? { c: a } : null); }
+    window.__appliquerContenus({ etab: etab, articles: arts });
+  }
   window.__estModifie = function (cle) {
     if (cle.indexOf("art:") === 0) { var i = +cle.slice(4); return (CONTENUS.articles[i] || {}).c !== (ARTICLES_ORIGINE[i] || {}).c; }
     return CONTENUS.etab[cle] !== ETAB_ORIGINE[cle];
@@ -4338,7 +4401,9 @@ window.SIGNATAIRE = (function () {
     var codeA = (CTX.roleLock === "PARENTS" && codeEnService() && window.FB.lireCodeActif) ? window.FB.lireCodeActif(CTX.annee, CTX.code).catch(function () { return false; }) : Promise.resolve(false);
     if (window.FB.lireVersionTextes) window.FB.lireVersionTextes().then(function (n) { window.__versionTextes = n; }).catch(function () {});
     var retire = window.FB.lireRetire ? window.FB.lireRetire(CTX.annee, CTX.code).catch(function () { return false; }) : Promise.resolve(false);
-    Promise.all([window.FB.lireStatuts(CTX.annee, CTX.code), dates, pause, codeA, retire, lirePrefillPage()]).then(function (r) {
+    var textes = window.FB.lireTextesPartages ? window.FB.lireTextesPartages().catch(function () { return null; }) : Promise.resolve(null);   // R-1 (L8g-5)
+    Promise.all([window.FB.lireStatuts(CTX.annee, CTX.code), dates, pause, codeA, retire, lirePrefillPage(), textes]).then(function (r) {
+      try { appliquerTextesPartages(r[6]); } catch (e) {}
       fini = true; CTX.statut = r[0] || {}; CTX.datesOff = (r[1] || []).filter(Boolean).sort(); CTX.codeExiste = !!r[3];
       appliquerPrefill(r[5]);
       if (r[4]) { var z = document.getElementById("sig-step"); if (z) z.innerHTML = '<h3 class="serif">Ce lien n\'est plus actif</h3><p>Contactez le collège.</p>'; return; }
@@ -4809,12 +4874,17 @@ window.SIGNATAIRE = (function () {
   function htmlDemande() {
     var st = CTX.statut || {}, h = '<h3 class="serif">Demander à refaire ' + (CTX.roleLock === "ENTREPRISE" ? "votre convention" : "votre partie de la convention") + '</h3>';
     h += '<p class="mut">Votre demande est transmise au collège, qui vérifie et libère la place. Ce même lien vous permettra ensuite de tout refaire.</p>';
+    var choixPlace = function (a, b, la, lb) {   // S-2 (L8g-6) : aucun choix coché d'avance
+      var d = brouillonDemande()["dem-place"];
+      return '<div class="champ"><span>Quelle ' + (CTX.roleLock === "ENTREPRISE" ? "convention" : "partie de la convention") + ' voulez-vous refaire ? *</span>'
+        + '<label class="radio"><input type="radio" name="dem-place" value="' + a + '" title="La convention du premier lieu de stage."' + (d === a ? " checked" : "") + '> ' + la + '</label>'
+        + '<label class="radio"><input type="radio" name="dem-place" value="' + b + '" title="La convention du second lieu de stage."' + (d === b ? " checked" : "") + '> ' + lb + '</label></div>';
+    };
     if (CTX.roleLock === "ENTREPRISE") {
+      if (st.ENTREPRISE && st.ENTREPRISE_2) h += choixPlace("ENTREPRISE", "ENTREPRISE_2", "Celle du premier lieu de stage", "Celle du second lieu de stage");
       h += '<label class="champ"><span>Nom de votre entreprise *</span><input id="dem-ent" type="text" autocomplete="organization" title="Le nom de votre entreprise, pour que le collège retrouve votre convention." value="' + esc(brouillonDemande()["dem-ent"] || "") + '"></label>';
     } else if (st.PARENTS_2) {
-      h += '<div class="champ"><span>Quelle partie de la convention voulez-vous refaire ? *</span>'
-        + '<label class="radio"><input type="radio" name="dem-place" value="PARENTS" title="La convention du premier lieu de stage."' + (brouillonDemande()["dem-place"] === "PARENTS_2" ? "" : " checked") + '> Celle de la première convention</label>'
-        + '<label class="radio"><input type="radio" name="dem-place" value="PARENTS_2" title="La convention du second lieu de stage."' + (brouillonDemande()["dem-place"] === "PARENTS_2" ? " checked" : "") + '> Celle de la seconde convention (second lieu de stage)</label></div>';
+      h += choixPlace("PARENTS", "PARENTS_2", "Celle de la première convention", "Celle de la seconde convention (second lieu de stage)");
     }
     h += '<label class="champ"><span>Pourquoi voulez-vous refaire ' + (CTX.roleLock === "ENTREPRISE" ? "votre convention" : "votre partie de la convention") + ' ? *</span><textarea id="dem-raison" rows="4" title="Ce qui doit changer : le collège en a besoin pour libérer la place." placeholder="Par exemple : erreur dans les dates, changement de tuteur…">' + esc(brouillonDemande()["dem-raison"] || "") + '</textarea></label>';
     h += '<div class="sig-actions"><button class="btn ghost" onclick="SIGNATAIRE.retourPorte()" title="Revenir sans rien envoyer.">← Retour</button>'
@@ -4825,7 +4895,10 @@ window.SIGNATAIRE = (function () {
     var raison = ($("dem-raison") || {}).value || "", ent = ($("dem-ent") || {}).value || "";
     if (raison.trim().length < 5) { toast("Merci d'expliquer en quelques mots pourquoi vous voulez refaire.", true); return; }
     if (CTX.roleLock === "ENTREPRISE" && !ent.trim()) { toast("Merci d'indiquer le nom de votre entreprise.", true); return; }
-    var place = CTX.roleLock === "ENTREPRISE" ? "ENTREPRISE" : (document.querySelector('input[name="dem-place"]:checked') || { value: "PARENTS" }).value;
+    // S-2 (L8g-6) : quand la question est posée, la demande ne part pas sans un choix.
+    var choix = document.querySelector('input[name="dem-place"]:checked');
+    if (document.querySelector('input[name="dem-place"]') && !choix) { toast("Il manque : choisissez la convention à refaire.", true); return; }
+    var place = choix ? choix.value : (CTX.roleLock === "ENTREPRISE" ? "ENTREPRISE" : "PARENTS");
     if (!CTX.cle || !window.CRYPTO || !window.FB || !window.FB.dispo) { toast("Service momentanément indisponible. Réessayez dans un instant.", true); return; }
     var objet = { code: CTX.code, place: place, qui: CTX.roleLock === "ENTREPRISE" ? "entreprise" : "famille", eleve: CTX.nomEleve, entreprise: ent.trim(), raison: raison.trim(), tsClient: new Date().toISOString() };
     window.CRYPTO.chiffrer(CTX.cle, objet).then(function (paquet) { return window.FB.ecrireDemande(CTX.annee, CTX.code, place, paquet); })
@@ -5736,7 +5809,7 @@ window.SIGNATAIRE = (function () {
     h += '<div class="articles-box"><div class="articles-tete"><span>Articles</span><button type="button" class="mini" onclick="SIGNATAIRE.toutValider()" title="Coche tous les articles d\'un coup, après les avoir lus.">Tout valider</button></div>';
     ARTICLES.forEach(function (a, i) {
       var ok = CTX.articlesOK || (CTX.artChecks && CTX.artChecks[i]);
-      h += '<div class="article"><div class="article-t">' + esc(a.t) + '</div><div class="article-c">' + esc(String(a.c).replace(/\{\{duree\}\}/g, (CTX.datesOff || []).length ? dureeEnLettres(CTX.datesOff.length) : "la durée fixée par le collège")) + '</div>'
+      h += '<div class="article"><div class="article-t">' + esc(a.t) + '</div><div class="article-c">' + htmlDeTexte(String(a.c).replace(/\{\{duree\}\}/g, (CTX.datesOff || []).length ? dureeEnLettres(CTX.datesOff.length) : "la durée fixée par le collège")) + '</div>'
         + '<label class="chk-art"><input type="checkbox" class="art-chk" title="Cochez cet article une fois que vous l’avez lu." data-i="' + i + '"' + (ok ? ' checked' : '') + '> Je valide cet article</label></div>';
     });
     h += '</div>';
@@ -6370,6 +6443,11 @@ window.SIGNATAIRE = (function () {
           doc.setFontSize(9.6); doc.setFont("helvetica", "bold");
           var lab = doc.splitTextToSize(paire[k][0] + " :", XV - 2);
           doc.setFont("helvetica", "normal");
+          // L8g-8 (P-2) : une valeur en blanc (convention papier) : sa hauteur est celle de ses lignes pointillées.
+          if (paire[k][1] && paire[k][1].blanc != null) {
+            hauteur = Math.max(hauteur, lab.length * 4.7, paire[k][1].blanc * HB - 1.9);
+            dessins.push([k, lab, paire[k][1], 9.6]); continue;
+          }
           // C2-26 : un mot plus large que la colonne (un courriel) s'imprime un peu plus petit, mais entier
           var fs = 9.6, mots = String(paire[k][1]).split(/\s+/);
           while (fs > 7 && mots.some(function (m) { return doc.getTextWidth(m) > WV; })) { fs -= 0.4; doc.setFontSize(fs); }
@@ -6387,6 +6465,7 @@ window.SIGNATAIRE = (function () {
         dessins.forEach(function (d) {
           doc.setFontSize(9.6);
           doc.setFont("helvetica", "bold"); doc.text(d[1], XL[d[0]], y);
+          if (d[2] && d[2].blanc != null) { dessinerBlanc(d[2], XL[d[0]] + XV, y, WV); return; }   // L8g-8 : seulement une valeur en blanc
           doc.setFont("helvetica", "normal"); doc.setFontSize(d[3]); doc.text(d[2], XL[d[0]] + XV, y); doc.setFontSize(9.6);
         });
         y += hauteur + 1.9;
@@ -6395,9 +6474,46 @@ window.SIGNATAIRE = (function () {
     }
 
 
+    // L8g-8 (P-2) : la convention papier est la convention de l'App d'un dossier complet, rubrique pour rubrique, à la même place
+    // (décision de Paul du 02/11, 13 h 59) ; là où celle-ci porte une valeur, elle porte des lignes pointillées pour l'écrire
+    // à la main (7 mm par ligne), jamais « — ». Seuls la ligne « Élève » et le collège sont remplis.
+    var papier = !!o.papier, HB = 7;
+    function pointilles(x1, x2, yy) {
+      doc.setDrawColor(120, 128, 145); doc.setLineWidth(0.25);
+      if (doc.setLineDashPattern) doc.setLineDashPattern([0.5, 0.9], 0);
+      doc.line(x1, yy, x2, yy);
+      if (doc.setLineDashPattern) doc.setLineDashPattern([], 0);
+    }
+    function ligneBlanche(label, n, horaires) { FILE.push([label, { blanc: n, horaires: !!horaires }]); }
+    // Une valeur en blanc, dans sa colonne : n lignes pointillées ; pour les horaires, deux lignes par jour (le jour et le matin ; l'après-midi).
+    function dessinerBlanc(b, x, yy, larg) {
+      doc.setFont("helvetica", "normal"); doc.setFontSize(8.4); doc.setTextColor(90, 98, 115);
+      for (var k = 0; k < b.blanc; k++) {
+        var yl = yy + 1.2 + k * HB;
+        if (!b.horaires) { pointilles(x, x + larg, yl); continue; }
+        var mots = k % 2 ? ["après-midi"] : ["Jour", "matin"], xx = x, esp = 1.2, fixe = 0;
+        mots.forEach(function (m) { fixe += doc.getTextWidth(m) + esp * 2; });
+        var l = (larg - fixe) / mots.length;
+        mots.forEach(function (m) { doc.text(m, xx, yy + k * HB); xx += doc.getTextWidth(m) + esp; pointilles(xx, xx + l, yl); xx += l + esp; });
+      }
+      doc.setTextColor(33); doc.setFontSize(9.6);
+    }
+
     debutSection("Parties et élève");
     // L'entreprise d'abord, avec la personne qui signe pour elle ; puis un trait, puis l'élève et sa famille.
     sousTitre("L'entreprise d'accueil");
+    if (papier) {
+      ligneBlanche("Entreprise", 2); ligneBlanche("Adresse", 2); ligneBlanche("N° SIRET", 1); ligneBlanche("Tuteur", 2);
+      ligneBlanche("Coordonnées", 2); ligneBlanche("Lieu de stage effectif", 2); ligneBlanche("Représentant (signataire)", 2); ligneBlanche("Dates de stage", 2);
+      separationSection();
+      sousTitre("L'élève et sa famille");
+      ligne("Élève", o.nomEleve + (o.naissance ? " (né(e) le " + o.naissance + ")" : ""));
+      ligneBlanche("Responsable légal", 3); ligneBlanche("Adresse", 2); ligneBlanche("Coordonnées", 2); ligneBlanche("En cas d'urgence", 4);
+      finSection();
+      debutSection("Annexe pédagogique"); doc.setFontSize(9.5);
+      ligneBlanche("Activités prévues", 4); ligneBlanche("Horaires", 10, true);
+      ligneBlanche("PAI (santé)", 1); ligneBlanche("Aménagements (PAI, PAP, PPS)", 2); ligneBlanche("Enseignant référent", 1);
+    } else {
     ligne("Entreprise", ent.raison_sociale);
     ligne("Adresse", ent.adresse);
     ligne("N° SIRET", ent.siret || (ent._sansSiret ? SANS_SIRET : ""));   // T-5 (L8g)
@@ -6424,6 +6540,7 @@ window.SIGNATAIRE = (function () {
     if (par.amenagements_oui) ligne("Aménagements (PAI, PAP, PPS)", par.amenagements_oui === "oui" ? par.amenagements : "Aucun");
     var refEtab = (o.data && o.data.ETABLISSEMENT && o.data.ETABLISSEMENT.enseignant_suivi) || o.tuteur || "";
     if (refEtab) ligne("Enseignant référent", refEtab);
+    }
 
     finSection();
     debutSection("Annexe financière"); doc.setFontSize(9.5);
@@ -6446,7 +6563,11 @@ window.SIGNATAIRE = (function () {
       doc.splitTextToSize(a.t, LCOL).forEach(function (l, k) { flux.push({ t: l, h: 4.0, gras: true, debut: k === 0 }); });
       flux.push({ t: "", h: 0.9, esp: true });
       doc.setFont("helvetica", "normal"); doc.setFontSize(9.1);
-      var lignes = doc.splitTextToSize(String(a.c).replace(/\{\{duree\}\}/g, dureePrevue(o)), LCOL);
+      var cA = String(a.c).replace(/\{\{duree\}\}/g, dureePrevue(o));
+      // R-1 (L8g-5) : un article mis en forme dans la console s'imprime avec son gras, son italique et son souligné,
+      // mot à mot ; un article sans mise en forme s'imprime exactement comme avant.
+      if (estMisEnForme(cA)) { lignesMisesEnForme(cA, LCOL).forEach(function (l) { flux.push(l); }); return; }
+      var lignes = doc.splitTextToSize(cA, LCOL);
       lignes.forEach(function (l, k) { flux.push({ t: l, h: 3.38, justifier: k < lignes.length - 1 }); });
     });
     // Équilibrage : on simule d'abord le remplissage pour savoir où commence la dernière feuille, puis on
@@ -6467,6 +6588,47 @@ window.SIGNATAIRE = (function () {
       var moitie = hautDepart + reste / 2 + 1.5;
       if (moitie < BAS - 4 && moitie > hautDepart + 20) { BAS_COL = [moitie, BAS]; DEPART_EQ = depart; }
     })();
+    function policeDe(p) { return p.g && p.i ? "bolditalic" : p.g ? "bold" : p.i ? "italic" : "normal"; }
+    function largeurMot(m) { var w = 0; m.forEach(function (p) { doc.setFont("helvetica", policeDe(p)); w += doc.getTextWidth(p.t); }); doc.setFont("helvetica", "normal"); return w; }
+    // R-1 : les mots d'un article mis en forme, chacun fait de morceaux de styles différents, répartis en lignes de la colonne.
+    function lignesMisesEnForme(c, largeur) {
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9.1);
+      var esp = doc.getTextWidth(" "), paras = [[]], mot = [];
+      var finMot = function () { if (mot.length) paras[paras.length - 1].push(mot); mot = []; };
+      segmentsDe(c).forEach(function (x) {
+        if (x.t === "\n") { finMot(); paras.push([]); return; }
+        String(x.t).split(" ").forEach(function (bout, k) { if (k) finMot(); if (bout) mot.push({ t: bout, g: x.g, i: x.i, u: x.u }); });
+      });
+      finMot();
+      var res = [];
+      paras.forEach(function (mots) {
+        if (!mots.length) { res.push({ t: "", h: 3.38 }); return; }
+        var ligne = [], lg = 0, lignes = [];
+        mots.forEach(function (m) {
+          var w = largeurMot(m);
+          if (ligne.length && lg + esp + w > largeur) { lignes.push(ligne); ligne = []; lg = 0; }
+          lg += (ligne.length ? esp : 0) + w; ligne.push(m);
+        });
+        if (ligne.length) lignes.push(ligne);
+        lignes.forEach(function (l, k) { res.push({ mots: l, t: " ", h: 3.38, justifier: k < lignes.length - 1 }); });
+      });
+      return res;
+    }
+    function ecrireMots(mots, x, yy, largeur, justifier) {
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9.1);
+      var esp = doc.getTextWidth(" "), lm = mots.map(largeurMot), total = lm.reduce(function (a, b) { return a + b; }, 0), espace = esp;
+      if (justifier && mots.length > 1) { var e2 = (largeur - total) / (mots.length - 1); if (e2 > 0 && e2 <= esp * 4) espace = e2; }
+      var xx = x;
+      doc.setDrawColor(33, 33, 33); doc.setLineWidth(0.18);
+      mots.forEach(function (m, k) {
+        m.forEach(function (p) {
+          doc.setFont("helvetica", policeDe(p)); doc.text(p.t, xx, yy);
+          var w = doc.getTextWidth(p.t); if (p.u) doc.line(xx, yy + 0.75, xx + w, yy + 0.75); xx += w;
+        });
+        if (k < mots.length - 1) { if (m[m.length - 1].u && mots[k + 1][0].u) doc.line(xx, yy + 0.75, xx + espace, yy + 0.75); xx += espace; }
+      });
+      doc.setFont("helvetica", "normal");
+    }
     // Justification : la ligne est écrite mot à mot, l'espace disponible étant réparti entre eux.
     // La dernière ligne d'un article garde son espacement normal, comme dans un livre.
     function ecrireJustifie(txt, x, yy, largeur) {
@@ -6491,7 +6653,8 @@ window.SIGNATAIRE = (function () {
       if (placeRestante() < besoin - el.h + 0.1 && !el.esp) {
         if (col === 0) { col = 1; } else { doc.addPage(); col = 0; yCol = [20, 20]; }
       }
-      if (el.t) {
+      if (el.mots) ecrireMots(el.mots, xCol[col], yCol[col], LCOL, el.justifier);
+      else if (el.t) {
         doc.setFont("helvetica", el.gras ? "bold" : "normal");
         doc.setFontSize(el.gras ? 9.6 : 9.1);
         if (el.justifier) ecrireJustifie(el.t, xCol[col], yCol[col], LCOL);
@@ -6501,10 +6664,13 @@ window.SIGNATAIRE = (function () {
     });
     y = Math.max(yCol[0], yCol[1]);
 
-    y += 2; saut(14);
-    doc.setDrawColor(184, 146, 63); doc.setLineWidth(0.5); doc.line(M, y, W - M, y); y += 6;
-    doc.setFont("times", "bold"); doc.setFontSize(11); doc.setTextColor(22, 36, 63);
-    doc.text("Signatures", M, y); y += 7; doc.setTextColor(33);
+    y += 2;
+    // R-4 (L8g-5) : le titre « Signatures » est dessiné avec les blocs des signatures : il n'est jamais seul en bas d'une page.
+    function titreSignatures() {
+      doc.setDrawColor(184, 146, 63); doc.setLineWidth(0.5); doc.line(M, y, W - M, y); y += 6;
+      doc.setFont("times", "bold"); doc.setFontSize(11); doc.setTextColor(22, 36, 63);
+      doc.text("Signatures", M, y); y += 7; doc.setTextColor(33);
+    }
 
     // Bloc de signature. Tant qu'un signataire n'a pas signé, rien n'est affirmé à sa place (chantier 25).
     // Une fois signé : lieu, date, « Lu et approuvé » en écriture manuscrite (D6), et la signature ajustée
@@ -6529,7 +6695,7 @@ window.SIGNATAIRE = (function () {
         if (b[3]) { doc.setFontSize(8.4); nFait = Math.max(nFait, doc.splitTextToSize("Fait à " + (b[2] || "……………") + ", le 00/00/0000.", LS).length); }
       });
       var hHaut = hTitre + hInfos + 1.2 + (nFait - 1) * 3.5 + 5.4;
-      saut(hHaut + CH + 3);
+      saut(Math.max(14, 13 + hHaut + CH + 3)); titreSignatures();
       var yDep = y;
       SIGS.forEach(function (b, k) {
         var x = M + k * (LS + GS), titre = b[0], infos = b[1], faitA = b[2], sig = b[3], preuve = b[4], dateTs = b[5];
@@ -6576,6 +6742,42 @@ window.SIGNATAIRE = (function () {
       });
       y = yDep + hHaut + CH + 6;
       SIGS = [];
+    }
+
+    // L8g-8 (P-2) : sur la convention papier, les trois cadres ont leur titre, « Fait à …………… , le …………… » (sur deux lignes,
+    // pour avoir la place d'écrire) et le cadre à signer. Seul le cadre du chef d'établissement porte, comme sur la convention de l'App,
+    // le nom et le téléphone de la cheffe d'établissement (le collège) ; jamais l'enseignant chargé du suivi.
+    // Aucune signature enregistrée, pas même celle de l'établissement.
+    function dessinerSignaturesPapier(blocs) {
+      var GS = 5, LS = (W - 2 * M - 2 * GS) / 3, CH = 12;   // le cadre de la convention de l'App
+      doc.setFont("helvetica", "bold"); doc.setFontSize(9);
+      var hTitre = 4.4; blocs.forEach(function (b) { hTitre = Math.max(hTitre, doc.splitTextToSize(b[0], LS).length * 4 + 0.4); });
+      doc.setFont("helvetica", "normal"); doc.setFontSize(8.2);
+      var hInfos = 0; blocs.forEach(function (b) { var n = 0; b[1].filter(Boolean).forEach(function (l) { n += doc.splitTextToSize(l, LS).length; }); hInfos = Math.max(hInfos, n * 3.7); });
+      var hHaut = hTitre + hInfos + 2 * 6 + 2;
+      saut(Math.max(14, 13 + hHaut + CH + 3)); titreSignatures();
+      var yDep = y;
+      doc.setFont("helvetica", "normal"); doc.setFontSize(8.4);
+      var pts = function (avant, apres) { var t = avant; while (doc.getTextWidth(t + "." + apres) <= LS - 0.5) t += "."; return t + apres; };
+      blocs.forEach(function (b, k) {
+        var x = M + k * (LS + GS), yi = yDep + hTitre;
+        doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(33);
+        doc.splitTextToSize(b[0], LS).forEach(function (l, i) { doc.text(l, x, yDep + i * 4); });
+        doc.setFont("helvetica", "normal"); doc.setFontSize(8.2);
+        b[1].filter(Boolean).forEach(function (line) { doc.splitTextToSize(line, LS).forEach(function (l) { doc.text(l, x, yi); yi += 3.7; }); });
+        doc.setFontSize(8.4);
+        doc.text(pts("Fait à ", " ,"), x, yDep + hTitre + hInfos + 4);
+        doc.text(pts("le ", ""), x, yDep + hTitre + hInfos + 10);
+        doc.setDrawColor(190, 198, 210); doc.setLineWidth(0.25); doc.rect(x, yDep + hHaut, LS, CH);
+      });
+      y = yDep + hHaut + CH + 6;
+    }
+    if (papier) {
+      var etabP = CONTENUS.etab || {};
+      dessinerSignaturesPapier([["Le chef d'entreprise", []], ["Les représentants légaux de l'élève", []],
+        ["Le chef d'établissement", [(etabP.chef || "") + (etabP.chef && etabP.tel_chef ? " — " + etabP.tel_chef : "")]]]);
+      piedConv(doc, M, W, DEC_AVERT, PAGE0);
+      return;
     }
 
         var pv = o.preuves || {};
@@ -6667,13 +6869,15 @@ function nomConvention(o) {
     }
     var cl = propre(o.classe || (window.__classeDe ? window.__classeDe(o.code) : "") || "");
     var nom = propre(o.nomEleve || o.eleve || "eleve");
+    // L8g-8 (P-2) : la convention papier porte « Convention_papier » en tête de son nom, puis le nom d'une convention de l'App.
+    if (o.papier) return (o.annee === "demo" ? "TEST_" : "") + "Convention_papier_" + (cl ? cl + "_" : "") + nom + "_" + (o.code || "eleve") + ".pdf";
     return (o.annee === "demo" ? "TEST_" : "") + (o.provisoire ? "PROVISOIRE_" : "") + (cl || "Convention") + "_" + nom + "_" + (o.code || "eleve")
       + (o.lieu === 2 ? "_lieu2" : "") + ".pdf";
 }
   function genererConventionComplete(o, mode) {
     o = o || {};
-    // Signature de l'établissement apposée en lot (Mme Chrétien, depuis la console)
-    if (window.__etab) {
+    // Signature de l'établissement apposée en lot (Mme Chrétien, depuis la console) ; jamais sur la convention papier (L8g-8)
+    if (window.__etab && !o.papier) {
       var e = window.__etab();
       if (e && e.signature) {
         o.sigs = o.sigs || {};
@@ -6873,7 +7077,25 @@ window.DEPOUILLEMENT = (function () {
   function init(resolver) { if (typeof resolver === "function") _resolver = resolver; }
 
   // Injecte des volets simulés (mode démonstration) comme si un ZIP avait été dépouillé
-  function injecterTest(resultats) { rendre(resultats); }
+  // L8g-8 : les dernières parties reçues, gardées pour recalculer le suivi quand une marque « convention papier » change.
+  var _derniersRes = null;
+  function injecterTest(resultats) { _derniersRes = resultats; rendre(resultats); }
+  function recalculer() { if (_derniersRes) rendre(_derniersRes); }
+  // L8g-8 (P-3) : l'état « convention papier » d'une ligne : « sortie » ou « recue » quand aucune partie n'est arrivée par
+  // les liens (ni entreprise ni parents, aux deux lieux, lisible ou non) ; sinon "" : ce sont les parties reçues qui comptent.
+  // L8g-8 (V-3) : ce que compte la tuile « Parties en attente », et ce que montre son clic : une partie manque ou est illisible.
+  function enAttente(l) { return !!(l.sansEnt || l.sansPar || (l.illisibles || []).length) && !etatPapier(l); }
+  // L8g-8 (V-4) : ce que compte la tuile « Stage trop court », et ce que montre son clic : le stage ne couvre pas toutes les journées prévues.
+  function stageCourt(l) { return !!(l.jours && l.jours < l.joursPrevus); }
+  function etatPapier(l) { return l && l.papier && l.papier.ts && !l.parLien ? (l.papier.recue ? "recue" : "sortie") : ""; }
+  function jjmmaaaaDep(t) { var d = new Date(t); return ("0" + d.getDate()).slice(-2) + "/" + ("0" + (d.getMonth() + 1)).slice(-2) + "/" + d.getFullYear(); }
+  // Les élèves dont la convention papier est sortie, dans l'espace calculé : ils entrent au suivi même sans aucune partie reçue.
+  function elevesPapier() {
+    var niv = (_calc ? _calc.niveau : (window.__niveauActif && window.__niveauActif())) || "";
+    var de = function (k) { return ((_calc ? _calc.elevesDe(k) : (window.__elevesDe && window.__elevesDe(k))) || []); };
+    var els = niv === "demo" ? de("demo") : de("4e").concat(de("3e"));
+    return els.filter(function (e) { return e && e.code && e.papier && e.papier.ts; });
+  }
 
   function $(id) { return document.getElementById(id); }
   function esc(s) { return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
@@ -7044,6 +7266,10 @@ window.DEPOUILLEMENT = (function () {
       });
       if (!_calc) poserMarques(c, v);   // L8g-2 : la photo calcule sans rien écrire
     });
+    // L8g-8 (P-3) : un élève dont la convention papier est sortie entre au suivi, même si rien n'est arrivé par les liens.
+    // Il n'est pas compté parmi les conventions reçues (_dernier.codes), et n'a pas de convention de l'App.
+    var codesRecus = Object.keys(parCode).sort();
+    try { elevesPapier().forEach(function (e) { if (!parCode[e.code]) parCode[e.code] = { code: e.code, volets: {}, papierSeul: true }; }); } catch (e) {}
     var codes = Object.keys(parCode).sort();
     if (!codes.length && _calc) return { lignes: [], retirees: [], illisibles: illisibles };
     if (!codes.length) {
@@ -7210,11 +7436,18 @@ window.DEPOUILLEMENT = (function () {
       var sansCode = ["PARENTS", "PARENTS_2"].some(function (pl) { return v[pl] && v[pl].data && v[pl].data._code === false; });
       var sansCourrielPar = !!(v.PARENTS && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(((v.PARENTS.data || {}).champs || {}).email || "").trim()));
       if (sansCourrielPar) aVerifier.push("Pas d'adresse courriel pour les parents : la convention ne pourra pas leur être envoyée par courriel. Passez par École Directe (message prêt dans le détail).");
-      return { code: code, affNom: nom, classe: el.classe || "", nom: nomTri, recu: recu, complet: complet, horairesHors: horHors, sansCourrielPar: sansCourrielPar, illisibles: illR, entARefaire: ["ENTREPRISE", "ENTREPRISE_2"].filter(function (b) { return v[b] && v[b].aRefaire; }), aCompleter: aCompl, sansCode: sansCode,
+      // L8g-8 (P-3) : jamais bloquant. Dès qu'une partie arrive par un lien, c'est elle qui compte ; la convention papier se dit dans « À vérifier ».
+      var papier = el.papier && el.papier.ts ? el.papier : null;
+      var parLien = ["ENTREPRISE", "PARENTS", "ENTREPRISE_2", "PARENTS_2"].some(function (b) { return !!v[b]; }) || illR.some(function (r) { return /^(ENTREPRISE|PARENTS)(_2)?(_C)?$/.test(r); });
+      if (papier && parLien) aVerifier.push("Une convention papier a aussi été sortie le " + jjmmaaaaDep(papier.ts) + (papier.recue ? ", et reçue signée le " + jjmmaaaaDep(papier.recue) : "") + ".");
+      return { code: code, affNom: nom, papier: papier, parLien: parLien, classe: el.classe || "", nom: nomTri, recu: recu, complet: complet, horairesHors: horHors, sansCourrielPar: sansCourrielPar, illisibles: illR, entARefaire: ["ENTREPRISE", "ENTREPRISE_2"].filter(function (b) { return v[b] && v[b].aRefaire; }), aCompleter: aCompl, sansCode: sansCode,
         sansEnt: !v.ENTREPRISE, sansPar: !v.PARENTS, secondManquant: secondAttendu && !v.ENTREPRISE_2, parents2: !!v.ENTREPRISE_2 && !v.PARENTS_2, deux: !!v.ENTREPRISE_2 || (!!v.PARENTS_2 && secondAttendu),   // H-4 (L8g) : une déclaration seule ne fait pas deux lieux
         declaration: declAttente && !secondAttendu, declSansObjet: declSansObjet, alerteSecond: alerteSecond, offEl: offEl,
         entreprise: ent.raison_sociale || "", entreprise2: v.ENTREPRISE_2 ? (ent2.raison_sociale || "—") : "", dates: periode(ent), dates2: v.ENTREPRISE_2 ? periode(ent2) : "",
         jours: nbCouverts, joursPrevus: nbPrevus,
+        // L8g-4 (P-2, P-5) : pour la checklist seule : l'entreprise 2 a envoyé (même illisible) ; les parents ont déclaré un second lieu
+        // (« certains jours » compris, jamais une déclaration sans objet) ; tous les jours reçus des deux entreprises, sous une seule forme.
+        e2Recu: e2Vu, declParents: (!!v.PARENTS_2 || illR.indexOf("PARENTS_2") >= 0) && !declSansObjet, datesStage: periode({ dates: Object.keys(joursCouverts).sort() }),
         parties: parties, aVerifier: aVerifier, aConv1: !!(v.ENTREPRISE || v.PARENTS), aConv2: secondAttendu && !!(v.ENTREPRISE_2 || v.PARENTS_2), aAttest: !!v.ATTESTATION,
         volets: v, emails: { ent: [ent.email, ent2.email].filter(Boolean), par: [v.PARENTS && (v.PARENTS.data.champs || {}).email, v.PARENTS_2 && (v.PARENTS_2.data.champs || {}).email].filter(Boolean) } };
     });
@@ -7240,7 +7473,7 @@ window.DEPOUILLEMENT = (function () {
     lignes = lignes.filter(function (l) { return !retires[l.code]; });
     nbComplets = lignes.filter(function (l) { return l.complet; }).length;
     _lignes = lignes; _nbComplets = nbComplets; _illisibles = illisibles.length;
-    _dernier = { codes: codes, parCode: parCode };
+    _dernier = { codes: codesRecus, parCode: parCode };
     afficherTable();
   }
 
@@ -7250,8 +7483,9 @@ window.DEPOUILLEMENT = (function () {
   function avisLigne(l) { return avisCalc(l.code) || {}; }
   // F-15 (L8e) : une demande de refaire en attente : la partie va être refaite, le dossier ne part pas comme fini.
   function demandeEnAttente(l) { return (demandesCodesCalc() || []).indexOf(l.code) >= 0; }
-  function estComplet(l) { var av = avisLigne(l); return !!l.complet && !av.suspendue && !(av.opposition && !(av.suite && av.suite.accordObtenu)) && !demandeEnAttente(l); }
+  function estComplet(l) { if (etatPapier(l)) return etatPapier(l) === "recue"; var av = avisLigne(l); return !!l.complet && !av.suspendue && !(av.opposition && !(av.suite && av.suite.accordObtenu)) && !demandeEnAttente(l); }
   function raisonsIncomplet(l) {
+    var ep = etatPapier(l); if (ep) return ep === "recue" ? [] : ["convention papier pas encore reçue signée"];   // L8g-8 (P-3)
     var r = [], av = avisLigne(l);
     if (l.sansEnt && !(l.illisibles || []).some(function (x) { return /^ENTREPRISE$/.test(x); })) r.push("partie de l'entreprise manquante");
     if (l.sansPar && !(l.illisibles || []).some(function (x) { return /^PARENTS$/.test(x); })) r.push("partie des parents manquante");
@@ -7276,8 +7510,9 @@ window.DEPOUILLEMENT = (function () {
       if (FILTRE.classe && l.classe !== FILTRE.classe) return false;
       if (FILTRE.etat === "complet" && !estComplet(l)) return false;
       if (FILTRE.etat === "incomplet" && estComplet(l)) return false;
-      if (FILTRE.etat === "sans-ent" && !l.sansEnt) return false;
-      if (FILTRE.etat === "sans-par" && !l.sansPar) return false;
+      // L8g-8 (V-5) : une partie vraiment manquante, comme le disent les puces : ni arrivée illisible, ni élève en convention papier
+      if (FILTRE.etat === "sans-ent" && !(l.sansEnt && (l.illisibles || []).indexOf("ENTREPRISE") < 0 && !etatPapier(l))) return false;
+      if (FILTRE.etat === "sans-par" && !(l.sansPar && (l.illisibles || []).indexOf("PARENTS") < 0 && !etatPapier(l))) return false;
       if (FILTRE.etat === "second" && !l.secondManquant) return false;
       if (FILTRE.etat === "declaration" && !(l.declaration || l.declSansObjet)) return false;   // H-4, H-5 (L8g)
       if (FILTRE.etat === "alerte" && !l.alerteSecond) return false;   // H-6 (L8g)
@@ -7286,6 +7521,10 @@ window.DEPOUILLEMENT = (function () {
       if (FILTRE.etat === "completer" && !l.aCompleter) return false;
       if (FILTRE.etat === "sanscode" && !l.sansCode) return false;
       if (FILTRE.etat === "illisible" && !(l.illisibles || []).length) return false;
+      if (FILTRE.etat === "attente" && !enAttente(l)) return false;   // L8g-8 (V-3) : la tuile « Parties en attente » montre ce qu'elle compte
+      if (FILTRE.etat === "court" && !stageCourt(l)) return false;   // L8g-8 (V-4) : la tuile « Stage trop court » aussi
+      if (FILTRE.etat === "papier" && etatPapier(l) !== "sortie") return false;   // L8g-8 (P-3)
+      if (FILTRE.etat === "papier-recue" && etatPapier(l) !== "recue") return false;
       var j = l.recu ? isoJour(l.recu) : "";
       if (FILTRE.du && (!j || j < FILTRE.du)) return false;
       if (FILTRE.au && (!j || j > FILTRE.au)) return false;
@@ -7321,8 +7560,8 @@ window.DEPOUILLEMENT = (function () {
     var barre = '<div class="selecteur" id="barre-conv">'
       + '<div class="sel-ligne">'
       + '<label title="N\'afficher que les élèves de cette classe.">Classe <select id="fc-classe">' + opt("", "Toutes", FILTRE.classe) + Object.keys(classes).sort().map(function (c) { return opt(esc(c), esc(c), FILTRE.classe); }).join("") + '</select></label>'
-      + '<label title="N\'afficher que les élèves dans cet état.">État <select id="fc-etat">' + opt("", "Tous", FILTRE.etat) + opt("complet", "Complets", FILTRE.etat) + opt("incomplet", "Incomplets", FILTRE.etat)
-      + opt("sans-ent", "Partie entreprise manquante", FILTRE.etat) + opt("sans-par", "Partie parents manquante", FILTRE.etat) + opt("second", "Second lieu attendu", FILTRE.etat) + opt("declaration", "Déclaration des parents : second lieu", FILTRE.etat) + opt("alerte", "Alerter la famille (second lieu)", FILTRE.etat) + opt("deux", "Deux lieux de stage", FILTRE.etat) + opt("demande", "Demande de refaire en attente", FILTRE.etat) + opt("illisible", "Partie illisible", FILTRE.etat) + opt("completer", "À compléter (modèle officiel)", FILTRE.etat) + opt("sanscode", "Parents : envoi sans le code du collège", FILTRE.etat) + '</select></label>'
+      + '<label title="N\'afficher que les élèves dans cet état.">État <select id="fc-etat">' + opt("", "Tous", FILTRE.etat) + opt("complet", "Complets", FILTRE.etat) + opt("incomplet", "Incomplets", FILTRE.etat) + opt("attente", "Parties en attente", FILTRE.etat) + opt("court", "Stage trop court", FILTRE.etat)
+      + opt("sans-ent", "Partie entreprise manquante", FILTRE.etat) + opt("sans-par", "Partie parents manquante", FILTRE.etat) + opt("second", "Second lieu attendu", FILTRE.etat) + opt("declaration", "Déclaration des parents : second lieu", FILTRE.etat) + opt("alerte", "Alerter la famille (second lieu)", FILTRE.etat) + opt("deux", "Deux lieux de stage", FILTRE.etat) + opt("demande", "Demande de refaire en attente", FILTRE.etat) + opt("illisible", "Partie illisible", FILTRE.etat) + opt("completer", "À compléter (modèle officiel)", FILTRE.etat) + opt("sanscode", "Parents : envoi sans le code du collège", FILTRE.etat) + opt("papier", "Convention papier", FILTRE.etat) + opt("papier-recue", "Complet (papier)", FILTRE.etat) + '</select></label>'
       + '<label title="Ordre d\'affichage.">Tri <select id="fc-tri">' + opt("recent", "Réception : plus récente d\'abord", FILTRE.tri) + opt("ancien", "Réception : plus ancienne d\'abord", FILTRE.tri) + opt("nom", "Nom", FILTRE.tri) + opt("classe", "Classe, puis nom", FILTRE.tri) + '</select></label></div>'
       + tuilesHTML(duNiveau.length ? duNiveau : vis)
       + '<div class="sel-ligne"><span title="Date de réception de la partie la plus récente de l\'élève.">Reçues entre le</span> <input type="date" id="fc-du" value="' + esc(FILTRE.du) + '" title="Début de la période (incluse)."> <span>et le</span> <input type="date" id="fc-au" value="' + esc(FILTRE.au) + '" title="Fin de la période (incluse).">'
@@ -7413,6 +7652,8 @@ window.DEPOUILLEMENT = (function () {
   }
   // ---- Liste aérée (D102) : une ligne par élève, un seul état, tout le détail replié ----
   function etatDe(l) {
+    var ep = etatPapier(l);   // L8g-8 (P-3) : aucune partie arrivée par les liens, convention papier sortie
+    if (ep) return ep === "recue" ? ["mq-ok", "Complet (papier)"] : ["mq-att", "Convention papier"];
     var av = avisCalc(l.code) || {};
     if (av.suspendue) return ["mq-ko", "Suspendue"];
     if (av.opposition && !(av.suite && av.suite.accordObtenu)) return ["mq-ko", "Opposition"];
@@ -7458,16 +7699,16 @@ window.DEPOUILLEMENT = (function () {
   function tuilesHTML(toutes) {
     var n = toutes.length;
     var complets = toutes.filter(estComplet).length;   // le même compte que le filtre « Complets » (C2-4, E-4)
-    var attente = toutes.filter(function (l) { return l.sansEnt || l.sansPar || (l.illisibles || []).length; }).length;
+    var attente = toutes.filter(enAttente).length;   // L8g-8 : pas un élève « Convention papier »
     var acomp = toutes.filter(function (l) { return l.aCompleter; }).length;
-    var courts = toutes.filter(function (l) { return l.jours && l.jours < l.joursPrevus; }).length;
+    var courts = toutes.filter(stageCourt).length;
     function t(val, nb, lib, aide) {
       return '<button class="cv-tuile' + (FILTRE.etat === val ? " on" : "") + '" type="button" data-racc="' + val + '" title="' + aide + '">'
         + '<span class="n">' + nb + '</span><span class="t">' + lib + '</span></button>';
     }
     return '<div class="cv-tuiles">'
       + t("complet", complets + "/" + n, "Complètes", "N\'affiche que les conventions complètes. Un second clic retire le filtre.")
-      + t("incomplet", attente, "Parties en attente", "N\'affiche que les élèves dont une partie manque. Un second clic retire le filtre.")
+      + t("attente", attente, "Parties en attente", "N\'affiche que les élèves dont une partie manque. Un second clic retire le filtre.")
       + t("completer", acomp, "À compléter", "N\'affiche que les conventions à compléter et resigner. Un second clic retire le filtre.")
       + t("court", courts, "Stage trop court", "N\'affiche que les élèves dont le stage ne couvre pas toutes les journées prévues. Un second clic retire le filtre.")
       + '</div>';
@@ -7475,6 +7716,7 @@ window.DEPOUILLEMENT = (function () {
   // Ce qui manque, dit sur la ligne elle-même : plus besoin d'ouvrir le détail pour le savoir.
   // E-5 : une seule étiquette par fait. L'état (etatDe) dit le fait principal ; les motifs n'ajoutent que ce qu'il ne dit pas.
   function motifsHTML(l) {
+    if (etatPapier(l)) return "";   // L8g-8 : l'état « Convention papier » dit tout ; rien n'est attendu des liens
     var m = [], etat = etatDe(l)[1], ill = l.illisibles || [];
     var entMq = l.sansEnt && ill.indexOf("ENTREPRISE") < 0, parMq = l.sansPar && ill.indexOf("PARENTS") < 0;   // illisible n'est pas manquant
     if (entMq && parMq) { if (etat !== "Parties manquantes") m.push('<span class="cv-mchip mq-ko">Rien reçu</span>'); }
@@ -7518,6 +7760,7 @@ window.DEPOUILLEMENT = (function () {
       + '<div class="cv-bloc"><h5>À vérifier</h5><div>' + (complet ? "" : '<b class="cv-incomplet">' + esc("Dossier incomplet : " + raisons + ".") + '</b>' + (l.aVerifier.length ? "<br>" : ""))
       + (l.aVerifier.length ? l.aVerifier.map(function (t) { return "⚠ " + esc(t); }).join("<br>") : (complet ? '<span class="mut">Rien à signaler.</span>' : "")) + '</div></div></div>';
     h += avisHTML(l, admin);
+    h += papierHTML(l, admin);   // L8g-8 (P-3)
     if (l.sansCourrielPar) {
       var sed = ((window.__avisDe && window.__avisDe(l.code)) || {}).suiviED || {};
       h += '<div class="cv-bloc" style="margin-top:8px"><h5>École Directe</h5><div>Les parents n\'ont pas d\'adresse courriel : le collège leur écrit par École Directe.'
@@ -7534,9 +7777,9 @@ window.DEPOUILLEMENT = (function () {
       + (l.aConv2 ? '<button class="btn ghost sm" type="button" onclick="window.DEPOUILLEMENT.voirConvention(\'' + c + '\', 2)" title="Ouvre la convention du second lieu de stage à l\'écran, sans l\'enregistrer sur votre appareil.">👁 Visualiser (lieu 2)</button>' : "")
       + (l.aConv1 ? '<button class="btn sm" type="button" onclick="window.DEPOUILLEMENT.genConvention(\'' + c + '\')" title="' + esc(complet ? "Fabrique la convention complète" + (l.deux ? " du premier lieu" : "") + " (PDF)." : provAide) + '">' + (complet ? "Convention" + (l.deux ? " 1" : "") + " (PDF)" : "Aperçu provisoire" + (l.deux ? " 1" : "")) + '</button>' : "")
       + (l.aConv2 ? '<button class="btn sm" type="button" onclick="window.DEPOUILLEMENT.genConvention(\'' + c + '\', 2)" title="' + esc(complet ? "Fabrique la convention complète du second lieu de stage (PDF)." : provAide) + '">' + (complet ? "Convention 2 (PDF)" : "Aperçu provisoire 2") + '</button>' : "")
-      + '<button class="btn ghost sm" type="button" onclick="window.DEPOUILLEMENT.envoyer(\'' + c + '\')"' + (complet ? "" : " disabled") + ' title="' + esc(complet ? "Ouvre votre messagerie avec les adresses et l'objet prêts ; vous joignez le PDF." : "Impossible tant que le dossier n'est pas complet : " + raisons + ".")   /* G-2 (L8f) */ + '">✉ Préparer l\'envoi</button>'
+      + (etatPapier(l) ? "" : '<button class="btn ghost sm" type="button" onclick="window.DEPOUILLEMENT.envoyer(\'' + c + '\')"' + (complet ? "" : " disabled") + ' title="' + esc(complet ? "Ouvre votre messagerie avec les adresses et l'objet prêts ; vous joignez le PDF." : "Impossible tant que le dossier n'est pas complet : " + raisons + ".")   /* G-2 (L8f) */ + '">✉ Préparer l\'envoi</button>')   /* L8g-8 : rien à envoyer pour une convention papier */
       + (admin && l.aAttest ? '<button class="btn ghost sm danger" type="button" onclick="window.__retirerAttestation && window.__retirerAttestation(\'' + c + '\')" title="Archive puis retire l\'attestation « un seul lieu » de cette famille. Réservé à l\'administrateur.">Retirer l\'attestation</button><button class="btn ghost sm cv-i" type="button" data-info="' + c + '" title="Quand utiliser « Retirer l\'attestation » ?">i</button>' : "")
-      + (admin ? '<button class="btn ghost sm danger" type="button" onclick="window.__supprimerConvention && window.__supprimerConvention(\'' + c + '\')" title="Archive puis supprime toutes les parties reçues de cet élève. Réservé à l\'administrateur.">🗑 Supprimer…</button>' : "")
+      + (admin && !(etatPapier(l) && !Object.keys(l.volets || {}).length) ? '<button class="btn ghost sm danger" type="button" onclick="window.__supprimerConvention && window.__supprimerConvention(\'' + c + '\')" title="Archive puis supprime toutes les parties reçues de cet élève. Réservé à l\'administrateur.">🗑 Supprimer…</button>' : "")
       + '</div>';
     if (admin) (l.illisibles || []).forEach(function (pl) {
       var lib = { ENTREPRISE: "de l'entreprise", ENTREPRISE_2: "de l'entreprise du second lieu", PARENTS: "des parents", PARENTS_2: "des parents (convention 2)" }[pl.replace(/_C$/, "")] || "";
@@ -7549,6 +7792,19 @@ window.DEPOUILLEMENT = (function () {
     if (admin && l.aAttest) h += '<div class="cv-info" data-info-txt="' + c + '"' + (FILTRE.infos[l.code] ? "" : " hidden") + '>À utiliser seulement si la famille vous confirme que son enfant a bien un second lieu de stage. L\'attestation est d\'abord archivée, puis retirée : la famille pourra alors signer la convention du second lieu avec son lien habituel. Si c\'est l\'entreprise qui s\'est trompée en déclarant « seulement certains jours », ne retirez rien : c\'est à l\'entreprise de demander à refaire sa convention, avec son lien.</div>';
     h += historiqueHTML(l);
     return h + '</div>';
+  }
+  // L8g-8 (P-3) : la convention papier d'un élève dont rien n'est arrivé par les liens : quand elle est sortie, si elle est revenue
+  // signée, et les deux gestes de Paul (absents en lecture seule, comme les autres gestes qui modifient).
+  function papierHTML(l, admin) {
+    var ep = etatPapier(l); if (!ep) return "";
+    var c = esc(l.code), d = new Date(l.papier.ts);
+    var h = '<div class="cv-bloc cv-papier" style="margin-top:8px"><h5>Convention papier</h5><div>'
+      + esc("Convention papier sortie le " + jjmmaaaaDep(l.papier.ts) + " à " + d.getHours() + " h " + ("0" + d.getMinutes()).slice(-2) + ".")
+      + (ep === "recue" ? "<br>✓ " + esc("Convention papier reçue signée le " + jjmmaaaaDep(l.papier.recue) + ".") : "");
+    if (admin) h += '<div class="cv-actions ls-cache" style="margin-top:6px">'
+      + (ep === "sortie" ? '<button class="btn ghost sm" type="button" onclick="window.__papierRecue && window.__papierRecue(\'' + c + '\')" title="À cliquer quand la convention papier revient au collège, remplie et signée par l\'entreprise et par les parents : l\'élève passe à « Complet (papier) ».">Convention papier reçue signée</button>' : "")
+      + '<button class="btn ghost sm danger" type="button" onclick="window.__papierAnnuler && window.__papierAnnuler(\'' + c + '\')" title="Retire la marque « Convention papier » (après confirmation) : l\'élève revient à son état d\'avant. Pour une convention papier sortie par erreur.">Annuler la convention papier</button></div>';
+    return h + '</div></div>';
   }
   // L'autre parent (D115, D116, C2-30) : son accord, ou son opposition et ce que le collège en fait.
   function avisHTML(l, admin) {
@@ -7628,7 +7884,7 @@ window.DEPOUILLEMENT = (function () {
     var ls = cochees(); if (!ls.length) { toastDep("Cochez au moins un élève."); return; }
     var os = []; ls.forEach(function (l) { os = os.concat(conventionsDe(l)); });
     if (!os.length) { toastDep("Aucune convention pour les élèves cochés."); return; }
-    var prov = ls.filter(function (l) { return !estComplet(l); });
+    var prov = ls.filter(function (l) { return !estComplet(l) && !etatPapier(l); });   // L8g-8 : une convention papier ne sort pas en provisoire
     if (os.length === 1) { window.SIGNATAIRE.genererConventionComplete(os[0]); if (prov.length) toastDep(avisProvisoires(prov)); return; }
     if (!window.JSZip) { toastDep("Fabrication du ZIP impossible sur ce navigateur."); return; }
     var zip = new window.JSZip();
@@ -7641,7 +7897,7 @@ window.DEPOUILLEMENT = (function () {
     var os = []; ls.forEach(function (l) { os = os.concat(conventionsDe(l)); });
     if (!os.length) { toastDep("Aucune convention pour les élèves cochés."); return; }
     window.SIGNATAIRE.genererConventionsUnique(os, ((os[0] && os[0].annee === "demo") ? "TEST_DEMO_" : "") + "Conventions_secretariat_" + os.length + ".pdf");
-    var prov = ls.filter(function (l) { return !estComplet(l); }); if (prov.length) toastDep(avisProvisoires(prov));
+    var prov = ls.filter(function (l) { return !estComplet(l) && !etatPapier(l); }); if (prov.length) toastDep(avisProvisoires(prov));   // L8g-8
   }
   function adressesCochees() {
     var ls = cochees(); if (!ls.length) { toastDep("Cochez au moins un élève."); return; }
@@ -7776,25 +8032,32 @@ window.DEPOUILLEMENT = (function () {
     // K-4 (L8g-1) : la checklist se déduit de ce que dit la console ; chaque raison de l'état de l'élève a sa tâche.
     var ill = (l.illisibles || []).map(function (x) { return x.replace(/_C$/, ""); });
     var illEnt = ill.some(function (x) { return /^ENTREPRISE/.test(x); }), illPar = ill.some(function (x) { return /^PARENTS/.test(x); });
-    if (illEnt) t.push(["Ton entreprise doit remplir de nouveau sa partie de la convention, avec le même lien : le collège n'a pas pu la lire.", ""]);
-    if ((l.entARefaire || []).length) t.push(["Ton entreprise doit remplir et signer elle-même sa partie de la convention.",
-      "La partie de la convention de l'entreprise doit être remplie et signée par l'entreprise, avec le lien que tes parents lui transmettent."]);
-    else if (l.sansEnt && !illEnt) t.push(["Ton maître de stage doit remplir sa partie de la convention.",
+    // P-4 (L8g-4) : une tâche qui ne concerne que l'entreprise 2 la nomme « l'entreprise de ton second lieu », juste après celle de l'entreprise 1.
+    if (ill.indexOf("ENTREPRISE") >= 0) t.push(["Ton entreprise doit remplir de nouveau sa partie de la convention, avec le même lien : le collège n'a pas pu la lire.", ""]);
+    if (ill.indexOf("ENTREPRISE_2") >= 0) t.push(["L'entreprise de ton second lieu doit remplir de nouveau sa partie de la convention, avec le même lien : le collège n'a pas pu la lire.", ""]);
+    var dRefaire = "La partie de la convention de l'entreprise doit être remplie et signée par l'entreprise, avec le lien que tes parents lui transmettent.";
+    // P-4 : une entreprise 2 à refaire ne peut pas arriver avec les écrans actuels (D119 arrête le nom de l'élève au champ, aux deux places ;
+    // la version de juillet n'avait pas de second lieu) : rien n'est changé pour elle (rapport, point 54).
+    if ((l.entARefaire || []).length) t.push(["Ton entreprise doit remplir et signer elle-même sa partie de la convention.", dRefaire]);
+    if (!(l.entARefaire || []).length && l.sansEnt && !illEnt) t.push(["Ton maître de stage doit remplir sa partie de la convention.",
       "Sans sa partie de la convention, celle-ci ne peut pas être signée, et sans convention signée tu ne peux pas faire ton stage."]);
     if (illPar) t.push(["Tes parents doivent remplir de nouveau leur partie de la convention, avec le même lien : le collège n'a pas pu la lire.", ""]);
     if (l.sansPar && !illPar) t.push(["Tes parents doivent remplir leur partie de la convention.",
       "La convention est signée par ton entreprise, par tes parents et par le collège. Il manque leur accord et leurs coordonnées en cas d'urgence."]);
     var besoinsDe = function (bs) { var n = []; bs.forEach(function (b) { if (v[b] && v[b].aCompleter) (v[b].besoins || []).forEach(function (x) { if (n.indexOf(x) < 0) n.push(x); }); }); return n; };
     var et = function (l_) { return l_.length > 1 ? l_.slice(0, -1).join(", ") + " et " + l_[l_.length - 1] : (l_[0] || ""); };
-    var lE = window.__listePourEleve ? window.__listePourEleve("ENTREPRISE", besoinsDe(["ENTREPRISE", "ENTREPRISE_2"])) : [];
     var lP = window.__listePourEleve ? window.__listePourEleve("PARENTS", besoinsDe(["PARENTS", "PARENTS_2"])) : [];
     // M-1 (L8g-3) : une partie de l'ancienne version (« champs ») : « préciser » et « redonner », puis « il manque aussi ».
-    var pE = window.__aPreciser && window.__aPreciser(besoinsDe(["ENTREPRISE", "ENTREPRISE_2"])) ? window.__preciserEleve("ENTREPRISE", besoinsDe(["ENTREPRISE", "ENTREPRISE_2"])) : null;
     var pP = window.__aPreciser && window.__aPreciser(besoinsDe(["PARENTS", "PARENTS_2"])) ? window.__preciserEleve("PARENTS", besoinsDe(["PARENTS", "PARENTS_2"])) : null;
     var aussi = function (p) { return p.aussi.length ? " ; il manque aussi " + et(p.aussi) : ""; };
-    if (pE) t.push(["Ton entreprise doit reprendre la convention pour la compléter et la signer : " + pE.preciser + aussi(pE) + ".", "Elle le fait en rouvrant le lien de la convention."]);
-    else if (["ENTREPRISE", "ENTREPRISE_2"].some(function (b) { return v[b] && v[b].aCompleter; }))
-      t.push(["Ton entreprise doit reprendre la convention pour la compléter et la signer" + (lE.length ? " : il manque " + et(lE) + "." : "."), "Elle le fait en rouvrant le lien de la convention."]);
+    // P-4 (L8g-4) : l'entreprise 1 avec sa liste à elle, puis l'entreprise 2 avec la sienne.
+    [["ENTREPRISE", "Ton entreprise"], ["ENTREPRISE_2", "L'entreprise de ton second lieu"]].forEach(function (x) {
+      if (!(v[x[0]] && v[x[0]].aCompleter)) return;
+      var bs = besoinsDe([x[0]]), pE = window.__aPreciser && window.__aPreciser(bs) ? window.__preciserEleve("ENTREPRISE", bs) : null;
+      var lE = window.__listePourEleve ? window.__listePourEleve("ENTREPRISE", bs) : [];
+      if (pE) t.push([x[1] + " doit reprendre la convention pour la compléter et la signer : " + pE.preciser + aussi(pE) + ".", "Elle le fait en rouvrant le lien de la convention."]);
+      else t.push([x[1] + " doit reprendre la convention pour la compléter et la signer" + (lE.length ? " : il manque " + et(lE) + "." : "."), "Elle le fait en rouvrant le lien de la convention."]);
+    });
     if (pP) t.push(["Tes parents doivent reprendre la convention pour la compléter et la signer : " + pP.preciser + aussi(pP) + ".", "Ils le font en rouvrant le lien de la convention."]);
     else if (["PARENTS", "PARENTS_2"].some(function (b) { return v[b] && v[b].aCompleter; }))
       t.push(["Tes parents doivent reprendre la convention pour la compléter et la signer" + (lP.length ? " : il manque " + (lP.length > 1 && lP[lP.length - 1] === window.__urgencesEleve ? lP.slice(0, -1).join(", ") + ", et " + lP[lP.length - 1] : et(lP)) + "." : "."), "Ils le font en rouvrant le lien de la convention."]);   // J-2 (point 837)
@@ -7802,26 +8065,49 @@ window.DEPOUILLEMENT = (function () {
     if (av.suspendue || (av.opposition && !(av.suite && av.suite.accordObtenu))) t.push(["Le collège doit d'abord échanger avec ta famille : ta convention ne peut pas encore être signée.", ""]);
     if (demandeEnAttente(l)) {
       var dps = (demandesDeCalc(l.code) || []).map(function (d) { return d.place; });
-      if (!dps.length || dps.some(function (p) { return /^ENTREPRISE/.test(p); })) t.push(["Ton entreprise a demandé à refaire sa partie de la convention : le collège la lui rouvre, puis elle la refait avec le même lien.", ""]);
+      // S-2 (L8g-6) : l'entreprise choisit la convention à refaire ; celle du second lieu a la tâche de P-4 (L8g-4).
+      if (!dps.length || dps.some(function (p) { return /^ENTREPRISE/.test(p) && p !== "ENTREPRISE_2"; })) t.push(["Ton entreprise a demandé à refaire sa partie de la convention : le collège la lui rouvre, puis elle la refait avec le même lien.", ""]);
+      if (dps.indexOf("ENTREPRISE_2") >= 0) t.push(["L'entreprise de ton second lieu a demandé à refaire sa partie de la convention : le collège la lui rouvre, puis elle la refait avec le même lien.", ""]);
       if (dps.some(function (p) { return /^PARENTS/.test(p); })) t.push(["Tes parents ont demandé à refaire leur partie de la convention : le collège la leur rouvre, puis ils la refont avec le même lien.", ""]);
     }
-    if (couverts && couverts < prevus) {
-      t.push(["Tu dois trouver encore " + (prevus - couverts) + " journée" + ((prevus - couverts) > 1 ? "s" : "") + " de stage : ton stage en compte " + couverts + ", il en faut " + prevus + ".",
+    // P-2 (L8g-4) : une seule tâche pour le second lieu, selon le cas. L'entreprise 2 a envoyé : ses tâches seules (P-4), sauf
+    // s'il manque encore des jours (S-1, L8g-6). Les parents ont déclaré un second lieu :
+    // « Pour ton second lieu… » (P-1). L'entreprise 1 ne prend que certains jours : « Tu dois trouver un second lieu… ».
+    // Sinon, une partie de juillet qui ne couvre pas tous les jours : « Tu dois trouver encore… », inchangée.
+    var lim = dateLimite(l), auj = new Date(); auj.setHours(12, 0, 0, 0);
+    var alerte = function () { return ["Tu dois trouver ton second lieu de stage : l'entreprise de ton second lieu doit remplir sa partie de la convention " + (auj > lim ? "dès que possible." : "avant le " + frLimite(lim) + "."),
+      "Chaque lieu a sa propre convention : celle du second lieu reste à établir, et ton stage commence bientôt."]; };   // P-3 (L8g-4)
+    // P-1 (L8g-4) : « celle du premier lieu n'attend plus rien » seulement si la convention du premier lieu est vraiment complète.
+    var dps1 = demandeEnAttente(l) ? (demandesDeCalc(l.code) || []).map(function (d) { return d.place; }) : [];
+    var premierComplet = !!(v.ENTREPRISE && v.PARENTS) && ill.indexOf("ENTREPRISE") < 0 && ill.indexOf("PARENTS") < 0
+      && ["ENTREPRISE", "PARENTS"].every(function (b) { return !v[b].aCompleter && !v[b].aRefaire; })
+      && !(demandeEnAttente(l) && (!dps1.length || dps1.indexOf("ENTREPRISE") >= 0 || dps1.indexOf("PARENTS") >= 0))
+      && !av.suspendue && !(av.opposition && !(av.suite && av.suite.accordObtenu));
+    var dSecond = premierComplet ? "Chaque lieu a sa propre convention : celle du premier lieu n'attend plus rien, celle du second reste à établir." : "Chaque lieu a sa propre convention : celle du second lieu reste à établir.";
+    var reste = Math.max(1, prevus - couverts);
+    if (l.e2Recu) {
+      // S-1 (L8g-6) : les deux entreprises réunies ne couvrent pas tous les jours : la même tâche, et un détail pour deux entreprises.
+      if (v.ENTREPRISE_2 && couverts && couverts < prevus) t.push([trouverEncore()[0], "Demande à l'une de tes deux entreprises si elle peut t'accueillir " + (prevus - couverts > 1 ? "les " + (prevus - couverts) + " journées qui restent." : "la journée qui reste.")]);
+    }
+    else if (l.declParents) t.push(l.alerteSecond && lim ? alerte() : ["Pour ton second lieu, l'entreprise doit remplir sa partie de la convention.", dSecond]);
+    else if (l.secondManquant) t.push(l.alerteSecond && lim ? alerte() : ["Tu dois trouver un second lieu de stage pour " + (reste > 1 ? "les " + reste + " journées qui restent" : "la journée qui reste") + " : son entreprise remplira sa propre convention.",
+      "Chaque lieu a sa propre convention : celle du second lieu reste à établir."]);
+    else if (couverts && couverts < prevus) t.push(trouverEncore());
+    function trouverEncore() {
+      return ["Tu dois trouver encore " + (prevus - couverts) + " journée" + ((prevus - couverts) > 1 ? "s" : "") + " de stage : ton stage en compte " + couverts + ", il en faut " + prevus + ".",
         "La séquence d'observation du collège dure " + (mots[prevus] || prevus + " jours") + ", en une fois ou en plusieurs périodes. "
         + "Deux possibilités : demande à ton entreprise si elle peut t'accueillir les journées qui restent, ou trouve un second lieu d'accueil. "
-        + "Dans ce second cas, chaque entreprise remplit sa propre convention : tu auras deux conventions, une par lieu."]);
+        + "Dans ce second cas, chaque entreprise remplit sa propre convention : tu auras deux conventions, une par lieu."];
     }
-    // H-7 (L8g) : avant l'alerte, la tâche d'avant ; à partir de l'alerte, la date limite (point 252) du niveau de l'élève.
-    var lim = dateLimite(l);
-    if (l.alerteSecond && lim) t.push(["Tu dois trouver ton second lieu de stage : ton entreprise doit remplir sa partie de la convention avant le " + frLimite(lim) + ".",
-      "Chaque lieu a sa propre convention : celle du second lieu reste à établir, et ton stage commence bientôt."]);
-    else if (l.secondManquant || l.declaration) t.push(["Pour ton second lieu, l'entreprise doit remplir sa partie de la convention.",
-      "Chaque lieu a sa propre convention : celle du premier lieu n'attend plus rien, celle du second reste à établir."]);
     if (l.parents2) t.push(["Pour ton second lieu, tes parents doivent remplir leur partie de la convention.",
       "Chaque lieu a sa propre convention : tes parents signent les deux."]);
     if (l.horairesHors) t.push(["Ton entreprise doit corriger les horaires de ton stage.", "Les horaires doivent rester dans le cadre légal : 7 heures par jour au plus, entre 6 h et 20 h, avec une pause."]);
     if (l.sansEnt && l.sansPar && !l.entreprise && !illEnt && !illPar) t = [["Tu dois trouver une entreprise pour ton stage : parles-en à ton professeur principal.",
       "Le centre d'information et d'orientation peut t'aider : CIO de Saumur, 3 rue de Sévigné, 02 41 51 02 30, cio.saumur@ac-nantes.fr, du lundi au vendredi de 9 h à 12 h et de 14 h à 17 h."]];
+    // L8g-8 (P-3) : rien n'est arrivé par les liens et la convention papier est sortie : une seule tâche ; revenue signée : la feuille d'un dossier complet.
+    var ep = etatPapier(l);
+    if (ep === "sortie") t = [["Ta convention est sur papier : fais-la remplir et signer par ton entreprise et par tes parents, puis rapporte-la au collège.", ""]];
+    else if (ep === "recue") t = [];
     return t;
   }
   // 252 : « À faire avant le [vendredi qui précède J-10] : ton stage commence le [date]. »
@@ -7848,7 +8134,7 @@ window.DEPOUILLEMENT = (function () {
     doc.setFont("times", "bold"); doc.setFontSize(14); doc.setTextColor(22, 36, 63);
     doc.text("Où on en est pour ton stage ?", M, y); y += 6;
     doc.setFont("helvetica", "normal"); doc.setFontSize(8.6); doc.setTextColor(120);
-    var ent = doc.splitTextToSize([propre(l.affNom), propre(l.classe), "feuille établie le " + dateFrSimple(), l.dates ? "stage prévu " + l.dates : ""].filter(Boolean).join("  ·  "), W - 2 * M);
+    var ent = doc.splitTextToSize([propre(l.affNom), propre(l.classe), "feuille établie le " + dateFrSimple(), (l.datesStage != null ? l.datesStage : l.dates) ? "stage prévu " + (l.datesStage != null ? l.datesStage : l.dates) : ""].filter(Boolean).join("  ·  "), W - 2 * M);
     doc.text(ent, M, y);
     doc.setTextColor(33); y += 4 * ent.length + 2.5;
     if (t.length) {
@@ -7867,7 +8153,7 @@ window.DEPOUILLEMENT = (function () {
         doc.setTextColor(33);
       });
       // Le code sert aussi pour compléter : dans ce cas les deux parties doivent rouvrir leur lien.
-      var besoinCode = l.sansEnt || l.sansPar || l.aCompleter;
+      var besoinCode = (l.sansEnt || l.sansPar || l.aCompleter) && !etatPapier(l);   // L8g-8 : la convention papier ne passe pas par les liens
       if (avecQR && besoinCode) {
         var el = (typeof _resolver === "function" && _resolver(l.code)) || null;
         var cases = [];
@@ -7915,7 +8201,10 @@ window.DEPOUILLEMENT = (function () {
       });
       y += 2;
       doc.setFontSize(8.6); doc.setTextColor(110, 118, 135);
-      doc.text(doc.splitTextToSize((l.sansCourrielPar ? "Le collège envoie la convention signée à ton entreprise, et à tes parents par École Directe." : "Le collège envoie la convention signée à tes parents et à ton entreprise.") + " Tu restes élève du collège pendant ton stage : les règles de présence sont les mêmes qu'en classe, et ton entreprise prévient le collège le jour même en cas d'absence.", W - 2 * M), M, y);
+      // P-6 (L8g-4) : un dossier complet à deux lieux : deux conventions, deux entreprises ; à un seul lieu, inchangé (L7a).
+      var envoi = l.entreprise2 ? (l.sansCourrielPar ? "Le collège envoie les deux conventions signées à chacune de tes entreprises, et à tes parents par École Directe." : "Le collège envoie les deux conventions signées à tes parents et à chacune de tes entreprises.")
+        : (l.sansCourrielPar ? "Le collège envoie la convention signée à ton entreprise, et à tes parents par École Directe." : "Le collège envoie la convention signée à tes parents et à ton entreprise.");
+      doc.text(doc.splitTextToSize(envoi + " Tu restes élève du collège pendant ton stage : les règles de présence sont les mêmes qu'en classe, et " + (l.entreprise2 ? "l'entreprise qui t'accueille ce jour-là" : "ton entreprise") + " prévient le collège le jour même en cas d'absence.", W - 2 * M), M, y);
       doc.setTextColor(33);
     }
     doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(110, 118, 135);
@@ -8104,14 +8393,15 @@ window.DEPOUILLEMENT = (function () {
         var complet = estComplet(l), rs = raisonsIncomplet(l), t = tachesDe(l), e = etatDe(l), besoins = {};
         ["ENTREPRISE", "ENTREPRISE_2", "PARENTS", "PARENTS_2"].forEach(function (b) { if (l.volets[b]) besoins[b] = (l.volets[b].besoins || []).slice(); });
         var puces = []; String(motifsHTML(l)).replace(/<span class="(?:cv-mchip|cv-motif)[^"]*"[^>]*>([\s\S]*?)<\/span>/g, function (m, x) { puces.push(x.replace(/<[^>]+>/g, "")); return m; });
-        return { code: l.code, eleve: l.affNom, classe: l.classe, etat: e[1], complet: complet, puces: puces, raisons: complet ? [] : rs,
+        return Object.assign({ code: l.code, eleve: l.affNom, classe: l.classe, etat: e[1], complet: complet, puces: puces, raisons: complet ? [] : rs,
           parties_recues: l.parties.slice(), a_verifier: (complet ? [] : ["Dossier incomplet : " + rs.join(", ") + "."]).concat(l.aVerifier).length ? (complet ? [] : ["Dossier incomplet : " + rs.join(", ") + "."]).concat(l.aVerifier) : ["Rien à signaler."],
-          besoins: besoins, checklist: t.length ? t.map(function (x) { return { tache: propre(x[0]), detail: x[1] }; }) : [{ tache: "Ta convention est complète.", detail: "Tu n'as plus rien à faire." }], retire: !!retire };
+          besoins: besoins, checklist: t.length ? t.map(function (x) { return { tache: propre(x[0]), detail: x[1] }; }) : [{ tache: "Ta convention est complète.", detail: "Tu n'as plus rien à faire." }], retire: !!retire },
+          l.papier ? { convention_papier: { sortie_le: new Date(l.papier.ts).toISOString(), par: l.papier.par || "", recue_signee_le: l.papier.recue ? new Date(l.papier.recue).toISOString() : "" } } : {});   // L8g-8 : la marque
       };
       return r.lignes.map(function (l) { return une(l, false); }).concat(r.retirees.map(function (l) { return une(l, true); }));
     } finally { _calc = sauf; }
   }
-  return { conclusions: conclusions, checklistDe: function (code) { var l = ligneDe(code); return l ? { complet: estComplet(l), raisons: raisonsIncomplet(l), taches: tachesDe(l).map(function (x) { return x[0]; }), ent: !!(l.volets.ENTREPRISE || l.volets.ENTREPRISE_2) || (l.illisibles || []).some(function (x) { return /^ENTREPRISE/.test(x); }), par: !!(l.volets.PARENTS || l.volets.PARENTS_2) } : null; }, repasserMarques: repasserMarques, init: init, archiveEleves: archiveEleves, ligneRetiree: ligneRetiree, telecharger: telecharger, importerZip: importerZip, exportCSV: exportCSV, genConvention: genConvention, voirConvention: voirConvention, genChecklists: genChecklists, rafraichir: function () { if (_lignes.length) afficherTable(); }, voletsDe: function (code) { return (_dernier && _dernier.parCode[code]) ? _dernier.parCode[code].volets : {}; }, genToutes: genToutes, envoyer: envoyer, genFichesTuteurs: genFichesTuteurs, injecterTest: injecterTest, nbRecues: nbRecues };
+  return { conclusions: conclusions, checklistDe: function (code) { var l = ligneDe(code); return l ? { complet: estComplet(l), raisons: raisonsIncomplet(l), taches: tachesDe(l).map(function (x) { return x[0]; }), ent: !!(l.volets.ENTREPRISE || l.volets.ENTREPRISE_2) || (l.illisibles || []).some(function (x) { return /^ENTREPRISE/.test(x); }), par: !!(l.volets.PARENTS || l.volets.PARENTS_2), entete: l.datesStage || "" } : null; }, repasserMarques: repasserMarques, init: init, archiveEleves: archiveEleves, ligneRetiree: ligneRetiree, telecharger: telecharger, importerZip: importerZip, exportCSV: exportCSV, genConvention: genConvention, voirConvention: voirConvention, genChecklists: genChecklists, rafraichir: function () { if (_lignes.length) afficherTable(); }, recalculer: recalculer, voletsDe: function (code) { return (_dernier && _dernier.parCode[code]) ? _dernier.parCode[code].volets : {}; }, genToutes: genToutes, envoyer: envoyer, genFichesTuteurs: genFichesTuteurs, injecterTest: injecterTest, nbRecues: nbRecues };
 })();
 </script>
 <script>/* =====================================================================
@@ -8338,6 +8628,10 @@ window.DEPOUILLEMENT = (function () {
   }
   function changerAnnee(nouv) {
     if (!nouv || nouv === STATE.annee) return;
+    // R-5 (L8g-5) : la console quitte d'abord le champ en cours de saisie (un tuteur qu'on renomme…), pour que ce qui
+    // était tapé s'enregistre dans l'année quittée, puis elle redessine : un redessin ne casse jamais ce qu'on fait.
+    var actif = document.activeElement;
+    if (actif && actif !== document.body && actif.id !== "champ-annee" && /^(INPUT|TEXTAREA)$/.test(actif.tagName || "") || (actif && actif.isContentEditable)) { try { actif.blur(); } catch (e) {} }
     STATE.annees = STATE.annees || {};
     var cur = STATE.niveaux || {}, garde = {};
     Object.keys(cur).forEach(function (k) { if (k !== "demo") garde[k] = cur[k]; });
@@ -8482,8 +8776,14 @@ window.DEPOUILLEMENT = (function () {
     var reader = new FileReader();
     reader.onload = function (e) {
       try {
-        var wb = XLSX.read(new Uint8Array(e.target.result), { type: "array" });
+        var wb = XLSX.read(new Uint8Array(e.target.result), { type: "array", cellNF: true });
         var ws = wb.Sheets[wb.SheetNames[0]];
+        // R-3 (L8g-5) : une cellule de date Excel s'écrit à la française (« 17/05/2013 ») ; une date en texte ne change pas.
+        Object.keys(ws).forEach(function (k) {
+          var c = ws[k]; if (k.charAt(0) === "!" || !c || c.t !== "n" || !c.z || !XLSX.SSF.is_date(c.z)) return;
+          var d = XLSX.SSF.parse_date_code(c.v); if (!d || !d.y) return;
+          c.w = ("0" + d.d).slice(-2) + "/" + ("0" + d.m).slice(-2) + "/" + d.y;
+        });
         var aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", raw: false });
         var hIdx = trouverLigneEntetes(aoa);
         if (hIdx < 0) { toast("Fichier vide.", true); return; }
@@ -9374,8 +9674,12 @@ window.DEPOUILLEMENT = (function () {
     if (!noms.length) { z.innerHTML = ""; return; }
     z.innerHTML = '<span class="hint" style="display:block;margin-bottom:8px">Document de distribution (QR + liens, un PDF par classe à imprimer) :</span>'
       + noms.map(function (c) { return '<button class="btn sm" data-doc="' + esc(c) + '" title="Générer le PDF récapitulatif des conventions de cette classe">📄 ' + esc(c) + " (" + classes[c] + ")</button>"; }).join(" ")
+      // L8g-8 (P-1) : la convention papier ; comme les autres gestes qui modifient, absente sur un poste en lecture seule (ls-cache).
+      + '<span class="hint ls-cache" id="ligne-conv-papier" style="display:block;margin:12px 0 6px">Convention papier, pour un élève dont la famille ou l\'entreprise ne passe pas par les liens :</span>'
+      + '<button class="btn sm ls-cache" id="btn-conv-papier" type="button" title="Choisir un élève et sortir sa convention à remplir à la main (PDF). Il passe à « Convention papier » dans le suivi ; une partie qui arriverait par son lien compte quand même.">🖨 Convention papier</button>'
       + '<span class="hint" style="display:block;margin:12px 0 6px">Supprimer une classe entière du niveau courant :</span>'
       + noms.map(function (c) { return '<button class="btn ghost sm danger" data-suppr-cl="' + esc(c) + '" title="Supprimer tous les élèves de cette classe">🗑 ' + esc(c) + " (" + classes[c] + ")</button>"; }).join(" ");
+    var bcp = z.querySelector("#btn-conv-papier"); if (bcp) bcp.addEventListener("click", ouvrirConventionPapier);
     z.querySelectorAll("[data-doc]").forEach(function (b) {
       b.addEventListener("click", function () { genererDocumentClasse(b.getAttribute("data-doc")); });
     });
@@ -9389,6 +9693,98 @@ window.DEPOUILLEMENT = (function () {
       });
     });
   }
+
+  // ===== L8g-8 : la convention papier =====
+  // P-1 : Paul choisit l'élève (liste du niveau ouvert, triée par classe puis par nom), puis sort sa convention à remplir à la main.
+  // P-3 : la marque « convention papier » est rangée avec l'élève dans l'état partagé (STATE), comme l'attribution d'un tuteur.
+  function sansAccents(t) { return String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); }
+  function nomPapier(el) { return ((el.nom || "") + " " + (el.prenom || "")).trim() || el.code; }
+  function recalculerSuivi() { if (window.DEPOUILLEMENT && window.DEPOUILLEMENT.recalculer) window.DEPOUILLEMENT.recalculer(); }
+  function ouvrirConventionPapier() {
+    if (estLecteur()) { toast("Lecture seule : les modifications se font depuis le compte de M. Meney.", true); return; }
+    var els = (nv().eleves || []).slice().sort(function (a, b) {
+      return String(a.classe || "").localeCompare(String(b.classe || ""), "fr") || String(a.nom || "").localeCompare(String(b.nom || ""), "fr") || String(a.prenom || "").localeCompare(String(b.prenom || ""), "fr");
+    });
+    var classes = []; els.forEach(function (e) { if (e.classe && classes.indexOf(e.classe) < 0) classes.push(e.classe); });
+    var choisi = "";
+    var fond = $("modal"); fond.classList.add("large"); var carte = fond.querySelector(".modal"); if (carte) carte.classList.add("large");
+    $("modal-titre").textContent = "Convention papier";
+    $("modal-corps").innerHTML =
+        '<p class="mut" style="margin:0 0 4px">Choisissez l\'élève. Sa convention sort en PDF avec son nom, son prénom, sa date de naissance et le collège ; tout le reste se remplit à la main. Il passe à « Convention papier » dans le suivi.</p>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0">'
+      + '<select id="cp-classe" style="padding:8px 10px;border:1px solid var(--ligne);border-radius:8px;font:inherit" title="Ne montrer que les élèves de cette classe."><option value="">Toutes les classes</option>' + classes.map(function (c) { return '<option value="' + esc(c) + '">' + esc(c) + '</option>'; }).join("") + '</select>'
+      + '<input id="cp-cherche" type="search" autocomplete="off" placeholder="Nom de l\'élève" style="flex:1;min-width:180px;padding:8px 10px;border:1px solid var(--ligne);border-radius:8px;font:inherit" title="Tapez le nom ou le prénom de l\'élève, dans n\'importe quel ordre : la liste se réduit à mesure.">'
+      + '</div>'
+      + '<div id="cp-liste" style="flex:1;min-height:0;overflow:auto;border:1px solid var(--ligne);border-radius:10px"></div>'
+      + '<div class="sig-actions" style="margin-top:14px;justify-content:flex-start;gap:8px;flex-wrap:wrap;align-items:center">'
+      + '<button class="btn" id="cp-sortir" type="button" disabled title="Télécharge la convention de l\'élève choisi, à imprimer et à remplir à la main (PDF). Il passe à « Convention papier » dans le suivi ; une partie qui arriverait par son lien compte quand même.">🖨 Sortir la convention papier</button>'
+      + '<button class="btn ghost" id="cp-annuler" type="button" title="Ferme cette fenêtre sans rien sortir ni rien changer.">Annuler</button>'
+      + '<span id="cp-raison" class="mut">Choisissez d\'abord un élève.</span>'
+      + '</div>';
+    function liste() {
+      var c = $("cp-classe").value, mots = sansAccents($("cp-cherche").value).split(/\s+/).filter(Boolean);
+      var vus = els.filter(function (e) {
+        if (c && e.classe !== c) return false;
+        var t = sansAccents((e.nom || "") + " " + (e.prenom || ""));
+        return mots.every(function (m) { return t.indexOf(m) >= 0; });
+      });
+      // Un élève choisi qui ne se voit plus n'est plus choisi : on ne sort jamais la convention d'un élève qu'on ne voit pas.
+      if (choisi && !vus.some(function (e) { return e.code === choisi; })) choisi = "";
+      $("cp-liste").innerHTML = vus.map(function (e) {
+        return '<label class="cp-eleve" data-cp="' + esc(e.code) + '" style="display:flex;gap:10px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--ligne);cursor:pointer" title="Choisir cet élève.">'
+          + '<input type="radio" name="cp-eleve" value="' + esc(e.code) + '"' + (choisi === e.code ? " checked" : "") + ' title="Choisir cet élève : sa convention papier sortira avec son nom, son prénom et sa date de naissance.">'
+          + '<b style="min-width:260px">' + esc(nomPapier(e)) + '</b><span class="mut">' + esc((e.classe || "") + (e.naissance ? " · né(e) le " + e.naissance : "") + " · " + e.code) + '</span></label>';
+      }).join("") || '<p class="mut" style="padding:10px 12px;margin:0">Aucun élève ne correspond.</p>';
+      maj();
+    }
+    function maj() { $("cp-sortir").disabled = !choisi; $("cp-raison").hidden = !!choisi; }
+    $("cp-classe").addEventListener("change", liste); $("cp-cherche").addEventListener("input", liste);
+    $("cp-liste").addEventListener("change", function (e) { if (e.target && e.target.name === "cp-eleve") { choisi = e.target.value; maj(); } });
+    $("cp-annuler").addEventListener("click", function () { window.__fermerModal(); });
+    $("cp-sortir").addEventListener("click", function () { if (choisi) sortirConventionPapier(choisi); });
+    liste();
+    fond.hidden = false;
+  }
+  window.__ouvrirConventionPapier = ouvrirConventionPapier;
+  function eleveDeCode(code) {
+    var r = null;
+    ["4e", "3e", "demo"].forEach(function (n) { (((STATE.niveaux || {})[n] || {}).eleves || []).forEach(function (e) { if (!r && e.code === code) r = e; }); });
+    return r;
+  }
+  function sortirConventionPapier(code) {
+    if (estLecteur()) { toast("Lecture seule : les modifications se font depuis le compte de M. Meney.", true); return; }
+    var el = (nv().eleves || []).filter(function (e) { return e.code === code; })[0]; if (!el) return;
+    if (!(window.SIGNATAIRE && window.SIGNATAIRE.genererConventionComplete)) { toast("Le module de la convention n'a pas pu se charger : rien n'est changé. Rechargez la page.", true); return; }
+    var o = { papier: true, nomEleve: ((el.prenom || "") + " " + (el.nom || "")).trim(), naissance: el.naissance || "", classe: el.classe || "", code: el.code,
+      annee: espaceAnnee(), data: { ENTREPRISE: {}, PARENTS: {}, ETABLISSEMENT: {} }, sigs: {}, preuves: {}, lieu: 1, provisoire: false };
+    try { window.SIGNATAIRE.genererConventionComplete(o); }
+    catch (e) { toast("La convention papier n'a pas pu être fabriquée : rien n'est changé.", true); return; }
+    var nom = nomPapier(el);
+    el.papier = { ts: Date.now(), par: auteurCourant(), recue: 0 };   // sortie de nouveau : la marque prend la nouvelle date
+    window.__fermerModal();
+    sauverState("papier", "a sorti la convention papier de " + nom);
+    recalculerSuivi();
+    toast("Convention papier de " + nom + " sortie : il passe à « Convention papier » dans le suivi.");
+  }
+  window.__papierRecue = function (code) {
+    if (estLecteur()) { toast("Lecture seule : les modifications se font depuis le compte de M. Meney.", true); return; }
+    var el = eleveDeCode(code); if (!el || !el.papier) return;
+    var nom = nomPapier(el);
+    el.papier = Object.assign({}, el.papier, { recue: Date.now(), recuePar: auteurCourant() });
+    sauverState("papier", "a noté la convention papier de " + nom + " reçue signée");
+    recalculerSuivi();
+    toast("Convention papier de " + nom + " reçue signée : il passe à « Complet (papier) ».");
+  };
+  window.__papierAnnuler = function (code) {
+    if (estLecteur()) { toast("Lecture seule : les modifications se font depuis le compte de M. Meney.", true); return; }
+    var el = eleveDeCode(code); if (!el || !el.papier) return;
+    var nom = nomPapier(el);
+    if (!confirm("Annuler la convention papier de " + nom + " ?\n\nLa marque « Convention papier » est retirée : l'élève revient à son état d'avant.")) return;
+    delete el.papier;
+    sauverState("papier", "a annulé la convention papier de " + nom);
+    recalculerSuivi();
+    toast("Convention papier de " + nom + " annulée : l'élève revient à son état d'avant.");
+  };
 
   // Établit la clé maîtresse à partir de la « clé de chiffrement » d'équipe, puis précharge les clés d'année.
   // Renvoie true si tout est bon, "secret" si la clé de chiffrement est erronée, false sinon.
@@ -9432,7 +9828,7 @@ window.DEPOUILLEMENT = (function () {
       if (!/^\d{4}-\d{4}$/.test(STATE.annee || "")) STATE.annee = anneeScolaire(0);   // une année tronquée par l'ancien champ libre
       chargerEtatPartage().then(function () { ecouterEtatPartage(); proposerRattachement(); if (window.__planifierPrefill) window.__planifierPrefill(); if (window.__planifierRetraits) window.__planifierRetraits(); }, ecouterEtatPartage);
       demarrerRemarques();
-      chargerContenus().then(function () { majAdmin(); majVerrouSignature(); });
+      chargerContenus().then(function () { majAdmin(); majVerrouSignature(); synchroniserTextes(); ecouterTextes(); });
       // L'interrupteur ne gouverne plus que la relecture avant partage.
       if (!_collabEcoute && window.FB && window.FB.ecouterCollab) {
         _collabEcoute = true;
@@ -9727,12 +10123,13 @@ window.DEPOUILLEMENT = (function () {
   // Les clés déchiffrées ne sont JAMAIS écrites sur le disque : elles vivent en mémoire et, chiffrées, sur Firebase.
   function stateAExporter() { var c = {}; for (var k in STATE) { if (STATE.hasOwnProperty(k) && k !== "cles") c[k] = STATE[k]; } return c; }
   function signature() { return JSON.stringify(stateAExporter()); }
-  function sauverState(motif) {
+  function sauverState(motif, desc) {
     lsSet(LS_STATE, signature());
     try { majEtapes(); } catch (e) {}
     if ((motif === "import" || motif === "demo") && nv().eleves && nv().eleves.length) ouvrirEtape(2);
     if (_etatBase && STATE.niveauActif !== "demo" && !estLecteur()) {
       if (motif === "annee") commitDirectEtat("a ouvert l'année " + STATE.annee, null);
+      else if (motif === "papier") commitDirectEtat(desc, null);   // L8g-8 (P-3) : partagé aussitôt, avec sa ligne d'historique
       else if (motif === "reprise") commitDirectEtat("a rechargé une sauvegarde", null);
       else if (motif === "import") commitDirectEtat("a importé " + ((nv().eleves || []).length) + " élève(s) en " + STATE.niveauActif, null);
       else if (_collab) majBoutonValider();          // relecture demandée : validation explicite
@@ -9794,7 +10191,7 @@ window.DEPOUILLEMENT = (function () {
     }, function (e) { toast("Photo impossible : " + ((e && e.message) || e) + ". La sauvegarde seule est téléchargée.", true); autoTelechargerJSON("manuel"); })
       .then(function () { _photoEnCours = false; });
   }
-  var PHOTO_GLOBAUX = ["config", "journal", "etat", "contenus", "remarques", "presence", "signature", "pause", "textes_version"];
+  var PHOTO_GLOBAUX = ["config", "journal", "etat", "contenus", "remarques", "presence", "signature", "pause", "textes_version", "textes_partages"];   // L8g-5 : le nœud des textes partagés
   var PHOTO_PAR_ANNEE = ["conventions", "codes", "verif", "demandes", "archive", "dates_officielles", "codes_actifs", "codes_retires", "prefill", "fiches"];
   var PHOTO_TECH = ["ts", "v", "f", "tv", "e", "c", "q", "j", "statut"];
   var NON_LISIBLE = "non lisible avec ce compte";
@@ -10244,6 +10641,34 @@ window.DEPOUILLEMENT = (function () {
   // Une entrée par version mise en ligne, la plus récente en tête. Dates et versions relevées dans l'historique
   // des envois sur GitHub ; descriptions reconstituées. À COMPLÉTER À CHAQUE LIVRAISON (consigne 8 en tête du fichier).
   var NOUVEAUTES = [
+    { date: "02/11/2026", auteur: "Paul Meney", version: "v2026.11.02·L8g-8", points: [
+      "Réglages, « Élèves, liens & QR » : « 🖨 Convention papier ». On choisit l'élève, et sa convention sort en PDF, la même que celle de l'App, avec son nom, sa date de naissance et le collège ; tout le reste se remplit à la main.",
+      "Suivi : l'élève passe à « Convention papier », puis à « Complet (papier) » quand on la note reçue signée ; « Annuler la convention papier » le ramène à son état d'avant. Sa checklist : « Ta convention est sur papier : fais-la remplir et signer par ton entreprise et par tes parents, puis rapporte-la au collège. »",
+      "Jamais bloquant : une partie qui arrive par un lien compte toujours ; « À vérifier » dit alors qu'une convention papier a aussi été sortie.",
+      "Suivi : un clic sur la tuile « Parties en attente » ou « Stage trop court » montre exactement les élèves qu'elle compte ; un second clic retire le filtre. Les deux choix sont aussi dans la liste « État »."
+    ] },
+    { date: "21/10/2026", heure: "10:18", auteur: "Paul Meney", version: "v2026.10.21·L8g-7", points: [
+      "Console : un texte modifié dans une autre fenêtre pendant que le curseur était dans ce même texte s'applique dès qu'on quitte le champ sans l'avoir changé, avec le message habituel.",
+      "Console : sur un poste qui n'a pas la main, une modification de texte n'est pas enregistrée, sans question inutile, avec ce message : « Ce poste est en lecture seule : votre modification n'est pas enregistrée. Pour modifier ici, cliquez « Prendre la main ici ». »",
+      "« En ligne » : la pastille dit le titre de la carte ouverte, en entier, sans signe collé (par exemple « · Conventions reçues »)."
+    ] },
+    { date: "19/10/2026", heure: "11:57", auteur: "Paul Meney", version: "v2026.10.19·L8g-6", points: [
+      "Checklist : quand les deux entreprises réunies laissent un jour sans personne, la tâche dit « Demande à l'une de tes deux entreprises si elle peut t'accueillir la journée qui reste. »",
+      "Demander à refaire : quand les deux lieux ont envoyé, l'entreprise choisit la convention à refaire (premier ou second lieu) ; rien n'est coché d'avance, ni pour elle ni pour les parents. La console ne rouvre que le lieu demandé.",
+      "Console : une modification de texte faite dans une fenêtre arrive aussitôt dans les autres, sans rechargement, et n'en efface jamais une autre ; ce qu'on est en train de taper n'est pas touché."
+    ] },
+    { date: "16/10/2026", heure: "14:45", auteur: "Paul Meney", version: "v2026.10.16·L8g-5", points: [
+      "Les articles de la convention modifiés dans la console arrivent tels quels aux familles et aux entreprises, et sur la convention imprimée : le gras, l'italique, le souligné et les retours à la ligne sont gardés, et aucune balise ne s'affiche ni ne s'imprime en toutes lettres.",
+      "La console relit, à son ouverture, qu'un texte précisé demande une nouvelle signature : les dossiers concernés restent « À compléter » après un rechargement.",
+      "Import d'une liste : une date de naissance enregistrée comme date dans Excel s'écrit à la française (17/05/2013).",
+      "Convention : le titre « Signatures » n'est jamais seul en bas d'une page.",
+      "Changer d'année de travail pendant la saisie d'un tuteur ne provoque plus d'erreur : ce qui était tapé est gardé."
+    ] },
+    { date: "15/10/2026", heure: "21:14", auteur: "Paul Meney", version: "v2026.10.15·L8g-4", points: [
+      "Checklist, quand il y a un second lieu : une seule tâche pour le second lieu, selon le cas (l'entreprise 1 ne prend que certains jours, les parents ont déclaré un second lieu, l'entreprise 2 a envoyé) ; « celle du premier lieu n'attend plus rien » seulement si c'est vrai.",
+      "Checklist : la tâche d'alerte nomme « l'entreprise de ton second lieu », et dit « dès que possible » après la date limite ; une partie illisible ou à compléter de l'entreprise 2 a sa propre tâche.",
+      "Checklist : l'en-tête donne tous les jours du stage reçus des deux entreprises, sous une seule forme (« du 24 au 26 mars ») ; la feuille d'un dossier complet à deux lieux parle des deux conventions et des deux entreprises."
+    ] },
     { date: "15/10/2026", heure: "14:11", auteur: "Paul Meney", version: "v2026.10.15·L8g-3", points: [
       "Checklist : pour une partie envoyée avec l'ancienne version, ce que les parents ou l'entreprise ont déjà donné (leur lien, les personnes à prévenir, les dates et les horaires) est dit « à préciser » ou « à redonner » ; « il manque » ne reste que pour ce qui manque vraiment (par exemple le numéro SIRET).",
       "Conventions reçues : le détail d'une telle partie dit de même « à préciser : … », puis « il manque : … » s'il y a lieu ; la photo de l'export reprend ces lignes."
@@ -10576,23 +11001,34 @@ window.DEPOUILLEMENT = (function () {
 
   // ===== Présence en direct =====
   var _monId = "p" + Math.random().toString(36).slice(2, 10);
-  var _presences = [], _battement = null, _sectionCourante = "";
+  var _presences = [], _battement = null, _sectionCourante = "", _espaceCourant = "";
   // Un seul numéro de version : celui du pied de page (C2-32). Le diagnostic et la présence le lisent ici.
   var VERSION_APP = ((document.querySelector(".app-version") || {}).textContent || "").trim() || "version inconnue";
+  // S-6 (L8g-7) : la dernière carte que l'on a ouverte (un clic sur son titre) ; la carte d'administration, toujours ouverte,
+  // ne la cache plus quand elle est placée avant elle.
+  var _derniereCarte = null;
+  document.addEventListener("click", function (e) {
+    var h = e.target && e.target.closest ? e.target.closest("#mode-console main > section.carte.repliable > h2") : null;
+    if (h) setTimeout(function () { var c = h.parentNode; _derniereCarte = c && !c.classList.contains("replie") ? c : (_derniereCarte === c ? null : _derniereCarte); }, 0);
+  }, true);
   function sectionVisible() {
     // La section « en cours » = la dernière carte dépliée sur laquelle on a agi, ou la première visible.
-    var cartes = document.querySelectorAll("#mode-console main > section.carte");
+    var cartes = [].slice.call(document.querySelectorAll("#mode-console main > section.carte"));
+    if (_derniereCarte && cartes.indexOf(_derniereCarte) >= 0 && !_derniereCarte.classList.contains("replie")) cartes.unshift(_derniereCarte);
     for (var i = 0; i < cartes.length; i++) {
       if (!cartes[i].classList.contains("replie")) {
         var h = cartes[i].querySelector("h2");
-        if (h) return (h.textContent || "").replace(/[▾\d\s]*/, "").trim().slice(0, 28);
+        // S-6 (L8g-7) : le titre de la carte, en entier, et rien d'autre (ni pastille d'état, ni numéro, ni compteur, ni bouton) :
+        // seuls les textes écrits directement dans le titre comptent.
+        // Une carte repliable range son titre dans « .titre-etape » ; la carte d'administration le garde en texte direct.
+        if (h) { var te = h.querySelector(".titre-etape"); return (te ? te.textContent : [].map.call(h.childNodes, function (n) { return n.nodeType === 3 ? n.nodeValue : ""; }).join(" ")).replace(/\s+/g, " ").trim(); }
       }
     }
     return "";
   }
   function annoncerPresence() {
     if (!window.FB || !window.FB.presenceAnnoncer || !window.FB.utilisateur()) return;
-    _sectionCourante = sectionVisible();
+    _sectionCourante = sectionVisible(); _espaceCourant = STATE.niveauActif;
     window.FB.presenceAnnoncer(_monId, {
       uid: ((window.FB.utilisateur() || {}).uid || ""), nom: auteurCourant(), section: _sectionCourante, espace: STATE.niveauActif,
       depuis: Date.now(), vu: Date.now(), version: VERSION_APP, cle: !!_maitre,
@@ -10604,7 +11040,8 @@ window.DEPOUILLEMENT = (function () {
       if (!window.FB.utilisateur()) return;
       var s = sectionVisible();
       var maj = { vu: Date.now() };
-      if (s !== _sectionCourante) { _sectionCourante = s; maj.section = s; maj.espace = STATE.niveauActif; }
+      // S-6 (L8g-7) : l'espace (classe ou espace de test) suit aussi, même quand la carte ouverte ne change pas.
+      if (s !== _sectionCourante || STATE.niveauActif !== _espaceCourant) { _sectionCourante = s; _espaceCourant = STATE.niveauActif; maj.section = s; maj.espace = STATE.niveauActif; }
       window.FB.presenceMaj(_monId, maj).catch(function () {});
     }, 20000);
     window.addEventListener("beforeunload", function () { try { window.FB.presencePartir(_monId); } catch (e) {} });
@@ -11160,7 +11597,20 @@ window.DEPOUILLEMENT = (function () {
   }
   function majContenu(cle, nouvelle) {
     var ancienne = valeurCourante(cle);
-    if (ancienne === nouvelle) return;
+    // S-4 (L8g-7) : un texte partagé arrivé pendant que le curseur était dans ce champ s'applique quand on le quitte sans l'avoir changé.
+    var attente = Object.prototype.hasOwnProperty.call(_textesEnAttente, cle) ? _textesEnAttente[cle] : null; delete _textesEnAttente[cle];
+    if (ancienne === nouvelle) {
+      if (attente != null && attente !== ancienne) { poserValeur(cle, attente); redessinerChamp(cle); toast(MSG_TEXTES_AILLEURS); }
+      return;
+    }
+    // S-5 (L8g-7) : sur un poste du compte de Paul qui n'a pas la main (D121), rien n'est enregistré, sans question inutile ;
+    // le texte partagé revient dans le champ, et le message dit la vraie raison.
+    if (estAdmin() && !_aLaMain) {
+      if (attente != null) poserValeur(cle, attente);
+      redessinerChamp(cle);
+      toast("Ce poste est en lecture seule : votre modification n'est pas enregistrée. Pour modifier ici, cliquez « Prendre la main ici ».", true);
+      return;
+    }
     pousserHistorique(cle, ancienne);
     poserValeur(cle, nouvelle);
     partagerContenus(cle);
@@ -11187,11 +11637,29 @@ window.DEPOUILLEMENT = (function () {
   }
   function partagerContenus(cle) {
     if (!_maitre || !window.FB || !window.FB.ecrireContenus) return;
+    // R-1 (L8g-5) : les bornes des règles du nœud des textes partagés ; un texte trop long n'est ni gardé ni partagé.
+    var trop = textesTropLongs();
+    if (trop) { var hh = _hist[cle] || []; if (hh.length) poserValeur(cle, hh.pop()); renderAdminChamps(); toast(trop, true); return; }
     var C = window.__contenus();
-    window.CRYPTO.emballerCle(_maitre, JSON.stringify({ etab: C.etab, articles: C.articles })).then(function (p) {
+    // S-3 (L8g-6) : seul le texte modifié ici change dans la base ; les autres sont repris tels qu'ils y sont (une autre fenêtre
+    // ou un autre poste a pu en modifier un entre-temps).
+    window.FB.lireContenus().then(function (rec) {
+      if (!rec || !rec.ct) return null;
+      _contenusVersion = Math.max(_contenusVersion, rec.v || 0);
+      return window.CRYPTO.deballerCle(_maitre, rec).then(function (txt) { return JSON.parse(txt); }).catch(function () { return null; });
+    }).catch(function () { return null; }).then(function (dist) {
+      var o = { etab: C.etab, articles: C.articles };
+      if (dist && dist.etab && dist.articles) {
+        o = JSON.parse(JSON.stringify(dist));
+        if (cle.indexOf("art:") === 0) { var i = +cle.slice(4); if (o.articles[i]) o.articles[i].c = C.articles[i].c; else o.articles[i] = { t: C.articles[i].t, c: C.articles[i].c }; }
+        else o.etab[cle] = C.etab[cle];
+      }
+      return window.CRYPTO.emballerCle(_maitre, JSON.stringify(o));
+    }).then(function (p) {
       return window.FB.ecrireContenus({ iv: p.iv, ct: p.ct, v: ++_contenusVersion, ts: Date.now() });
     }).then(function () {
       journal("contenu", "a modifié un texte de l'application (" + cle + ")");
+      partagerTextes(cle);   // R-1 (L8g-5) ; S-3 (L8g-6) : ce texte seul
       toast("Modification enregistrée et partagée.");
     }).catch(function () {
       // Le serveur refuse l'écriture (réservée à l'administrateur) : on annule la modification locale
@@ -11199,6 +11667,71 @@ window.DEPOUILLEMENT = (function () {
       _contenusVersion--;
       chargerContenus().then(function () { renderAdminChamps(); });
       toast("Modification refusée : seul l'administrateur peut modifier ces textes.", true);
+    });
+  }
+  // R-1 (L8g-5) : les textes que lisent les familles et les entreprises (nœud « textes_partages », en clair, sans clé) :
+  // les articles et les informations de l'établissement, tels qu'ils sont dans la console. Écrits par le compte de Paul seul.
+  function textesAPartager() {
+    var C = window.__contenus(), T = window.__texteArticle, etab = {};
+    ["nom", "chef", "adresse", "ville", "tel"].forEach(function (k) { etab[k] = String(C.etab[k] == null ? "" : C.etab[k]); });
+    return { etab: etab, articles: C.articles.map(function (a) { return T ? T.partage(a.c) : String(a.c); }) };
+  }
+  function textesTropLongs() {
+    var t = textesAPartager(), noms = { nom: "Nom de l'établissement", chef: "Chef d'établissement", adresse: "Adresse", ville: "Code postal et ville", tel: "Téléphone" };
+    for (var k in t.etab) if (t.etab[k].length > 2000) return "« " + noms[k] + " » : 2 000 caractères au plus. La modification n'est pas enregistrée.";
+    for (var i = 0; i < t.articles.length; i++) if (t.articles[i].length > 30000) return "« " + ((window.__contenus().articles[i] || {}).t || "Article") + " » : 30 000 caractères au plus. La modification n'est pas enregistrée.";
+    return "";
+  }
+  function partagerTextes(cle) {
+    if (!estAdmin() || !window.FB || !window.FB.ecrireTextesPartages) return Promise.resolve();
+    var t = textesAPartager(), ok;
+    if (cle && _textesPartagesVus && window.FB.majTextesPartages) {
+      // S-3 (L8g-6) : seul ce texte change dans la base ; ceux qu'une autre fenêtre a modifiés restent.
+      var maj = { v: _contenusVersion, ts: Date.now() };
+      if (cle.indexOf("art:") === 0) maj["articles/" + (+cle.slice(4))] = t.articles[+cle.slice(4)];
+      else if (t.etab[cle] != null) maj["etab/" + cle] = t.etab[cle];
+      ok = window.FB.majTextesPartages(maj);
+    } else { t.v = _contenusVersion; t.ts = Date.now(); ok = window.FB.ecrireTextesPartages(t); }
+    return ok.catch(function () { toast("Les textes n'ont pas pu être transmis aux familles et aux entreprises : réessayez.", true); });
+  }
+  // S-3 (L8g-6) : chaque fenêtre de la console suit les textes partagés. Une modification faite ailleurs s'applique aussitôt,
+  // à l'éditeur et aux impressions ; le texte où l'on est en train d'écrire n'est pas touché (ce qu'on y tape l'emportera).
+  var _textesPartagesVus = false, _ecouteTextes = null, _textesEnAttente = {};
+  var MSG_TEXTES_AILLEURS = "Les textes de la convention ont été modifiés depuis une autre fenêtre : ils sont à jour ici aussi.";
+  function ecouterTextes() {
+    if (_ecouteTextes || !window.FB || !window.FB.ecouterTextesPartages) return;
+    _ecouteTextes = window.FB.ecouterTextesPartages(function (o) {
+      if (!o || typeof o !== "object") return;
+      _textesPartagesVus = true;
+      var local = textesAPartager(), C = window.__contenus(), change = [];
+      ["nom", "chef", "adresse", "ville", "tel"].forEach(function (k) { var r = o.etab && o.etab[k]; if (typeof r === "string" && r !== local.etab[k]) change.push(k); });
+      for (var i = 0; i < C.articles.length; i++) { var a = o.articles && o.articles[i]; if (typeof a === "string" && a !== local.articles[i]) change.push("art:" + i); }
+      if (!change.length) return;
+      var actif = document.activeElement, enCours = actif && actif.closest && actif.closest("[data-edit]") ? actif.closest("[data-edit]").getAttribute("data-edit") : "";
+      // S-4 (L8g-7) : le texte où est le curseur n'est pas redessiné ; il attend qu'on quitte le champ (majContenu).
+      if (enCours && change.indexOf(enCours) >= 0) _textesEnAttente[enCours] = enCours.indexOf("art:") === 0 ? o.articles[+enCours.slice(4)] : o.etab[enCours];
+      var faits = change.filter(function (cle) { return cle !== enCours; });
+      if (!faits.length) return;
+      faits.forEach(function (cle) { poserValeur(cle, cle.indexOf("art:") === 0 ? o.articles[+cle.slice(4)] : o.etab[cle]); redessinerChamp(cle); });
+      _contenusVersion = Math.max(_contenusVersion, +o.v || 0);
+      toast(MSG_TEXTES_AILLEURS);
+    });
+  }
+  // Redessine un seul champ de l'éditeur (pas celui où l'on écrit).
+  function redessinerChamp(cle) {
+    var z = document.querySelector('.admin-champ[data-cle="' + cle + '"]'); if (!z) return;
+    var noms = { nom: "Nom de l'établissement", chef: "Chef d'établissement", adresse: "Adresse", ville: "Code postal et ville", tel: "Téléphone" };
+    var art = cle.indexOf("art:") === 0, t = document.createElement("div");
+    t.innerHTML = champHTML(cle, art ? (window.__contenus().articles[+cle.slice(4)] || {}).t || "" : noms[cle] || cle, art);
+    if (t.firstChild) z.parentNode.replaceChild(t.firstChild, z);
+  }
+  // À l'ouverture de la console par le compte de Paul : les textes partagés sont réécrits s'ils diffèrent de ceux de la console.
+  function synchroniserTextes() {
+    if (!estAdmin() || !window.FB || !window.FB.lireTextesPartages) return Promise.resolve();
+    return window.FB.lireTextesPartages().catch(function () { return null; }).then(function (o) {
+      var t = textesAPartager();
+      if (o && JSON.stringify({ etab: o.etab || {}, articles: o.articles || [] }) === JSON.stringify(t)) return;
+      return partagerTextes();
     });
   }
   function chargerContenus() {
@@ -11317,6 +11850,17 @@ window.DEPOUILLEMENT = (function () {
 
   // ===== Moteur de fusion collaborative (3-way merge) =====
   function nomEl(el) { return ((el.prenom || "") + " " + (el.nom || "")).trim() || "(élève)"; }
+  // L8g-8 : la marque « convention papier », dite pour Paul (validation, historique) ; et sa signature, pour savoir si elle a changé.
+  function jjmmaaaa(t) { var d = new Date(t); return ("0" + d.getDate()).slice(-2) + "/" + ("0" + (d.getMonth() + 1)).slice(-2) + "/" + d.getFullYear(); }
+  function texteMarquePapier(p) {
+    if (!p || !p.ts) return "—";
+    var d = new Date(p.ts);
+    return "sortie le " + jjmmaaaa(p.ts) + " à " + d.getHours() + " h " + ("0" + d.getMinutes()).slice(-2) + (p.recue ? ", reçue signée le " + jjmmaaaa(p.recue) : "");
+  }
+  function signatureMarques() {
+    var t = []; ["4e", "3e", "demo"].forEach(function (n) { (((STATE.niveaux || {})[n] || {}).eleves || []).forEach(function (e) { if (e && e.papier) t.push([e.code, e.papier]); }); });
+    return JSON.stringify(t);
+  }
   function cleEleve(el) { return norm(el.prenom) + "|" + norm(el.nom) + "|" + norm(el.classe || ""); }
   function indexEleves(niv) { var m = {}; (niv.eleves || []).forEach(function (el) { m[cleEleve(el)] = el; }); return m; }
   function snapEtat() {
@@ -11343,6 +11887,8 @@ window.DEPOUILLEMENT = (function () {
         var be = bi[k], ce = ci[k];
         if (!ce) { mods.push({ kind: "el-", niveau: nk, cle: k, label: "Élève " + nomEl(be) + " (" + nk + ")", avantTxt: "dans la liste", apresTxt: "retiré de la liste", cible: "el:" + nk + ":" + k }); return; }
         if ((be.tuteur || "") !== (ce.tuteur || "")) mods.push({ kind: "att", niveau: nk, cle: k, apres: ce.tuteur || "", label: "Tuteur de " + nomEl(ce) + " (" + nk + ")", avantTxt: be.tuteur || "—", apresTxt: ce.tuteur || "—", cible: "att:" + nk + ":" + k });
+        // L8g-8 (P-3) : la marque « convention papier » voyage avec l'élève ; la fusion à trois voies la garde.
+        if (JSON.stringify(be.papier || null) !== JSON.stringify(ce.papier || null)) mods.push({ kind: "pap", niveau: nk, cle: k, apres: ce.papier ? JSON.parse(JSON.stringify(ce.papier)) : null, label: "Convention papier de " + nomEl(ce) + " (" + nk + ")", avantTxt: texteMarquePapier(be.papier), apresTxt: texteMarquePapier(ce.papier), cible: "pap:" + nk + ":" + k });
       });
       Object.keys(ci).forEach(function (k) { if (!bi[k]) { var ce = ci[k]; mods.push({ kind: "el+", niveau: nk, cle: k, elObj: ce, label: "Élève " + nomEl(ce) + " (" + nk + ")", avantTxt: "absent", apresTxt: "ajouté à la liste", cible: "el:" + nk + ":" + k }); } });
       // Liste des tuteurs : un ajout ou un retrait doit partir vers l'équipe (il était ignoré, donc perdu).
@@ -11374,6 +11920,7 @@ window.DEPOUILLEMENT = (function () {
     if (m.kind === "etabm") { etat.etab = etat.etab || {}; etat.etab.missions = m.apresRaw || ""; return; }
     etat.niveaux = etat.niveaux || {}; var niv = etat.niveaux[m.niveau] || (etat.niveaux[m.niveau] = vide(m.niveau));
     if (m.kind === "att") { (niv.eleves || []).forEach(function (el) { if (cleEleve(el) === m.cle) el.tuteur = m.apres; }); }
+    else if (m.kind === "pap") { (niv.eleves || []).forEach(function (el) { if (cleEleve(el) !== m.cle) return; if (m.apres) el.papier = JSON.parse(JSON.stringify(m.apres)); else delete el.papier; }); }
     else if (m.kind === "el-") { niv.eleves = (niv.eleves || []).filter(function (el) { return cleEleve(el) !== m.cle; }); }
     else if (m.kind === "el+") { niv.eleves = niv.eleves || []; if (!niv.eleves.some(function (el) { return cleEleve(el) === m.cle; })) niv.eleves.push(JSON.parse(JSON.stringify(m.elObj))); }
     else if (m.kind === "tut") { niv[m.map] = niv[m.map] || {}; if (m.apres === "" || m.apres == null) delete niv[m.map][m.tuteur]; else niv[m.map][m.tuteur] = m.apres; }
@@ -11442,7 +11989,7 @@ window.DEPOUILLEMENT = (function () {
   // chaque poste la suit, sans rechargement. Un lecteur peut ensuite afficher une autre année sur son seul écran.
   var _anneeEquipeVue = null;
   function adopterEtatDistant(distant) {
-    var anEq = distant.anneeListe, anneeChangee = false;
+    var anEq = distant.anneeListe, anneeChangee = false, marquesAvant = signatureMarques();
     if (anEq && /^\d{4}-\d{4}$/.test(anEq) && anEq !== _anneeEquipeVue) {
       _anneeEquipeVue = anEq;
       if (anEq !== STATE.annee && STATE.niveauActif !== "demo") {
@@ -11473,6 +12020,7 @@ window.DEPOUILLEMENT = (function () {
     lsSet(LS_STATE, signature());
     majAnneeNiveau(); renderTuteurs(); renderEleves(); majEtabStatut(); majBoutonValider();
     try { majEtapes(); } catch (e) {}
+    if (!anneeChangee && signatureMarques() !== marquesAvant) recalculerSuivi();   // L8g-8 : une marque posée sur un autre poste, sans rechargement
     if (anneeChangee) {
       try { majDepouillement(); } catch (e) {}
       var relance = function () { demarrerEcoute(); if (window.DEPOUILLEMENT && window.DEPOUILLEMENT.rafraichir) window.DEPOUILLEMENT.rafraichir(); };
@@ -11525,6 +12073,7 @@ window.DEPOUILLEMENT = (function () {
     _etatBase = JSON.parse(JSON.stringify(dist));
     lsSet(LS_STATE, signature());
     majAnneeNiveau(); renderTuteurs(); renderEleves(); majEtabStatut();
+    recalculerSuivi();   // L8g-8 : les marques « convention papier » versées ou reçues
     commitDirectEtatDecrit();
     toast("Vos modifications ont été transmises à l'équipe.");
   };
@@ -11810,8 +12359,18 @@ window.DEPOUILLEMENT = (function () {
       .then(function (rec) { journal("suppression", "a retiré l'attestation « un seul lieu » de " + code + " (archivée)"); toast(rec ? "Attestation archivée puis retirée." : "Attestation déjà absente."); })
       .catch(function () { toast("Retrait annulé : l'archivage n'a pas pu être confirmé.", true); });
   };
+  // R-2 (L8g-5) : la version des textes est lue avant le premier calcul des dossiers, comme sur la page des familles :
+  // une « nouvelle signature » reste vraie après un rechargement de la console.
+  var _jetonEcoute = 0, _versionTextesLue = false;
   function demarrerEcoute() {
     arreterEcoute(); if (!window.FB || !window.FB.dispo) return;
+    var jeton = ++_jetonEcoute;
+    if (!_versionTextesLue && window.FB.lireVersionTextes) {
+      window.FB.lireVersionTextes().then(function (n) { _versionTextesLue = true; if (!((window.__versionTextes || 0) > n)) window.__versionTextes = n; })
+        .catch(function () {}).then(function () { if (jeton === _jetonEcoute) ecouterAnnee(); });
+    } else ecouterAnnee();
+  }
+  function ecouterAnnee() {
     _unsubEcoute = window.FB.ecouter(espaceAnnee(), surSnapshot);
     if (window.FB.ecouterDemandes) _unsubDemandes = window.FB.ecouterDemandes(espaceAnnee(), surDemandes);
     if (window.FB.ecouterArchive) _unsubArchive = window.FB.ecouterArchive(espaceAnnee(), function (val) {
@@ -11820,6 +12379,7 @@ window.DEPOUILLEMENT = (function () {
     });
   }
   function arreterEcoute() {
+    _jetonEcoute++;
     if (_unsubEcoute) { try { _unsubEcoute(); } catch (e) {} _unsubEcoute = null; }
     if (_unsubDemandes) { try { _unsubDemandes(); } catch (e) {} _unsubDemandes = null; }
     if (_unsubArchive) { try { _unsubArchive(); } catch (e) {} _unsubArchive = null; }
@@ -11863,11 +12423,11 @@ window.DEPOUILLEMENT = (function () {
     _demandes.forEach(function (d, i) {
       var o = d.o || {}, v = voletsDe(d.code);
       var qui = o.qui === "entreprise" ? "L'entreprise" : "La famille";
-      var quoi = d.place === "PARENTS_2" ? "sa partie de la seconde convention" : (o.qui === "entreprise" ? "sa convention" : "sa partie");
+      var quoi = d.place === "PARENTS_2" ? "sa partie de la seconde convention" : d.place === "ENTREPRISE_2" ? "sa convention du second lieu de stage (lieu 2)" : (o.qui === "entreprise" ? "sa convention" : "sa partie");
       h += '<div class="demande"><div><b>' + esc(qui) + (o.entreprise ? " « " + esc(o.entreprise) + " »" : "") + '</b> de ' + esc(o.eleve || d.code) + ' (' + esc(d.code) + ') souhaite refaire ' + quoi + '.</div>'
         + '<div class="mut">Le ' + esc(new Date(d.ts || Date.now()).toLocaleString("fr-FR")) + ' — raison : « ' + esc(o.raison || "") + ' »</div>';
       if (admin) {
-        var places = o.qui === "entreprise" ? ["ENTREPRISE", "ENTREPRISE_2"] : [d.place];
+        var places = o.qui === "entreprise" && d.place !== "ENTREPRISE_2" ? ["ENTREPRISE", "ENTREPRISE_2"] : [d.place];   // S-2 (L8g-6) : la demande du lieu 2 ne rouvre que le lieu 2
         h += '<div class="demande-actions">';
         places.forEach(function (pl) {
           if (!v[pl]) return;
