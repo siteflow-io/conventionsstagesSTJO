@@ -664,7 +664,6 @@
           </table>
         </div>
       </div>
-      <div id="docs-distribution" style="margin-top:16px"></div>
     </section>
 
     <!-- Signature de l'établissement (en lot) -->
@@ -796,7 +795,7 @@
           <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn ghost sm" type="button" id="admin-reload" title="Relit les données partagées (élèves, articles, remarques). À utiliser si un collègue vient de modifier quelque chose.">Recharger les données partagées</button>
             <button class="btn ghost sm danger" type="button" id="admin-purge-journal" title="Efface définitivement l'historique des actions de l'équipe. Les conventions reçues ne sont pas touchées.">Purger l'historique</button>
-            <button class="btn ghost sm danger" type="button" id="admin-vider-test" title="Efface toutes les conventions de l'espace de test. Les vraies conventions ne sont pas touchées.">Vider l'espace de test</button>
+            <button class="btn ghost sm danger" type="button" id="admin-vider-test" title="Efface toutes les conventions de l'espace de test, avec leurs demandes, leurs parties archivées et leurs mentions papier. La liste des élèves d'essai reste. Les vraies conventions ne sont pas touchées.">Vider l'espace de test</button>
           </div>
         </div>
       </div>
@@ -825,7 +824,7 @@
     
       <p><b>6 · Missions du tuteur.</b> Le texte saisi dans cette section apparaît en tête de chaque fiche de suivi remise aux enseignants tuteurs. Il est modifiable à tout moment.</p>
     
-      <p><b>7 · Conventions reçues.</b> Les conventions remontent ici en temps réel, regroupées par élève. Vous voyez d'un coup d'œil les volets reçus et ceux qui manquent. Vous pouvez alors générer la <i>convention complète</i> (les trois volets assemblés et signés), les <i>fiches de suivi</i> des tuteurs (leurs élèves, les entreprises, les coordonnées), et supprimer ce qui doit l'être — la suppression efface définitivement les données correspondantes.</p>
+      <p><b>7 · Conventions reçues.</b> Les conventions remontent ici en temps réel, regroupées par élève. Vous voyez d'un coup d'œil les volets reçus et ceux qui manquent. Vous pouvez alors générer la <i>convention complète</i> (les trois volets assemblés et signés), les <i>fiches de suivi</i> des tuteurs (leurs élèves, les entreprises, les coordonnées), et supprimer ce qui doit l'être : une partie supprimée depuis le suivi est d'abord archivée ; retirer un élève de la liste, ou sa classe, efface définitivement tout ce qui le concerne sur le serveur, archive comprise, après le téléchargement de son ZIP.</p>
     
       <p><b>Le mode test.</b> Un espace de test, entièrement séparé des données réelles, permet d'essayer le circuit complet sans risque. Il se reconnaît à son fond rayé et au préfixe « TEST » sur les documents produits. Les conventions de test n'apparaissent jamais parmi les vraies.</p>
     
@@ -845,7 +844,7 @@
       <p><b>Chiffrement de bout en bout.</b> Chaque convention est chiffrée sur l'appareil de la famille (norme AES-256) avant d'être transmise. Le serveur ne conserve que des données illisibles. La clé de chiffrement elle-même n'y est déposée que sous une forme verrouillée par un secret que le serveur ne connaît pas : l'hébergeur ne peut donc pas lire les conventions.</p>
       <p><b>Hébergement en Europe.</b> Les données chiffrées sont hébergées sur des serveurs situés dans l'Union européenne (Belgique), conformément au RGPD.</p>
       <p><b>Se déconnecter.</b> Le bouton « Se déconnecter », en haut de l'écran, efface de cet appareil le mot de passe et la clé de chiffrement mémorisés. C'est le geste à faire sur un poste partagé ou avant de prêter un ordinateur.</p>
-  <p><b>Conservation.</b> Les conventions restent disponibles jusqu'à leur suppression depuis l'espace de gestion. Tout y est supprimable : un élève, une classe, une convention, ou l'ensemble des conventions reçues.</p>
+  <p><b>Conservation.</b> Les conventions restent disponibles jusqu'à leur suppression depuis l'espace de gestion. Tout y est supprimable : un élève, une classe (tout ce qui les concerne, archive comprise, après le téléchargement de leur ZIP), une partie de convention (d'abord archivée), et, dans l'espace de test, l'ensemble des conventions.</p>
     </div>
   </main>
 </div>
@@ -886,7 +885,7 @@
 
 <div id="toast" class="toast" hidden></div>
 <button id="btn-valider-collab" hidden title="Ouvre la liste de vos modifications de textes, pour les valider ou les abandonner une par une." onclick="window.__ouvrirValidation && window.__ouvrirValidation()">✓ Valider mes modifications (0)</button>
-<div class="app-version">v2026.11.02·L8g-8</div>
+<div class="app-version">v2026.11.11·L8g-10</div>
 
 <script>
 /* ===== Configuration : système de transmission ====================
@@ -1071,9 +1070,35 @@ window.FB = (function () {
     if (!dispo) return Promise.reject(new Error("Firebase indisponible"));
     return cheminsSous("conventions/" + encodeCle(annee) + "/" + encodeCle(code), 1).then(function (l) { return effacerChemins([l]); });
   }
+  // R-2 (L8g-10) : ce qui est rangé sous le code d'un élève hors de conventions, demandes et verif : ses parties archivées
+  // (archive/<année>, chaque entrée porte son « code ») et sa mention papier (papier/<année>/<code>). codes : {code: vrai}, ou null pour tous.
+  // Un nœud que ce compte ne peut pas lire (« papier » avant la publication des règles L2) n'a rien à effacer : rien n'a pu y être écrit.
+  function restesSous(annee, codes) {
+    var a = encodeCle(annee), garde = function (c) { return !codes || !!codes[encodeCle(c)]; };
+    return Promise.all([
+      db.ref("archive/" + a).once("value").then(function (s) { var v = s.val() || {}; return Object.keys(v).filter(function (id) { return v[id] && garde(v[id].code); }).map(function (id) { return { p: "archive/" + a + "/" + id, code: v[id].code, quoi: "archive" }; }); }),
+      db.ref("papier/" + a).once("value").then(function (s) { var v = s.val() || {}; return Object.keys(v).filter(garde).map(function (c) { return { p: "papier/" + a + "/" + c, code: c, quoi: "papier" }; }); }, function () { return []; })
+    ]).then(function (r) { return r[0].concat(r[1]); });
+  }
   function viderEspace(annee) {
     if (!dispo) return Promise.reject(new Error("Firebase indisponible"));
-    return cheminsSous("conventions/" + encodeCle(annee), 2).then(function (l) { return effacerChemins([l]); });
+    var a = encodeCle(annee);   // R-2 (L8g-10) : avec les conventions, leurs demandes, leurs parties archivées et leurs mentions papier
+    return Promise.all([cheminsSous("conventions/" + a, 2), cheminsSous("demandes/" + a, 2), restesSous(annee, null).then(function (l) { return l.map(function (x) { return x.p; }); })])
+      .then(function (ls) { return effacerChemins(ls); });
+  }
+  function lireArchive(annee) { if (!dispo) return Promise.resolve({}); return db.ref("archive/" + encodeCle(annee)).once("value").then(function (s) { return s.val() || {}; }); }
+  // X-2 (L8g-10) : des entrées de l'archive récrites (chiffrées), { id: entrée } ; une seule écriture, du compte de M. Meney (règles).
+  function recrireArchive(annee, maj) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("archive/" + encodeCle(annee)).update(maj); }
+  // L8g-10 (complément) : les parties archivées et la mention papier de chaque code, sans rien effacer (montrées dans « retrait pas terminé »).
+  function restesDe(annee) { if (!dispo) return Promise.resolve([]); return restesSous(annee, null); }
+  // La mention papier d'un élève, pour son ZIP ; illisible (règles d'avant L2) : il n'y en a pas.
+  function lirePapier(annee, code) { if (!dispo) return Promise.resolve(null); return db.ref("papier/" + encodeCle(annee) + "/" + encodeCle(code)).once("value").then(function (s) { return s.val(); }, function () { return null; }); }
+  // R-2 (L8g-10) : les codes qui ont quelque chose sur le serveur pour une année (pour retrouver un élève sorti de la liste sans retrait).
+  function codesSurServeur(annee) {
+    if (!dispo) return Promise.resolve([]);
+    var a = encodeCle(annee), cles = function (p) { return db.ref(p).once("value").then(function (s) { return Object.keys(s.val() || {}); }, function () { return []; }); };
+    return Promise.all([cles("conventions/" + a), cles("demandes/" + a), cles("codes_actifs/" + a), cles("verif/" + a), restesSous(annee, null).then(function (l) { return l.map(function (x) { return x.code; }); }, function () { return []; })])
+      .then(function (r) { var t = {}; [].concat.apply([], r).forEach(function (c) { if (c) t[c] = 1; }); return Object.keys(t); });
   }
   // Modèle C : le sel (public) et les clés d'année emballées (chiffrées par la clé maîtresse) vivent sur Firebase, lisibles par les seuls comptes.
   function lireSel() { if (!dispo) return Promise.resolve(null); return db.ref("config/sel").once("value").then(function (s) { return s.val(); }); }
@@ -1129,13 +1154,15 @@ window.FB = (function () {
     var n = function (path) { return db.ref(path).once("value").then(function (s) { var v = s.val(); return v && typeof v === "object" ? Object.keys(v).length : (v ? 1 : 0); }); };
     return Promise.all([n("conventions/" + a + "/" + c), n("demandes/" + a + "/" + c), n("verif/" + a + "/" + c), n("codes_actifs/" + a + "/" + c),
       db.ref("codes_retires/" + a + "/" + c).once("value").then(function (s) { return !!s.val(); })])
-      .then(function (r) { return { reste: r[0] + r[1] + r[2] + r[3], retire: r[4] }; });
+      .then(function (r) { return { reste: r[0] + r[1] + r[2] + r[3], retire: r[4], parties: r[0], demandes: r[1], empreintes: r[2], actif: r[3] }; });   // le détail : pour le journal
   }
   function supprimerEleveBase(annee, code) {
     if (!dispo) return Promise.reject(new Error("Firebase indisponible"));
     var a = encodeCle(annee), c = encodeCle(code), m = {};
     m["codes_actifs/" + a + "/" + c] = null; m["codes_retires/" + a + "/" + c] = true;
-    return Promise.all([cheminsSous("conventions/" + a + "/" + c, 1), cheminsSous("demandes/" + a + "/" + c, 1), cheminsSous("verif/" + a + "/" + c, 1)])
+    var un = {}; un[c] = true;
+    return Promise.all([cheminsSous("conventions/" + a + "/" + c, 1), cheminsSous("demandes/" + a + "/" + c, 1), cheminsSous("verif/" + a + "/" + c, 1),
+      restesSous(annee, un).then(function (l) { return l.map(function (x) { return x.p; }); })])   // R-2 (L8g-10) : ses parties archivées et sa mention papier aussi
       .then(function (ls) { return effacerChemins(ls, m); });   // F-12 : chaque partie, demande et empreinte, une à une
   }
   // D114 : fiches d'entreprise déposées par la console seule, chiffrées avec la clé de l'année, rangées par l'empreinte du SIRET.
@@ -1165,6 +1192,10 @@ window.FB = (function () {
   // S-3 (L8g-6) : un seul texte change dans la base ; et chaque console suit les textes partagés.
   function majTextesPartages(maj) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("textes_partages").update(maj); }
   function ecouterTextesPartages(cb) { if (!dispo) return function () {}; var r = db.ref("textes_partages"), f = r.on("value", function (s) { cb(s.val()); }, function () {}); return function () { r.off("value", f); }; }
+  // L8g-9 : la mention « convention papier », dans un nœud à part que tous les comptes de l'équipe peuvent écrire (règles L2) :
+  // papier/<espace>/<code> = {ts, par, recue} ou {ts, par, annulee: true}. Le code de l'élève seul, jamais son nom.
+  function ecrirePapier(espace, code, o) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("papier/" + encodeCle(espace) + "/" + encodeCle(code)).set(o); }
+  function ecouterPapier(cb, refus) { if (!dispo) return function () {}; var r = db.ref("papier"), f = r.on("value", function (s) { cb(s.val() || {}); }, function (e) { if (refus) refus(e); }); return function () { r.off("value", f); }; }
   function lireContenus() { if (!dispo) return Promise.resolve(null); return db.ref("contenus").once("value").then(function (s) { return s.val(); }); }
   function ecrireContenus(o) { if (!dispo) return Promise.reject(new Error("Firebase indisponible")); return db.ref("contenus").set(o); }
   // Remarques d'amélioration : chaque entrée est chiffrée ; le statut et la réponse restent modifiables.
@@ -1204,7 +1235,7 @@ window.FB = (function () {
   function deconnecter() { if (dispo) try { auth.signOut(); } catch (e) {} }
   function onAuth(cb) { if (dispo) auth.onAuthStateChanged(cb); else cb(null); }
   function utilisateur() { return (dispo && auth && auth.currentUser) || null; }
-  return { dispo: dispo, ecrireMarque: ecrireMarque, ecrireMarqueQui: ecrireMarqueQui, ecrireFiche: ecrireFiche, lireFiches: lireFiches, lirePrefill: lirePrefill, lirePrefillAnnee: lirePrefillAnnee, ecrirePrefill: ecrirePrefill, supprimerFiche: supprimerFiche, supprimerEleveBase: supprimerEleveBase, etatRetrait: etatRetrait, lireRetire: lireRetire, ecouterEtat: ecouterEtat, ecrireConvention: ecrireConvention, ecouter: ecouter, supprimer: supprimer, viderEspace: viderEspace, lireSel: lireSel, ecrireSel: ecrireSel, lireCleAnnee: lireCleAnnee, lireBrut: lireBrut, ecrireCleAnnee: ecrireCleAnnee, lireCanari: lireCanari, ecrireCanari: ecrireCanari, ecouterCollab: ecouterCollab, ecrireCollab: ecrireCollab, journalPush: journalPush, journalEcouter: journalEcouter, journalPurger: journalPurger, lireEtat: lireEtat, ecrireEtat: ecrireEtat, presenceAnnoncer: presenceAnnoncer, presenceMaj: presenceMaj, presencePartir: presencePartir, presenceEcouter: presenceEcouter, lireContenus: lireContenus, ecrireContenus: ecrireContenus, lireCodes: lireCodes, ecrireCodes: ecrireCodes, ecrireVerif: ecrireVerif, lireVersionTextes: lireVersionTextes, ecrireVersionTextes: ecrireVersionTextes, lireTextesPartages: lireTextesPartages, ecrireTextesPartages: ecrireTextesPartages, majTextesPartages: majTextesPartages, ecouterTextesPartages: ecouterTextesPartages, ecrireCodeActif: ecrireCodeActif, lireCodeActif: lireCodeActif, testerEmpreinte: testerEmpreinte, PLACES: PLACES, COMPLEMENTS: COMPLEMENTS, lireStatuts: lireStatuts, marquerStatut: marquerStatut, supprimerPlace: supprimerPlace, ecrireDemande: ecrireDemande, ecouterDemandes: ecouterDemandes, supprimerDemande: supprimerDemande, ecrireArchive: ecrireArchive, ecouterArchive: ecouterArchive, lirePlace: lirePlace, lireDatesOfficielles: lireDatesOfficielles, ecrireDatesOfficielles: ecrireDatesOfficielles, lirePause: lirePause, ecrirePause: ecrirePause, ecouterPause: ecouterPause, lireSignature: lireSignature, ecrireSignature: ecrireSignature, ecouterSignature: ecouterSignature, lireChefEmail: lireChefEmail, ecrireChefEmail: ecrireChefEmail, ecouterChefEmail: ecouterChefEmail, remarquePush: remarquePush, remarqueMaj: remarqueMaj, remarqueSupprimer: remarqueSupprimer, remarquesEcouter: remarquesEcouter, connecter: connecter, deconnecter: deconnecter, onAuth: onAuth, utilisateur: utilisateur };
+  return { dispo: dispo, ecrireMarque: ecrireMarque, ecrireMarqueQui: ecrireMarqueQui, ecrireFiche: ecrireFiche, lireFiches: lireFiches, lirePrefill: lirePrefill, lirePrefillAnnee: lirePrefillAnnee, ecrirePrefill: ecrirePrefill, supprimerFiche: supprimerFiche, supprimerEleveBase: supprimerEleveBase, restesDe: restesDe, lirePapier: lirePapier, recrireArchive: recrireArchive, codesSurServeur: codesSurServeur, lireArchive: lireArchive, etatRetrait: etatRetrait, lireRetire: lireRetire, ecouterEtat: ecouterEtat, ecrireConvention: ecrireConvention, ecouter: ecouter, supprimer: supprimer, viderEspace: viderEspace, lireSel: lireSel, ecrireSel: ecrireSel, lireCleAnnee: lireCleAnnee, lireBrut: lireBrut, ecrireCleAnnee: ecrireCleAnnee, lireCanari: lireCanari, ecrireCanari: ecrireCanari, ecouterCollab: ecouterCollab, ecrireCollab: ecrireCollab, journalPush: journalPush, journalEcouter: journalEcouter, journalPurger: journalPurger, lireEtat: lireEtat, ecrireEtat: ecrireEtat, presenceAnnoncer: presenceAnnoncer, presenceMaj: presenceMaj, presencePartir: presencePartir, presenceEcouter: presenceEcouter, lireContenus: lireContenus, ecrireContenus: ecrireContenus, lireCodes: lireCodes, ecrireCodes: ecrireCodes, ecrireVerif: ecrireVerif, lireVersionTextes: lireVersionTextes, ecrireVersionTextes: ecrireVersionTextes, lireTextesPartages: lireTextesPartages, ecrireTextesPartages: ecrireTextesPartages, majTextesPartages: majTextesPartages, ecouterTextesPartages: ecouterTextesPartages, ecrirePapier: ecrirePapier, ecouterPapier: ecouterPapier, ecrireCodeActif: ecrireCodeActif, lireCodeActif: lireCodeActif, testerEmpreinte: testerEmpreinte, PLACES: PLACES, COMPLEMENTS: COMPLEMENTS, lireStatuts: lireStatuts, marquerStatut: marquerStatut, supprimerPlace: supprimerPlace, ecrireDemande: ecrireDemande, ecouterDemandes: ecouterDemandes, supprimerDemande: supprimerDemande, ecrireArchive: ecrireArchive, ecouterArchive: ecouterArchive, lirePlace: lirePlace, lireDatesOfficielles: lireDatesOfficielles, ecrireDatesOfficielles: ecrireDatesOfficielles, lirePause: lirePause, ecrirePause: ecrirePause, ecouterPause: ecouterPause, lireSignature: lireSignature, ecrireSignature: ecrireSignature, ecouterSignature: ecouterSignature, lireChefEmail: lireChefEmail, ecrireChefEmail: ecrireChefEmail, ecouterChefEmail: ecouterChefEmail, remarquePush: remarquePush, remarqueMaj: remarqueMaj, remarqueSupprimer: remarqueSupprimer, remarquesEcouter: remarquesEcouter, connecter: connecter, deconnecter: deconnecter, onAuth: onAuth, utilisateur: utilisateur };
 })();
 </script>
 <script>
@@ -5202,7 +5233,7 @@ window.SIGNATAIRE = (function () {
   }
   function refaireCarte(i) {
     var x = autresConventionsAppareil()[i]; if (!x || !x.lien) return;
-    var u = x.lien, k = u.indexOf("#"), base = k >= 0 ? u.slice(0, k) : u, frag = k >= 0 ? u.slice(k) : "";
+    var u = (window.__lienSansDonnees || String)(x.lien), k = u.indexOf("#"), base = k >= 0 ? u.slice(0, k) : u, frag = k >= 0 ? u.slice(k) : "";
     location.href = base + (base.indexOf("?") >= 0 ? "&" : "?") + "refaire=1" + frag;
   }
   // Fin du parcours de l'entreprise : un autre élève (166, 151).
@@ -5227,7 +5258,7 @@ window.SIGNATAIRE = (function () {
   function ouvrirLien() {
     var v = lienValide(($("autre-lien") || {}).value), m = $("autre-msg");
     if (!v) { if (m) { m.textContent = "Ce lien n'est pas celui d'une convention du collège : vérifiez que vous l'avez copié en entier."; m.hidden = false; } return; }
-    location.href = v;
+    location.href = (window.__lienSansDonnees || String)(v);   // R-1 (L8g-10) : un ancien lien part au nouveau format
   }
   var _flux = null;
   function scannerQR() {
@@ -5243,7 +5274,7 @@ window.SIGNATAIRE = (function () {
         if (!_flux) return;
         det.detect(v).then(function (codes) {
           var t = codes && codes[0] && lienValide(codes[0].rawValue);
-          if (t) { arreterScan(); location.href = t; } else setTimeout(tour, 300);
+          if (t) { arreterScan(); location.href = (window.__lienSansDonnees || String)(t); } else setTimeout(tour, 300);
         }).catch(function () { setTimeout(tour, 500); });
       };
       tour();
@@ -7073,6 +7104,11 @@ window.DEPOUILLEMENT = (function () {
   function avisCalc(code) { return _calc ? _calc.avisDe(code) : ((window.__avisDe && window.__avisDe(code)) || {}); }
   function demandesCodesCalc() { return _calc ? _calc.demandesCodes() : ((window.__demandesCodes && window.__demandesCodes()) || []); }
   function demandesDeCalc(code) { return _calc ? _calc.demandesDe(code) : ((window.__demandesDe && window.__demandesDe(code)) || []); }
+  // L8g-9 : la mention « convention papier » d'un élève : celle de son nœud à part ou celle de l'état partagé, la plus récente.
+  function marqueCalc(el) {
+    var esp = _calc ? _calc.espace : (window.__espaceAnnee && window.__espaceAnnee());
+    return window.__marquePapier ? window.__marquePapier(el, esp) : (el && el.papier && el.papier.ts ? el.papier : null);
+  }
 
   function init(resolver) { if (typeof resolver === "function") _resolver = resolver; }
 
@@ -7094,7 +7130,7 @@ window.DEPOUILLEMENT = (function () {
     var niv = (_calc ? _calc.niveau : (window.__niveauActif && window.__niveauActif())) || "";
     var de = function (k) { return ((_calc ? _calc.elevesDe(k) : (window.__elevesDe && window.__elevesDe(k))) || []); };
     var els = niv === "demo" ? de("demo") : de("4e").concat(de("3e"));
-    return els.filter(function (e) { return e && e.code && e.papier && e.papier.ts; });
+    return els.filter(function (e) { return e && e.code && marqueCalc(e); });   // L8g-9
   }
 
   function $(id) { return document.getElementById(id); }
@@ -7437,7 +7473,7 @@ window.DEPOUILLEMENT = (function () {
       var sansCourrielPar = !!(v.PARENTS && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(((v.PARENTS.data || {}).champs || {}).email || "").trim()));
       if (sansCourrielPar) aVerifier.push("Pas d'adresse courriel pour les parents : la convention ne pourra pas leur être envoyée par courriel. Passez par École Directe (message prêt dans le détail).");
       // L8g-8 (P-3) : jamais bloquant. Dès qu'une partie arrive par un lien, c'est elle qui compte ; la convention papier se dit dans « À vérifier ».
-      var papier = el.papier && el.papier.ts ? el.papier : null;
+      var papier = marqueCalc(el);   // L8g-9 : nœud « papier » ou état partagé, la plus récente
       var parLien = ["ENTREPRISE", "PARENTS", "ENTREPRISE_2", "PARENTS_2"].some(function (b) { return !!v[b]; }) || illR.some(function (r) { return /^(ENTREPRISE|PARENTS)(_2)?(_C)?$/.test(r); });
       if (papier && parLien) aVerifier.push("Une convention papier a aussi été sortie le " + jjmmaaaaDep(papier.ts) + (papier.recue ? ", et reçue signée le " + jjmmaaaaDep(papier.recue) : "") + ".");
       return { code: code, affNom: nom, papier: papier, parLien: parLien, classe: el.classe || "", nom: nomTri, recu: recu, complet: complet, horairesHors: horHors, sansCourrielPar: sansCourrielPar, illisibles: illR, entARefaire: ["ENTREPRISE", "ENTREPRISE_2"].filter(function (b) { return v[b] && v[b].aRefaire; }), aCompleter: aCompl, sansCode: sansCode,
@@ -7760,7 +7796,7 @@ window.DEPOUILLEMENT = (function () {
       + '<div class="cv-bloc"><h5>À vérifier</h5><div>' + (complet ? "" : '<b class="cv-incomplet">' + esc("Dossier incomplet : " + raisons + ".") + '</b>' + (l.aVerifier.length ? "<br>" : ""))
       + (l.aVerifier.length ? l.aVerifier.map(function (t) { return "⚠ " + esc(t); }).join("<br>") : (complet ? '<span class="mut">Rien à signaler.</span>' : "")) + '</div></div></div>';
     h += avisHTML(l, admin);
-    h += papierHTML(l, admin);   // L8g-8 (P-3)
+    h += papierHTML(l);   // L8g-8 (P-3), L8g-9
     if (l.sansCourrielPar) {
       var sed = ((window.__avisDe && window.__avisDe(l.code)) || {}).suiviED || {};
       h += '<div class="cv-bloc" style="margin-top:8px"><h5>École Directe</h5><div>Les parents n\'ont pas d\'adresse courriel : le collège leur écrit par École Directe.'
@@ -7794,14 +7830,14 @@ window.DEPOUILLEMENT = (function () {
     return h + '</div>';
   }
   // L8g-8 (P-3) : la convention papier d'un élève dont rien n'est arrivé par les liens : quand elle est sortie, si elle est revenue
-  // signée, et les deux gestes de Paul (absents en lecture seule, comme les autres gestes qui modifient).
-  function papierHTML(l, admin) {
+  // signée, et ses deux gestes. L8g-9 : ouverts à toute l'équipe, poste en lecture seule compris (la mention a son nœud à part).
+  function papierHTML(l) {
     var ep = etatPapier(l); if (!ep) return "";
     var c = esc(l.code), d = new Date(l.papier.ts);
     var h = '<div class="cv-bloc cv-papier" style="margin-top:8px"><h5>Convention papier</h5><div>'
       + esc("Convention papier sortie le " + jjmmaaaaDep(l.papier.ts) + " à " + d.getHours() + " h " + ("0" + d.getMinutes()).slice(-2) + ".")
       + (ep === "recue" ? "<br>✓ " + esc("Convention papier reçue signée le " + jjmmaaaaDep(l.papier.recue) + ".") : "");
-    if (admin) h += '<div class="cv-actions ls-cache" style="margin-top:6px">'
+    h += '<div class="cv-actions" style="margin-top:6px">'
       + (ep === "sortie" ? '<button class="btn ghost sm" type="button" onclick="window.__papierRecue && window.__papierRecue(\'' + c + '\')" title="À cliquer quand la convention papier revient au collège, remplie et signée par l\'entreprise et par les parents : l\'élève passe à « Complet (papier) ».">Convention papier reçue signée</button>' : "")
       + '<button class="btn ghost sm danger" type="button" onclick="window.__papierAnnuler && window.__papierAnnuler(\'' + c + '\')" title="Retire la marque « Convention papier » (après confirmation) : l\'élève revient à son état d\'avant. Pour une convention papier sortie par erreur.">Annuler la convention papier</button></div>';
     return h + '</div></div>';
@@ -7859,7 +7895,8 @@ window.DEPOUILLEMENT = (function () {
       else if (v[pl]) ev.push({ t: v[pl].date ? v[pl].date.getTime() : 0, txt: "Reçue" + (v[pl].aCompleter ? " (avant les nouvelles rubriques, à compléter)" : "") });
       dem.filter(function (d) { return d.place === pl || (pl.indexOf("ENTREPRISE") === 0 && d.place === "ENTREPRISE" && (d.o || {}).qui === "entreprise"); })
         .forEach(function (d) { ev.push({ t: d.ts || 0, txt: "Demande de refaire" + ((d.o || {}).raison ? " — « " + d.o.raison + " »" : "") }); });
-      arc.filter(function (a) { return a.place === pl; }).forEach(function (a) { ev.push({ t: a.ts || 0, txt: "Archivée puis supprimée" + (a.auteur ? " par " + a.auteur : "") + (a.motif ? " — " + a.motif : "") }); });
+      // L8g-10 : une demande close sans suppression n'a rien supprimé ; l'historique le dit (avant, il la disait « archivée puis supprimée »).
+      arc.filter(function (a) { return a.place === pl; }).forEach(function (a) { var r = ((a.demande || {}).o || {}).raison; ev.push({ t: a.ts || 0, txt: (a.quoi === "demande close" ? "Demande de refaire close sans suppression" + (a.auteur ? " par " + a.auteur : "") + (r ? " — « " + r + " »" : "") : "Archivée puis supprimée" + (a.auteur ? " par " + a.auteur : "") + (a.motif ? " — " + a.motif : "")) + (a.priveIllisible ? " — raison illisible avec la clé de l'année" : "") }); });
       if (!ev.length) return;
       ev.sort(function (a, b) { return b.t - a.t; }); total += ev.length;
       var cle = "h:" + l.code + ":" + pl;
@@ -8369,10 +8406,16 @@ window.DEPOUILLEMENT = (function () {
     return (_dernier && _dernier.codes) ? _dernier.codes.filter(function (c) { return !r[c]; }).length : 0;
   }
   // D123 : tout ce qui concerne des élèves retirés, dans un seul ZIP : conventions, checklist, informations.
-  function archiveEleves(eleves) {
+  // R-2 (L8g-10) : avec ses parties archivées (an : l'espace où elles sont rangées). Si l'archive ne se lit pas, pas de ZIP : rien n'est retiré.
+  function archiveEleves(eleves, an) {
     if (!window.JSZip) return Promise.reject(new Error("Fabrication du ZIP impossible sur ce navigateur."));
+    // L8g-10 (complément) : et sa mention papier, en une ligne lisible (mention_papier.txt).
+    return Promise.all(eleves.map(function (e) { return Promise.all([window.__partiesArchivees ? window.__partiesArchivees(e.an || an, e.code) : [], window.__lignePapier ? window.__lignePapier(e.an || an, e.code) : ""]); })).then(function (rs) {
+    var arch = rs.map(function (r) { return r[0]; }), pap = rs.map(function (r) { return r[1]; });
     var zip = new window.JSZip();
-    eleves.forEach(function (e) {
+    eleves.forEach(function (e, i) {
+      if (arch[i] && arch[i].length) zip.file((e.code + "_" + (e.nom || "") + "_" + (e.prenom || "")).replace(/[^A-Za-z0-9_-]+/g, "_") + "/parties_archivees.json", JSON.stringify(arch[i], null, 2));
+      if (pap[i]) zip.file((e.code + "_" + (e.nom || "") + "_" + (e.prenom || "")).replace(/[^A-Za-z0-9_-]+/g, "_") + "/mention_papier.txt", e.code + " : " + pap[i] + "\n");
       var dos = (e.code + "_" + (e.nom || "") + "_" + (e.prenom || "")).replace(/[^A-Za-z0-9_-]+/g, "_") + "/";
       var l = (_lignes || []).concat(_lignesRetirees || []).filter(function (x) { return x.code === e.code; })[0];
       if (l) {
@@ -8382,8 +8425,10 @@ window.DEPOUILLEMENT = (function () {
       zip.file(dos + "informations.json", JSON.stringify(e, null, 2));
     });
     return zip.generateAsync({ type: "blob" });
+    });
   }
-  function ligneRetiree(code) { return (_lignesRetirees || []).filter(function (x) { return x.code === code; })[0] || null; }
+  // R-2 (L8g-10) : aussi la ligne d'un élève sorti de la liste sans que son code soit marqué retiré (classe supprimée avant L8g-10).
+  function ligneRetiree(code) { return (_lignesRetirees || []).concat(_lignes || []).filter(function (x) { return x.code === code; })[0] || null; }
   // L8g-2 (J-1) : ce que la console conclut, élève par élève, pour un niveau d'une année photographiée (calcul sans effet).
   function conclusions(resultats, ctx) {
     var sauf = _calc; _calc = ctx;
@@ -8500,6 +8545,25 @@ window.DEPOUILLEMENT = (function () {
     var m = new RegExp("[?&]" + name + "=([^&]*)").exec(window.location.search);
     return m ? decodeURIComponent(m[1]) : null;
   }
+  // R-1 (L8g-10) : ce que le collège connaît de l'élève (« d ») voyage après le « # », jamais envoyé au serveur qui sert la page.
+  function getFrag(name) {
+    var m = new RegExp("[#&]" + name + "=([^&]*)").exec(window.location.hash || "");
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+  // Un ancien lien (« d » ou « e » avant le « # ») au nouveau format : les mêmes données, passées après le « # ».
+  // Tout le reste de l'adresse est gardé tel quel (code, année, rôle, « refaire »).
+  function lienSansDonnees(url) {
+    url = String(url || "");
+    var i = url.indexOf("#"), avant = i >= 0 ? url.slice(0, i) : url, frag = i >= 0 ? url.slice(i + 1) : "", j = avant.indexOf("?");
+    if (j < 0) return url;
+    var garde = [], passe = [];
+    avant.slice(j + 1).split("&").forEach(function (x) { if (x) (/^(d|e)=/.test(x) ? passe : garde).push(x); });
+    if (!passe.length) return url;
+    var f = frag.split("&").filter(Boolean);
+    passe.forEach(function (x) { var k = x.split("=")[0]; if (!f.some(function (y) { return y.split("=")[0] === k; })) f.push(x); });
+    return avant.slice(0, j) + (garde.length ? "?" + garde.join("&") : "") + "#" + f.join("&");
+  }
+  window.__lienSansDonnees = lienSansDonnees;
   function isSignataire() { return !!getParam("c"); }
 
   function route() {
@@ -8509,9 +8573,12 @@ window.DEPOUILLEMENT = (function () {
       var ab = $("apercu-banner"); if (ab) ab.hidden = true; // vrai lien : aucun accès console
       var code = getParam("c") || "";
       var payload = {};
-      var d = getParam("d");
+      var d = getFrag("d") || getParam("d"), ee = getFrag("e") || getParam("e");
       if (d) { try { payload = JSON.parse(debrouillerNom(d)); } catch (e) { payload = {}; } }
-      else if (getParam("e")) { payload = { e: debrouillerNom(getParam("e")) }; } // rétrocompat
+      else if (ee) { payload = { e: debrouillerNom(ee) }; } // rétrocompat
+      // R-1 (L8g-10) : un lien distribué avant L8g-10 est récrit au nouveau format, sans recharger : le nom de l'élève sort
+      // de l'adresse (et de l'historique du navigateur) ; un favori ou un rechargement garde les mêmes données.
+      if (getParam("d") || getParam("e")) { try { history.replaceState(history.state, "", lienSansDonnees(window.location.href)); } catch (x) {} }
       var annee = getParam("a") || "";
       var roleLock = getParam("r") || "";
       var mk = /[#&]k=([^&]*)/.exec(window.location.hash || "");
@@ -8549,8 +8616,10 @@ window.DEPOUILLEMENT = (function () {
   // Résout un code élève vers sa fiche (tous niveaux confondus), pour le dépouillement
   function resoudreEleve(code) {
     var niveaux = STATE.niveaux;
-    for (var n in niveaux) {
-      var els = niveaux[n].eleves || [];
+    // L8g-9 : un code comme 4PYTH-01 existe en test et en réel : l'espace ouvert passe d'abord (avant, dans l'espace de test, l'élève réel l'emportait).
+    var ordre = Object.keys(niveaux); if (STATE.niveauActif === "demo") ordre = ["demo"].concat(ordre.filter(function (k) { return k !== "demo"; }));
+    for (var o = 0; o < ordre.length; o++) {
+      var n = ordre[o], els = (niveaux[n] || {}).eleves || [];
       for (var i = 0; i < els.length; i++) if (els[i].code === code) {
         var tel = (niveaux[n].tuteursTel || {})[els[i].tuteur] || "";
         return Object.assign({}, els[i], { tuteurTel: tel });
@@ -9015,7 +9084,7 @@ window.DEPOUILLEMENT = (function () {
     function liste(t, arr) { return arr.length ? '<p style="margin:10px 0 4px"><b>' + t + '</b></p><div class="hint" style="margin:0">' + arr.map(function (e) { return esc((e.prenom || "") + " " + (e.nom || "")); }).join(" · ") + '</div>' : ""; }
     h = (p.alertes.length ? '<div style="margin:0 0 10px;padding:10px 12px;border:1px solid #e3a3a3;background:#fdecec;color:#8a1c1c;border-radius:8px;font-weight:600">' + p.alertes.map(esc).join("<br>") + '</div>' : "") + h;
     h += liste("Nouveaux élèves :", p.nouveaux) + liste("Ne sont plus dans le fichier (seront retirés) :", p.absents);
-    if (p.absents.length) h += '<p style="margin:6px 0 0;padding:8px 12px;border:1px solid #e3a3a3;background:#fdecec;color:#8a1c1c;border-radius:8px">Avant de les retirer, un fichier ZIP de tout ce qui les concerne est téléchargé : conventions, checklist et informations. Leurs parties de la convention sont ensuite effacées de la base, et leurs liens ne marchent plus.</p>';
+    if (p.absents.length) h += '<p style="margin:6px 0 0;padding:8px 12px;border:1px solid #e3a3a3;background:#fdecec;color:#8a1c1c;border-radius:8px">Avant de les retirer, un fichier ZIP de tout ce qui les concerne est téléchargé : conventions, checklist, informations et parties archivées. Tout ce qui est rangé sous leur code est ensuite effacé de la base (parties de la convention, demandes, archive, mention papier), et leurs liens ne marchent plus.</p>';
     if (p.modifs.length) h += '<p style="margin:10px 0 4px"><b>Modifications :</b></p><div style="font-size:13px;line-height:1.6">' + p.modifs.map(function (m) {
       return '<div style="padding:6px 0;border-top:1px solid var(--ligne)"><b>' + esc((m.eleve.prenom || "") + " " + (m.eleve.nom || "")) + '</b> <span class="mut">(' + esc(m.code) + ')</span><br>'
         + m.details.map(function (d) { return esc(d.champ) + ' : <s style="color:#8a1c1c">' + esc(d.avant || "vide") + '</s> → <b style="color:#1d6a40">' + esc(d.apres) + '</b>'; }).join("<br>") + '</div>';
@@ -9023,7 +9092,7 @@ window.DEPOUILLEMENT = (function () {
     h += '<div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">'
       + '<button class="btn ghost" onclick="window.__importAnnuler()" title="Ne change rien : la liste reste telle qu\'elle est.">Annuler</button>'
       + (p.absents.length
-        ? '<button class="btn bord" onclick="window.__importAppliquer()" title="Télécharge d\'abord le ZIP de tout ce qui concerne les élèves qui ne sont plus dans le fichier, puis les retire et efface leurs parties de la convention. Ajoute aussi les nouveaux élèves et applique les modifications. Aucun code existant ne change. Transmis aussitôt à l\'équipe.">Télécharger le ZIP, puis appliquer</button>'
+        ? '<button class="btn bord" onclick="window.__importAppliquer()" title="Télécharge d\'abord le ZIP de tout ce qui concerne les élèves qui ne sont plus dans le fichier, puis les retire et efface tout ce qui est rangé sous leur code (parties de la convention, demandes, archive, mention papier). Ajoute aussi les nouveaux élèves et applique les modifications. Aucun code existant ne change. Transmis aussitôt à l\'équipe.">Télécharger le ZIP, puis appliquer</button>'
         : '<button class="btn bord" onclick="window.__importAppliquer()" title="Ajoute les nouveaux élèves et les informations du fichier. Aucun code existant ne change, aucun élève n\'est retiré. Transmis aussitôt à l\'équipe.">Appliquer l\'import</button>') + '</div>';
     $("modal-titre").textContent = "Vérifier l'import avant de l'appliquer";
     $("modal-corps").innerHTML = h;
@@ -9040,18 +9109,24 @@ window.DEPOUILLEMENT = (function () {
       toast(p.retrouves.length + p.probables.length + " élève(s) mis à jour, " + p.nouveaux.length + " ajouté(s)" + (retires ? ", " + retires + " retiré(s) après téléchargement du ZIP" : "") + ", aucun code modifié.");
     };
     if (!p.absents.length) { fin(0); return; }
-    // D123 : d'abord le ZIP de tout ce qui concerne les élèves retirés ; s'il échoue, rien n'est retiré.
+    retirerEleves(p.absents, p.classes.join("_"), fin);
+  };
+  // D123 : d'abord le ZIP de tout ce qui concerne les élèves retirés ; s'il échoue, rien n'est retiré. Puis leurs codes marqués retirés,
+  // et (R-2, L8g-10) tout ce qui est rangé sous leur code sur le serveur effacé. L8g-10 : le même geste pour une classe entière.
+  function retirerEleves(partis, nomZip, fin) {
     if (!window.DEPOUILLEMENT || !window.DEPOUILLEMENT.archiveEleves) { toast("Le ZIP n'a pas pu être fabriqué : rien n'a été retiré.", true); return; }
-    window.DEPOUILLEMENT.archiveEleves(p.absents).then(function (blob) {
-      window.DEPOUILLEMENT.telecharger(blob, "Eleves_retires_" + p.classes.join("_").replace(/[^A-Za-z0-9]+/g, "_") + "_" + new Date().toISOString().slice(0, 10) + ".zip");
-      var an = espaceAnnee(), codes = p.absents.map(function (e) { return e.code; });
+    var an = espaceAnnee();
+    attendreArchive().then(function () { return window.DEPOUILLEMENT.archiveEleves(partis, an); }).then(function (blob) {
+      window.DEPOUILLEMENT.telecharger(blob, "Eleves_retires_" + String(nomZip).replace(/[^A-Za-z0-9]+/g, "_") + "_" + new Date().toISOString().slice(0, 10) + ".zip");
+      var codes = partis.map(function (e) { return e.code; });
       nv().codesRetires = (nv().codesRetires || []).concat(codes);
       nv().eleves = (nv().eleves || []).filter(function (e) { return codes.indexOf(e.code) < 0; });
       fin(codes.length);
-      Promise.all(codes.map(function (c) { return (window.FB && window.FB.supprimerEleveBase) ? window.FB.supprimerEleveBase(an, c).catch(function () { toast("Le retrait de " + c + " n'a pas pu être enregistré sur le serveur : réessayez depuis le compte de M. Meney.", true); }) : null; }))   // F-12 : jamais en silence
+      Promise.all(codes.map(function (c) { return (window.FB && window.FB.supprimerEleveBase) ? window.FB.supprimerEleveBase(an, c).then(function () { return c; }, function () { toast("Le retrait de " + c + " n'a pas pu être enregistré sur le serveur : réessayez depuis le compte de M. Meney.", true); }) : null; }))   // F-12 : jamais en silence
+        .then(function (ok) { return oublierCodesPerso(an, ok.filter(Boolean)); })
         .then(function () { if (window.__planifierRetraits) window.__planifierRetraits(); });   // G-1 : ce qui n'a pas abouti reste montré
     }).catch(function (e) { toast("Le ZIP n'a pas pu être fabriqué : rien n'a été retiré. (" + (e && e.message) + ")", true); });
-  };
+  }
 
   // ---- Liste interactive des tuteurs --------------------------------
   function renderTuteurs() {
@@ -9308,7 +9383,7 @@ window.DEPOUILLEMENT = (function () {
     var avt = $("admin-vider-test");
     if (avt) avt.addEventListener("click", function () {
       if (!confirm("Vider entièrement l'espace de test ?")) return;
-      if (window.FB && window.FB.viderEspace) window.FB.viderEspace("demo").then(function () { toast("Espace de test vidé."); }, function (e) { toast("Échec : " + (e && e.message ? e.message : "l'espace de test n'a pas été vidé."), true); });
+      if (window.FB && window.FB.viderEspace) attendreArchive().then(function () { return window.FB.viderEspace("demo"); }).then(function () { toast("Espace de test vidé."); }, function (e) { toast("Échec : " + (e && e.message ? e.message : "l'espace de test n'a pas été vidé."), true); });
     });
 
     // Parcours en accordéon : TOUT est fermé à l'arrivée ; l'en-tête entier ouvre/ferme.
@@ -9536,49 +9611,161 @@ window.DEPOUILLEMENT = (function () {
   window.__planifierRetraits = planifierRetraits;
   function verifierRetraits() {
     if (estLecteur() || !estAdmin() || !window.FB || !window.FB.etatRetrait) { _retraitsInacheves = []; renderRetraits(); return Promise.resolve([]); }
-    var t = [];
-    ["4e", "3e", "demo"].forEach(function (n) { (((STATE.niveaux || {})[n] || {}).codesRetires || []).forEach(function (c) { t.push({ code: c, niveau: n, an: espaceDuNiveau(n) }); }); });
-    return Promise.all(t.map(function (x) { return window.FB.etatRetrait(x.an, x.code).then(function (r) { return (r.reste || !r.retire) ? Object.assign(x, r) : null; }).catch(function () { return null; }); }))
-      .then(function (l) { _retraitsInacheves = l.filter(Boolean); renderRetraits(); return _retraitsInacheves; });
+    chiffrerArchiveAncienne();   // X-2 (L8g-10) : une fois, sur le poste de M. Meney qui a la main
+    var t = [], vus = {};
+    ["4e", "3e", "demo"].forEach(function (n) { (((STATE.niveaux || {})[n] || {}).codesRetires || []).forEach(function (c) { t.push({ code: c, niveau: n, an: espaceDuNiveau(n) }); if (n !== "demo") vus[c] = 1; }); });
+    // R-2 (L8g-10) : un élève de l'année sorti de la liste sans que son code soit marqué retiré (une classe supprimée avant L8g-10 ne marquait
+    // rien) : ses liens marchent encore et ses données restent sur le serveur. Il est montré ici, et son retrait se termine par le même geste.
+    var an = STATE.annee, liste = {};
+    ["4e", "3e"].forEach(function (n) { (((STATE.niveaux || {})[n] || {}).eleves || []).forEach(function (e) { if (e && e.code) liste[e.code] = 1; }); });
+    var orphelins = (an && Object.keys(liste).length && window.FB.codesSurServeur) ? window.FB.codesSurServeur(an).then(function (cs) {
+      return cs.filter(function (c) { return !liste[c] && !vus[c]; }).map(function (c) { return { code: c, niveau: /^3/.test(c) ? "3e" : "4e", an: an, orphelin: true }; });
+    }, function () { return []; }) : Promise.resolve([]);
+    // L8g-10, complément (décision de Paul du 11/11) : les restes d'un retrait passé (parties archivées, mention papier d'un code déjà retiré)
+    // ne s'effacent jamais d'eux-mêmes. Ils comptent dans ce qui reste de l'élève, sont montrés ici, et ne partent que par « Terminer le retrait »,
+    // après le ZIP qui les contient.
+    return orphelins.then(function (o) {
+      t = t.concat(o);
+      var ans = {}, restes = {}; t.forEach(function (x) { ans[x.an] = 1; });
+      return Promise.all(Object.keys(ans).map(function (a) { return window.FB.restesDe ? window.FB.restesDe(a).then(function (l) { restes[a] = l; }, function () { restes[a] = []; }) : null; })).then(function () {
+        return Promise.all(t.map(function (x) { return window.FB.etatRetrait(x.an, x.code).then(function (r) {
+          var rr = (restes[x.an] || []).filter(function (y) { return cleFB(y.code) === cleFB(x.code); });
+          r.archive = rr.filter(function (y) { return y.quoi === "archive"; }).length; r.papier = rr.length - r.archive; r.reste += rr.length;
+          return (r.reste || !r.retire) ? Object.assign(x, r) : null;
+        }).catch(function () { return null; }); }));
+      });
+    }).then(function (l) { _retraitsInacheves = l.filter(Boolean); renderRetraits(); return _retraitsInacheves; });
   }
+  // X-2 (L8g-10) : dans l'archive, la raison (« motif »), la demande de refaire et l'auteur sont chiffrés avec la clé de l'année (« prive »).
+  // En clair, il ne reste que ce qui ne dit rien de personne : quoi, code, place, ts, et la copie de la partie, déjà chiffrée telle quelle.
+  var ARCHIVE_PRIVE = ["motif", "demande", "auteur"];
+  function aChiffrer(rec) { return ARCHIVE_PRIVE.some(function (k) { return rec && rec[k] != null; }); }
+  function entreeArchive(cle, rec) {   // l'entrée à écrire : rec en clair, ses champs privés chiffrés
+    if (!cle || !window.CRYPTO) return Promise.reject(new Error("la clé de l'année n'est pas sur ce poste"));
+    var o = {}, p = {};
+    Object.keys(rec).forEach(function (k) { if (ARCHIVE_PRIVE.indexOf(k) >= 0) { if (rec[k] != null) p[k] = rec[k]; } else if (rec[k] != null) o[k] = rec[k]; });
+    return window.CRYPTO.chiffrer(cle, p).then(function (x) { o.prive = x; return o; });
+  }
+  function ouvrirPrive(cle, rec) {   // une copie lisible : les champs privés remis à leur place ; une entrée d'avant (en clair) reste lue telle quelle
+    if (!rec || !(rec.prive && rec.prive.ct)) return Promise.resolve(Object.assign({}, rec));
+    var illisible = function () { var o = Object.assign({}, rec); o.priveIllisible = true; return o; };
+    if (!cle || !window.CRYPTO) return Promise.resolve(illisible());
+    return window.CRYPTO.dechiffrer(cle, rec.prive).then(function (p) { var o = Object.assign({}, rec, p || {}); delete o.prive; return o; }, illisible);
+  }
+  window.__ouvrirPrive = ouvrirPrive;
+  // La clé d'une année, sans jamais en créer une (une année sans clé n'a rien de chiffré à relire).
+  function cleSansCreer(an) {
+    if (STATE.cles && STATE.cles[an]) return Promise.resolve(STATE.cles[an]);
+    if (!_maitre || !window.FB || !window.FB.lireCleAnnee || !window.CRYPTO) return Promise.resolve("");
+    return window.FB.lireCleAnnee(an).then(function (pk) { return pk && pk.ct ? window.CRYPTO.deballerCle(_maitre, pk) : ""; }).then(function (k) { if (k) STATE.cles[an] = k; return k || ""; }, function () { return ""; });
+  }
+  // X-2 (L8g-10) : les entrées de l'archive écrites avant L8g-10 gardent en clair la raison, la demande et l'auteur. Sur le poste de M. Meney
+  // qui a la main, elles sont récrites chiffrées, une fois, en une écriture par année, avec une ligne au journal. Rien ne se perd : une entrée
+  // que la clé ne peut pas chiffrer reste telle quelle, et l'écran le dit. Un retrait attend la fin de cette récriture (attendreArchive).
+  var _archiveVue = {}, _archiveEnCours = Promise.resolve();
+  function attendreArchive() { return _archiveEnCours.then(null, function () {}); }
+  function chiffrerArchiveAncienne() {
+    if (!window.FB || !window.FB.lireArchive || !window.FB.recrireArchive || !window.CRYPTO) return _archiveEnCours;
+    var ans = [STATE.annee, "demo"].concat(Object.keys(STATE.annees || {})).filter(function (a, i, t) { return a && t.indexOf(a) === i && !_archiveVue[a]; });
+    if (!ans.length) return _archiveEnCours;
+    ans.forEach(function (a) { _archiveVue[a] = 1; });
+    var nomAn = function (a) { return a === "demo" ? "espace de test" : a; };
+    _archiveEnCours = Promise.all(ans.map(function (a) {
+      return window.FB.lireArchive(a).then(function (v) {
+        var ids = Object.keys(v || {}).filter(function (id) { return v[id] && !v[id].prive && aChiffrer(v[id]); });
+        if (!ids.length) return;
+        return cleSansCreer(a).then(function (cle) {
+          if (!cle) { toast(ids.length + " entrée(s) de l'archive (" + nomAn(a) + ") gardent en clair une raison ou une demande : la clé de cette année n'est pas sur ce poste. Rien n'est perdu : elles restent telles quelles.", true); return; }
+          var maj = {}, ko = 0;
+          return Promise.all(ids.map(function (id) { return entreeArchive(cle, v[id]).then(function (x) { maj[id] = x; }, function () { ko++; }); })).then(function () {
+            if (ko) toast(ko + " entrée(s) de l'archive (" + nomAn(a) + ") n'ont pas pu être chiffrées : rien n'est perdu, elles restent telles quelles.", true);
+            if (!Object.keys(maj).length) return;
+            return window.FB.recrireArchive(a, maj).then(function () {
+              if (a !== "demo") journal("modification", "a chiffré " + Object.keys(maj).length + " entrée(s) de l'archive (" + a + ") qui gardaient en clair une raison, une demande de refaire ou un auteur", null, true);
+            });
+          });
+        });
+      }).catch(function (e) { toast("L'archive (" + nomAn(a) + ") n'a pas pu être chiffrée (" + ((e && (e.code || e.message)) || e) + ") : rien n'est perdu, la console réessaiera à sa prochaine ouverture.", true); });
+    }));
+    return _archiveEnCours;
+  }
+  // R-2 (L8g-10) : les parties archivées d'un élève, pour son ZIP ; déchiffrées quand la clé de l'année les ouvre, sinon gardées telles quelles.
+  // X-2 (L8g-10) : la raison, la demande et l'auteur aussi, remis à leur place.
+  window.__partiesArchivees = function (an, code) {
+    if (!an || !window.FB || !window.FB.lireArchive) return Promise.resolve([]);
+    var cle = STATE.cles && STATE.cles[an];
+    return window.FB.lireArchive(an).then(function (v) {
+      return Promise.all(Object.keys(v).map(function (k) { return v[k]; }).filter(function (r) { return r && r.code === code; }).map(function (r) {
+        return ouvrirPrive(cle, r).then(function (o) {
+          if (!(r.contenu && r.contenu.ct)) return o;
+          if (!cle || !window.CRYPTO) { o.dechiffree = false; return o; }
+          return window.CRYPTO.dechiffrer(cle, r.contenu).then(function (x) { o.contenu = x; o.dechiffree = true; return o; }, function () { o.dechiffree = false; return o; });
+        });
+      }));
+    });
+  };
+  // L8g-10 (complément) : la mention papier d'un élève, en une ligne lisible, pour son ZIP ; "" s'il n'en a pas.
+  window.__lignePapier = function (an, code) {
+    if (!an || !window.FB || !window.FB.lirePapier) return Promise.resolve("");
+    var d = function (t) { return new Date(+t).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).replace(" ", " à "); };
+    return window.FB.lirePapier(an, code).then(function (m) {
+      if (!m || !m.ts) return "";
+      return m.annulee ? "Convention papier annulée le " + d(m.ts) + (m.par ? " par " + m.par : "") + "."
+        : "Convention papier sortie le " + d(m.ts) + (m.par ? " par " + m.par : "") + (m.recue ? " ; reçue signée le " + d(m.recue) : " ; pas reçue signée") + ".";
+    });
+  };
   window.__verifierRetraits = verifierRetraits;
   function renderRetraits() {
     var z = $("retraits-inacheves"); if (!z) return;
     var l = _retraitsInacheves;
     z.hidden = !l.length; if (!l.length) { z.innerHTML = ""; return; }
     var nomDe = function (x) { var li = window.DEPOUILLEMENT && window.DEPOUILLEMENT.ligneRetiree && window.DEPOUILLEMENT.ligneRetiree(x.code); return (li && li.affNom) || ""; };
+    var dont = function (x) { var d = []; if (x.archive) d.push(x.archive + " partie(s) archivée(s)"); if (x.papier) d.push(x.papier + " mention papier"); return d.length ? ", dont " + d.join(" et ") : ""; };
     z.innerHTML = '<div class="encadre-conseil" style="border-color:#e7b7bf;background:#fdf2f4">'
       + '<b>' + l.length + ' élève(s) retiré(s) de la liste dont le retrait n\'est pas terminé</b>'
-      + '<p class="mut" style="margin:4px 0 8px">Ses liens fonctionnent encore. Terminer le retrait télécharge d\'abord le ZIP de tout ce qui le concerne, puis efface ses parties de la convention, ses demandes et son code sur le serveur : ses liens diront « Ce lien n\'est plus actif. Contactez le collège. ».</p>'
-      + '<ul style="margin:0 0 8px 18px">' + l.map(function (x) { var n = nomDe(x); return '<li>' + esc(x.code) + (n ? " — " + esc(n) : "") + ' <span class="mut">(' + esc(x.niveau === "demo" ? "espace de test" : x.niveau) + (x.reste ? ", " + x.reste + " élément(s) encore sur le serveur" : "") + (x.retire ? "" : ", code non marqué retiré") + ')</span></li>'; }).join("") + '</ul>'
-      + '<button class="btn bord sm" type="button" id="btn-terminer-retraits" title="Télécharge le ZIP de ces élèves, puis efface leurs parties de la convention, leurs demandes et leurs codes sur le serveur (D123).">Terminer le retrait</button></div>';
+      + '<p class="mut" style="margin:4px 0 8px">Ce qui reste de lui sur le serveur ne s\'efface que par ce bouton. Terminer le retrait télécharge d\'abord le ZIP de tout ce qui le concerne, parties archivées et mention papier comprises, puis efface tout ce qui est rangé sous son code sur le serveur (parties de la convention, demandes, archive, mention papier, code) : ses liens diront « Ce lien n\'est plus actif. Contactez le collège. ». Si le ZIP ne peut pas être fabriqué, rien n\'est effacé.</p>'
+      + '<ul style="margin:0 0 8px 18px">' + l.map(function (x) { var n = nomDe(x); return '<li>' + esc(x.code) + (n ? " — " + esc(n) : "") + ' <span class="mut">(' + esc(x.niveau === "demo" ? "espace de test" : x.niveau) + (x.reste ? ", " + x.reste + " élément(s) encore sur le serveur" + dont(x) : "") + (x.retire ? "" : ", code non marqué retiré : ses liens fonctionnent encore") + ')</span></li>'; }).join("") + '</ul>'
+      + '<button class="btn bord sm" type="button" id="btn-terminer-retraits" title="Télécharge d\'abord le ZIP de ces élèves (parties de la convention, parties archivées, mention papier), puis efface du serveur tout ce qui est rangé sous leur code : parties de la convention, demandes, archive, mention papier, code (D123). Leurs liens ne marchent plus. Coût : définitif ; ce qui est effacé n\'existe plus que dans ce ZIP, gardez-le. Si le ZIP ne peut pas être fabriqué, rien n\'est effacé.">Terminer le retrait</button></div>';
     $("btn-terminer-retraits").addEventListener("click", function () { terminerRetraits(_retraitsInacheves.slice()); });
+  }
+  // Ce qui a été effacé, pour le journal (le détail vient de etatRetrait et des restes).
+  function resumeEfface(l) {
+    var s = function (k) { return l.reduce(function (t, x) { return t + (+x[k] || 0); }, 0); };
+    var d = [[s("parties"), "partie(s) de la convention"], [s("demandes"), "demande(s)"], [s("archive"), "partie(s) archivée(s)"], [s("papier"), "mention(s) papier"], [s("empreintes"), "empreinte(s) de code personnel"], [s("actif"), "code(s) actif(s)"]]
+      .filter(function (x) { return x[0]; }).map(function (x) { return x[0] + " " + x[1]; });
+    return d.length ? "effacé du serveur : " + d.join(", ") : "rien d'autre à effacer sur le serveur que le code, marqué retiré";
   }
   function terminerRetraits(l) {
     if (!l.length || estLecteur()) return Promise.resolve();
     if (!window.DEPOUILLEMENT || !window.DEPOUILLEMENT.archiveEleves) { toast("Le ZIP n'a pas pu être fabriqué : rien n'a été effacé.", true); return Promise.resolve(); }
-    var eleves = l.map(function (x) { var li = window.DEPOUILLEMENT.ligneRetiree && window.DEPOUILLEMENT.ligneRetiree(x.code); return { code: x.code, nom: (li && li.affNom) || "", prenom: "", niveau: x.niveau, retire: true }; });
-    return window.DEPOUILLEMENT.archiveEleves(eleves).then(function (blob) {
+    var eleves = l.map(function (x) { var li = window.DEPOUILLEMENT.ligneRetiree && window.DEPOUILLEMENT.ligneRetiree(x.code); return { code: x.code, nom: (li && li.affNom) || "", prenom: "", niveau: x.niveau, an: x.an, retire: true }; });
+    return attendreArchive().then(function () { return window.DEPOUILLEMENT.archiveEleves(eleves); }).then(function (blob) {
       window.DEPOUILLEMENT.telecharger(blob, "Eleves_retires_" + new Date().toISOString().slice(0, 10) + ".zip");
-      return Promise.all(l.map(function (x) { return window.FB.supprimerEleveBase(x.an, x.code).then(function () { return true; }, function () { return false; }); }));
-    }).then(function (ok) {
-      var n = ok.filter(Boolean).length;
-      journal("suppression", "a terminé le retrait de " + n + " élève(s) (" + l.map(function (x) { return x.code; }).join(", ") + ")");
-      toast(n === l.length ? "Retrait terminé : " + n + " élève(s). Leurs liens ne sont plus actifs." : "Retrait terminé pour " + n + " élève(s) sur " + l.length + " : réessayez pour les autres.", n !== l.length);
-      return verifierRetraits();
-    }).catch(function (e) { toast("Le ZIP n'a pas pu être fabriqué : rien n'a été effacé. (" + (e && e.message) + ")", true); });
+      return Promise.all(l.map(function (x) { return window.FB.supprimerEleveBase(x.an, x.code).then(function () { return true; }, function () { return false; }); })).then(function (ok) {
+        // R-2 (L8g-10) : le code d'un élève sorti de la liste sans retrait rejoint les codes retirés : il ne sera jamais redonné.
+        var neufs = l.filter(function (x, i) { return ok[i] && x.orphelin; });
+        neufs.forEach(function (x) { var nd = STATE.niveaux[x.niveau]; if (nd && (nd.codesRetires || []).indexOf(x.code) < 0) (nd.codesRetires = nd.codesRetires || []).push(x.code); });
+        if (neufs.length) sauverState("suppr-eleve");
+        var parAn = {}; l.forEach(function (x, i) { if (ok[i]) (parAn[x.an] = parAn[x.an] || []).push(x.code); });
+        Object.keys(parAn).forEach(function (a) { oublierCodesPerso(a, parAn[a]); });
+        var faits = l.filter(function (x, i) { return ok[i]; }), n = faits.length;
+        // Le journal dit ce qui a été effacé, même si l'espace de test est ouvert pendant que des élèves de l'année sont retirés.
+        if (n) journal("suppression", "a terminé le retrait de " + n + " élève(s) (" + faits.map(function (x) { return x.code; }).join(", ") + ") ; " + resumeEfface(faits), null, faits.some(function (x) { return x.an !== "demo"; }));
+        toast(n === l.length ? "Retrait terminé : " + n + " élève(s). Leurs liens ne sont plus actifs." : "Retrait terminé pour " + n + " élève(s) sur " + l.length + " : réessayez pour les autres.", n !== l.length);
+        return verifierRetraits();
+      });
+    }, function (e) { toast("Le ZIP n'a pas pu être fabriqué : rien n'a été effacé. (" + (e && e.message) + ")", true); });
   }
   window.__terminerRetraits = function (codes) { return terminerRetraits(_retraitsInacheves.filter(function (x) { return !codes || codes.indexOf(x.code) >= 0; })); };
   function lienEleve(el, role) {
     var base = window.location.origin + window.location.pathname;
     var payload = payloadEleve(el, role);
     var esp = espaceAnnee();
-    var q = "?c=" + encodeURIComponent(el.code) + "&d=" + brouillerNom(JSON.stringify(payload)) + "&a=" + encodeURIComponent(esp);
+    var q = "?c=" + encodeURIComponent(el.code) + "&a=" + encodeURIComponent(esp);
     if (role) q += "&r=" + role;
-    var url = base + q;
     var cle = STATE.cles[esp];
-    if (cle) url += "#k=" + cle; // clé E2E dans le fragment : jamais transmise au serveur
-    return url;
+    // Clé E2E et (R-1, L8g-10) ce que le collège connaît de l'élève dans le fragment : jamais transmis au serveur.
+    return base + q + "#" + (cle ? "k=" + cle + "&" : "") + "d=" + brouillerNom(JSON.stringify(payload));
   }
   // Le code d'accès d'une partie, en image : la checklist s'en sert quand on le redemande.
   window.__qrPour = function (el, role) {
@@ -9632,7 +9819,7 @@ window.DEPOUILLEMENT = (function () {
       html += "<td><select title=\"L’enseignant qui suivra cet élève pendant son stage.\" data-tut=\"" + i + "\"><option value=\"\">—</option>" +
         nv().tuteurs.map(function (t) { return '<option value="' + esc(t) + '"' + (el.tuteur === t ? " selected" : "") + ">" + esc(t) + "</option>"; }).join("") +
         "</select></td>";
-      html += "<td><button class=\"mini\" data-liens=\"" + i + "\" title=\"Afficher les liens et QR codes a envoyer aux familles et a l\'entreprise\">Liens &amp; QR</button> <button class=\"mini danger\" data-suppr-el=\"" + i + "\" title=\"Supprimer cet élève\">🗑</button>" + (g2 ? ' <button class="mini" data-codeperso="' + i + '" title="Afficher le code personnel de cette famille, le copier ou imprimer son coupon. Le code est créé au premier affichage, puis ne change plus.">Code</button>' : "") + "</td>";
+      html += "<td><button class=\"mini\" data-liens=\"" + i + "\" title=\"Afficher les liens et QR codes a envoyer aux familles et a l\'entreprise\">Liens &amp; QR</button> <button class=\"mini danger\" data-suppr-el=\"" + i + "\" title=\"Retire cet élève de la liste : le ZIP de tout ce qui le concerne est téléchargé, puis tout ce qui est rangé sous son code est effacé du serveur (parties de la convention, demandes, archive, mention papier) ; ses liens ne marchent plus. Définitif.\">🗑</button>" + (g2 ? ' <button class="mini" data-codeperso="' + i + '" title="Afficher le code personnel de cette famille, le copier ou imprimer son coupon. Le code est créé au premier affichage, puis ne change plus.">Code</button>' : "") + "</td>";
       html += "</tr>";
     });
     var body = $("eleves-body");
@@ -9667,28 +9854,34 @@ window.DEPOUILLEMENT = (function () {
   }
 
   function renderDocsButtons() {
-    var z = $("docs-distribution"); if (!z) return;
+    // L8g-9 : tout est en haut de la liste, dans la barre du sélecteur : les documents et la convention papier à côté de
+    // « QR codes des élèves cochés » (ouverts à toute l'équipe) ; la suppression d'une classe sur sa ligne (compte de Paul seul).
+    var z = $("docs-distribution"), zs = $("suppr-classes"); if (!z || !zs) return;
     var classes = {};
     nv().eleves.forEach(function (e) { if (e.classe) classes[e.classe] = (classes[e.classe] || 0) + 1; });
     var noms = Object.keys(classes).sort();
-    if (!noms.length) { z.innerHTML = ""; return; }
-    z.innerHTML = '<span class="hint" style="display:block;margin-bottom:8px">Document de distribution (QR + liens, un PDF par classe à imprimer) :</span>'
-      + noms.map(function (c) { return '<button class="btn sm" data-doc="' + esc(c) + '" title="Générer le PDF récapitulatif des conventions de cette classe">📄 ' + esc(c) + " (" + classes[c] + ")</button>"; }).join(" ")
-      // L8g-8 (P-1) : la convention papier ; comme les autres gestes qui modifient, absente sur un poste en lecture seule (ls-cache).
-      + '<span class="hint ls-cache" id="ligne-conv-papier" style="display:block;margin:12px 0 6px">Convention papier, pour un élève dont la famille ou l\'entreprise ne passe pas par les liens :</span>'
-      + '<button class="btn sm ls-cache" id="btn-conv-papier" type="button" title="Choisir un élève et sortir sa convention à remplir à la main (PDF). Il passe à « Convention papier » dans le suivi ; une partie qui arriverait par son lien compte quand même.">🖨 Convention papier</button>'
-      + '<span class="hint" style="display:block;margin:12px 0 6px">Supprimer une classe entière du niveau courant :</span>'
-      + noms.map(function (c) { return '<button class="btn ghost sm danger" data-suppr-cl="' + esc(c) + '" title="Supprimer tous les élèves de cette classe">🗑 ' + esc(c) + " (" + classes[c] + ")</button>"; }).join(" ");
+    if (!noms.length) { z.innerHTML = ""; zs.innerHTML = ""; zs.hidden = true; return; }
+    var lib = 'class="hint" style="margin:0 0 0 8px"';
+    z.innerHTML = '<span ' + lib + '>Document de distribution (QR + liens, un PDF par classe à imprimer) :</span>'
+      + noms.map(function (c) { return '<button class="btn sm" data-doc="' + esc(c) + '" title="Générer le PDF récapitulatif des conventions de cette classe">📄 ' + esc(c) + " (" + classes[c] + ")</button>"; }).join("")
+      // L8g-8 (P-1), L8g-9 : la convention papier, ouverte à toute l'équipe (sa mention est rangée dans le nœud « papier »).
+      + '<span ' + lib + ' id="ligne-conv-papier">Convention papier, pour un élève dont la famille ou l\'entreprise ne passe pas par les liens :</span>'
+      + '<button class="btn sm" id="btn-conv-papier" type="button" title="Choisir un élève et sortir sa convention à remplir à la main (PDF). Il passe à « Convention papier » dans le suivi ; une partie qui arriverait par son lien compte quand même.">🖨 Convention papier</button>';
+    zs.innerHTML = '<span class="hint" style="margin:0">Supprimer une classe entière du niveau courant :</span>'
+      + noms.map(function (c) { return '<button class="btn ghost sm danger" data-suppr-cl="' + esc(c) + '" title="Télécharge d\'abord le ZIP de tout ce qui concerne les élèves de cette classe, puis les retire de la liste et efface tout ce qui est rangé sous leur code sur le serveur : parties de la convention, demandes, archive, mention papier. Leurs liens ne marchent plus. Définitif.">🗑 ' + esc(c) + " (" + classes[c] + ")</button>"; }).join("");
+    zs.hidden = false;
     var bcp = z.querySelector("#btn-conv-papier"); if (bcp) bcp.addEventListener("click", ouvrirConventionPapier);
     z.querySelectorAll("[data-doc]").forEach(function (b) {
       b.addEventListener("click", function () { genererDocumentClasse(b.getAttribute("data-doc")); });
     });
-    z.querySelectorAll("[data-suppr-cl]").forEach(function (b) {
+    zs.querySelectorAll("[data-suppr-cl]").forEach(function (b) {
       b.addEventListener("click", function () {
         var c = b.getAttribute("data-suppr-cl"), n = classes[c] || 0;
-        if (confirm("Supprimer la classe « " + c + " » et ses " + n + " élève(s) ?\n\nCette action est définitive et rend leurs liens inactifs.")) {
-          nv().eleves = nv().eleves.filter(function (e) { return (e.classe || "") !== c; });
-          sauverState("suppr-classe"); renderEleves(); toast("Classe « " + c + " » supprimée.");
+        if (confirm("Supprimer la classe « " + c + " » et ses " + n + " élève(s) ?\n\nLe ZIP de tout ce qui les concerne est d'abord téléchargé ; puis tout ce qui est rangé sous leur code est effacé du serveur, et leurs liens ne marchent plus. Cette action est définitive.")) {
+          // R-2 (L8g-10) : le même geste que le retrait d'élèves par l'import (D123) ; avant, la classe quittait la liste sans rien effacer ni marquer retiré.
+          retirerEleves(nv().eleves.filter(function (e) { return (e.classe || "") === c; }), c, function (k) {
+            sauverState("suppr-classe"); renderEleves(); toast("Classe « " + c + " » supprimée : " + k + " élève(s) retiré(s) après le téléchargement du ZIP.");
+          });
         }
       });
     });
@@ -9701,7 +9894,6 @@ window.DEPOUILLEMENT = (function () {
   function nomPapier(el) { return ((el.nom || "") + " " + (el.prenom || "")).trim() || el.code; }
   function recalculerSuivi() { if (window.DEPOUILLEMENT && window.DEPOUILLEMENT.recalculer) window.DEPOUILLEMENT.recalculer(); }
   function ouvrirConventionPapier() {
-    if (estLecteur()) { toast("Lecture seule : les modifications se font depuis le compte de M. Meney.", true); return; }
     var els = (nv().eleves || []).slice().sort(function (a, b) {
       return String(a.classe || "").localeCompare(String(b.classe || ""), "fr") || String(a.nom || "").localeCompare(String(b.nom || ""), "fr") || String(a.prenom || "").localeCompare(String(b.prenom || ""), "fr");
     });
@@ -9746,44 +9938,101 @@ window.DEPOUILLEMENT = (function () {
     fond.hidden = false;
   }
   window.__ouvrirConventionPapier = ouvrirConventionPapier;
+  // L8g-9 : l'élève se cherche dans l'espace ouvert seulement (un code comme 4PYTH-01 existe en test et en réel).
   function eleveDeCode(code) {
     var r = null;
-    ["4e", "3e", "demo"].forEach(function (n) { (((STATE.niveaux || {})[n] || {}).eleves || []).forEach(function (e) { if (!r && e.code === code) r = e; }); });
+    (STATE.niveauActif === "demo" ? ["demo"] : ["4e", "3e"]).forEach(function (n) { (((STATE.niveaux || {})[n] || {}).eleves || []).forEach(function (e) { if (!r && e.code === code) r = e; }); });
     return r;
   }
+  // ===== L8g-9 : la mention « convention papier » dans son nœud à part, que tous les comptes de l'équipe peuvent écrire =====
+  // papier/<espace>/<code> = {ts, par, recue} ou {ts, par, annulee: true}, suivi en direct sur tous les postes (sans rechargement).
+  // Les mentions posées par L8g-8 dans l'état partagé (el.papier) restent lues : entre les deux, la plus récente gagne, annulation comprise.
+  // L'espace de test ne rejoint jamais les données de l'équipe : sa mention reste sur le poste, dans sa liste, comme en L8g-8.
+  var _papierN = {}, _papierEcoute = null, _papierRelance = null;
+  function cleFB(s) { return String(s).replace(/[.#$\[\]\/]/g, "_"); }
+  function instantPapier(m) { return m ? Math.max(+m.ts || 0, +m.recue || 0) : 0; }
+  function marquePapier(el, espace) {
+    if (!el) return null;
+    var a = el.papier && el.papier.ts ? el.papier : null;
+    var n = el.code && espace !== "demo" ? ((_papierN[cleFB(espace || "")] || {})[cleFB(el.code)] || null) : null;
+    if (!n || !n.ts) return a;
+    if (a && instantPapier(a) > instantPapier(n)) return a;
+    return n.annulee ? null : n;
+  }
+  window.__marquePapier = marquePapier;
+  function recalculerQuandLibre() {   // un redessin ne touche jamais une saisie en cours ni une fenêtre ouverte : il attend qu'on les ait quittées
+    clearTimeout(recalculerQuandLibre._t);
+    if (occupe()) { recalculerQuandLibre._t = setTimeout(recalculerQuandLibre, 500); return; }
+    var y = window.scrollY; recalculerSuivi(); window.scrollTo(0, y);
+  }
+  function demarrerPapier() {
+    if (_papierEcoute || !window.FB || !window.FB.ecouterPapier || !(window.FB.utilisateur && window.FB.utilisateur())) return;
+    _papierEcoute = window.FB.ecouterPapier(function (v) {
+      var avant = JSON.stringify(_papierN); _papierN = v || {};
+      if (JSON.stringify(_papierN) !== avant) recalculerQuandLibre();
+    }, function () {
+      // Règles d'avant L2 : le nœud n'existe pas encore. On réessaie chaque minute : dès que Paul publie les règles, le poste suit.
+      _papierEcoute = null; clearTimeout(_papierRelance); _papierRelance = setTimeout(demarrerPapier, 60000);
+    });
+  }
+  // Une mention refusée par la base se dit à l'écran, avec sa raison : rien n'est perdu en silence.
+  function avisPapierRefuse(quoi, err) {
+    var refus = /PERMISSION_DENIED|permission/i.test(String((err && (err.code || err.message)) || err || ""));
+    var fond = $("modal"); fond.classList.remove("large"); var carte = fond.querySelector(".modal"); if (carte) carte.classList.remove("large");
+    $("modal-titre").textContent = "Mention non enregistrée";
+    $("modal-corps").innerHTML = '<p style="margin:0 0 10px">' + esc(quoi) + '</p><p class="mut" style="margin:0">' + esc(refus
+        ? "Pourquoi : la base du collège n'accepte pas encore cette mention depuis ce poste : M. Meney doit d'abord publier les nouvelles règles de la base. Prévenez-le : il peut la noter depuis son compte."
+        : "Pourquoi : la base du collège n'a pas répondu (" + String((err && (err.message || err.code)) || err || "erreur inconnue") + "). Vérifiez la connexion, puis refaites le geste.") + '</p>'
+      + '<div class="sig-actions" style="margin-top:14px;justify-content:flex-start"><button class="btn" id="cp-compris" type="button" title="Ferme ce message.">J\'ai compris</button></div>';
+    $("cp-compris").addEventListener("click", function () { window.__fermerModal(); });
+    fond.hidden = false;
+  }
+  // Toute mention passe d'abord par le nœud « papier ». Refusée (règles d'avant L2) : le compte de Paul retombe sur l'état partagé,
+  // comme en L8g-8 ; un poste en lecture seule le dit à l'écran. Le journal de l'équipe dit qui a sorti, reçu ou annulé.
+  function noterPapier(el, mention, repli, desc, reussi, refuse) {
+    var esp = espaceAnnee();
+    var local = function () { repli(); sauverState("papier", desc); recalculerSuivi(); toast(reussi); };
+    if (esp === "demo") { local(); return; }
+    var u = window.FB && window.FB.utilisateur && window.FB.utilisateur();
+    (u && window.FB.ecrirePapier ? window.FB.ecrirePapier(esp, el.code, mention) : Promise.reject(new Error("Firebase indisponible"))).then(function () {
+      var e = cleFB(esp); _papierN = Object.assign({}, _papierN); _papierN[e] = Object.assign({}, _papierN[e] || {}); _papierN[e][cleFB(el.code)] = mention;
+      if (!_papierEcoute) demarrerPapier();   // les règles viennent d'être publiées : le poste suit le nœud désormais
+      journal("modif", desc);
+      recalculerSuivi(); toast(reussi);
+    }, function (err) {
+      if (!estLecteur()) { local(); return; }
+      avisPapierRefuse(refuse, err);
+    });
+  }
   function sortirConventionPapier(code) {
-    if (estLecteur()) { toast("Lecture seule : les modifications se font depuis le compte de M. Meney.", true); return; }
     var el = (nv().eleves || []).filter(function (e) { return e.code === code; })[0]; if (!el) return;
     if (!(window.SIGNATAIRE && window.SIGNATAIRE.genererConventionComplete)) { toast("Le module de la convention n'a pas pu se charger : rien n'est changé. Rechargez la page.", true); return; }
     var o = { papier: true, nomEleve: ((el.prenom || "") + " " + (el.nom || "")).trim(), naissance: el.naissance || "", classe: el.classe || "", code: el.code,
       annee: espaceAnnee(), data: { ENTREPRISE: {}, PARENTS: {}, ETABLISSEMENT: {} }, sigs: {}, preuves: {}, lieu: 1, provisoire: false };
     try { window.SIGNATAIRE.genererConventionComplete(o); }
     catch (e) { toast("La convention papier n'a pas pu être fabriquée : rien n'est changé.", true); return; }
-    var nom = nomPapier(el);
-    el.papier = { ts: Date.now(), par: auteurCourant(), recue: 0 };   // sortie de nouveau : la marque prend la nouvelle date
+    var nom = nomPapier(el), m = { ts: Date.now(), par: auteurCourant(), recue: 0 };   // sortie de nouveau : la mention prend la nouvelle date
     window.__fermerModal();
-    sauverState("papier", "a sorti la convention papier de " + nom);
-    recalculerSuivi();
-    toast("Convention papier de " + nom + " sortie : il passe à « Convention papier » dans le suivi.");
+    noterPapier(el, m, function () { el.papier = m; }, "a sorti la convention papier de " + nom,
+      "Convention papier de " + nom + " sortie : il passe à « Convention papier » dans le suivi.",
+      "La convention papier de " + nom + " est sortie (le PDF est téléchargé), mais la mention « Convention papier » n'a pas pu être enregistrée : le suivi ne la montre pas.");
   }
   window.__papierRecue = function (code) {
-    if (estLecteur()) { toast("Lecture seule : les modifications se font depuis le compte de M. Meney.", true); return; }
-    var el = eleveDeCode(code); if (!el || !el.papier) return;
-    var nom = nomPapier(el);
-    el.papier = Object.assign({}, el.papier, { recue: Date.now(), recuePar: auteurCourant() });
-    sauverState("papier", "a noté la convention papier de " + nom + " reçue signée");
-    recalculerSuivi();
-    toast("Convention papier de " + nom + " reçue signée : il passe à « Complet (papier) ».");
+    var el = eleveDeCode(code), m = marquePapier(el, espaceAnnee()); if (!el || !m) return;
+    var nom = nomPapier(el), t = Date.now();
+    noterPapier(el, { ts: m.ts, par: m.par || "", recue: t }, function () { el.papier = Object.assign({}, m, { recue: t, recuePar: auteurCourant() }); },
+      "a noté la convention papier de " + nom + " reçue signée",
+      "Convention papier de " + nom + " reçue signée : il passe à « Complet (papier) ».",
+      "La convention papier de " + nom + " n'a pas pu être notée reçue signée : rien n'est changé dans le suivi.");
   };
   window.__papierAnnuler = function (code) {
-    if (estLecteur()) { toast("Lecture seule : les modifications se font depuis le compte de M. Meney.", true); return; }
-    var el = eleveDeCode(code); if (!el || !el.papier) return;
+    var el = eleveDeCode(code), m = marquePapier(el, espaceAnnee()); if (!el || !m) return;
     var nom = nomPapier(el);
     if (!confirm("Annuler la convention papier de " + nom + " ?\n\nLa marque « Convention papier » est retirée : l'élève revient à son état d'avant.")) return;
-    delete el.papier;
-    sauverState("papier", "a annulé la convention papier de " + nom);
-    recalculerSuivi();
-    toast("Convention papier de " + nom + " annulée : l'élève revient à son état d'avant.");
+    noterPapier(el, { ts: Date.now(), par: auteurCourant(), annulee: true }, function () { delete el.papier; },
+      "a annulé la convention papier de " + nom,
+      "Convention papier de " + nom + " annulée : l'élève revient à son état d'avant.",
+      "La convention papier de " + nom + " n'a pas pu être annulée : rien n'est changé dans le suivi.");
   };
 
   // Établit la clé maîtresse à partir de la « clé de chiffrement » d'équipe, puis précharge les clés d'année.
@@ -9819,6 +10068,7 @@ window.DEPOUILLEMENT = (function () {
       demarrerPresence();
       demarrerSignature();
       chargerSignature();
+      demarrerPapier();   // L8g-9 : la mention « convention papier », suivie en direct
       // Trace durable des connexions (la présence, elle, ne dit que « qui est là maintenant »).
       var derniere = +(lsGet(LS_CNX) || 0);
       if (Date.now() - derniere > 3600000) {   // au plus une fois par heure : un rechargement de page n'est pas une nouvelle connexion
@@ -9979,8 +10229,12 @@ window.DEPOUILLEMENT = (function () {
       + '<span class="sel-compte" id="sel-compte"></span></div>'
       + '<div class="sel-ligne">'
       + '<button class="btn sm" id="sel-doc" type="button" title="Fabrique le document de distribution (QR codes et liens) des seuls élèves cochés, à imprimer.">📄 QR codes des élèves cochés</button>'
+      // L8g-9 : les documents de distribution (un par classe) et la convention papier, remontés de sous la liste ; remplis par renderDocsButtons.
+      + '<span id="docs-distribution" style="display:contents"></span>'
       + (estActif("groupe2") ? '<button class="btn sm" id="sel-codes" type="button" title="Fabrique la planche des codes personnels des élèves cochés, à imprimer et découper. Les codes manquants sont créés, puis ne changent plus.">🔑 Codes personnels de la sélection</button>'
-        + '<span class="hint" style="margin:0">Codes personnels : en préparation (espace de test).</span>' : "") + '</div>';
+        + '<span class="hint" style="margin:0">Codes personnels : en préparation (espace de test).</span>' : "") + '</div>'
+      // L8g-9 : la suppression d'une classe entière, sur sa ligne ; absente, libellé compris, sur un poste en lecture seule (ls-cache).
+      + '<div class="sel-ligne ls-cache" id="suppr-classes" hidden></div>';
     $("sel-classe").addEventListener("change", function () { SEL.classe = this.value; renderEleves(); });
     $("sel-tri").addEventListener("change", function () { SEL.tri = this.value; renderEleves(); });
     $("sel-tout").addEventListener("click", function () { vueSelecteur((nv().eleves || []).map(function (e, i) { return { el: e, i: i }; })).forEach(function (v) { SEL.coches[v.el.code] = true; }); renderEleves(); });
@@ -10018,6 +10272,17 @@ window.DEPOUILLEMENT = (function () {
   // ---- Codes personnels : 6 caractères, sans lettres ambiguës (ni O/0, ni I/1/L)
   var ALPHABET_CODE = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
   var _codesPerso = {};   // { annee: { codeEleve: codePersonnel } } — en mémoire seulement, jamais sur le disque
+  // R-2 (L8g-10) : le code personnel d'un élève retiré quitte aussi la liste chiffrée des codes de l'année (codes/<année>). Un refus est dit.
+  function oublierCodesPerso(an, codes) {
+    if (!_maitre || !window.FB || !window.FB.ecrireCodes || !codes.length) return Promise.resolve();
+    delete _codesPerso[an];
+    return chargerCodes(an).then(function (map) {
+      var n = codes.filter(function (c) { return map[c]; }); if (!n.length) return;
+      n.forEach(function (c) { delete map[c]; });
+      return window.CRYPTO.emballerCle(_maitre, JSON.stringify(map)).then(function (p) { return window.FB.ecrireCodes(an, { iv: p.iv, ct: p.ct, v: p.v, ts: Date.now() }); });
+    }).catch(function (e) { delete _codesPerso[an]; toast("Le code personnel de " + codes.join(", ") + " n'a pas pu être retiré de la liste des codes (" + ((e && (e.code || e.message)) || e) + ") : réessayez le retrait.", true); });
+  }
+  window.__codesAvecCodePerso = function (an) { delete _codesPerso[an]; return chargerCodes(an).then(function (m) { return Object.keys(m); }); };
   function tirerCodePerso() {
     var t = new Uint8Array(6); window.crypto.getRandomValues(t);
     var c = ""; for (var i = 0; i < 6; i++) c += ALPHABET_CODE[t[i] % ALPHABET_CODE.length];
@@ -10192,7 +10457,7 @@ window.DEPOUILLEMENT = (function () {
       .then(function () { _photoEnCours = false; });
   }
   var PHOTO_GLOBAUX = ["config", "journal", "etat", "contenus", "remarques", "presence", "signature", "pause", "textes_version", "textes_partages"];   // L8g-5 : le nœud des textes partagés
-  var PHOTO_PAR_ANNEE = ["conventions", "codes", "verif", "demandes", "archive", "dates_officielles", "codes_actifs", "codes_retires", "prefill", "fiches"];
+  var PHOTO_PAR_ANNEE = ["conventions", "codes", "verif", "demandes", "archive", "dates_officielles", "codes_actifs", "codes_retires", "prefill", "fiches", "papier"];   // L8g-9 : la mention papier
   var PHOTO_TECH = ["ts", "v", "f", "tv", "e", "c", "q", "j", "statut"];
   var NON_LISIBLE = "non lisible avec ce compte";
   function construirePhoto() {
@@ -10239,7 +10504,9 @@ window.DEPOUILLEMENT = (function () {
       parAnnee("conventions", function (a, codes) { Object.keys(codes || {}).forEach(function (c) { Object.keys(codes[c] || {}).forEach(function (r) { t.push(element(codes[c][r], function (p) { return ouvrirAnnee(a, p); }).then(function (x) { codes[c][r] = x; })); }); }); });
       parAnnee("demandes", function (a, codes) { Object.keys(codes || {}).forEach(function (c) { Object.keys(codes[c] || {}).forEach(function (r) { t.push(element(codes[c][r], function (p) { return ouvrirAnnee(a, p); }).then(function (x) { codes[c][r] = x; })); }); }); });
       parAnnee("prefill", function (a, l) { Object.keys(l || {}).forEach(function (h) { t.push(element(l[h], function (p) { return ouvrirAnnee(a, p); }).then(function (x) { l[h] = x; })); }); });
-      parAnnee("archive", function (a, l) { Object.keys(l || {}).forEach(function (id) { var rec = l[id]; if (rec && rec.contenu && rec.contenu.ct) t.push(element(rec.contenu, function (p) { return ouvrirAnnee(a, p); }).then(function (x) { rec.contenu = x; })); }); });
+      parAnnee("archive", function (a, l) { Object.keys(l || {}).forEach(function (id) { var rec = l[id]; if (rec && rec.contenu && rec.contenu.ct) t.push(element(rec.contenu, function (p) { return ouvrirAnnee(a, p); }).then(function (x) { rec.contenu = x; }));
+        // X-2 (L8g-10) : la raison, la demande et l'auteur, remis à leur place ; illisibles, ils restent tels quels, et c'est dit.
+        if (rec && rec.prive && rec.prive.ct) t.push(ouvrirAnnee(a, rec.prive).then(function (o) { delete rec.prive; Object.keys(o || {}).forEach(function (k) { rec[k] = o[k]; }); }, function () { rec.prive.illisible = "illisible avec la clé de l'année"; })); }); });
       parAnnee("codes", function (a, p) { if (p && p.ct) t.push(element(p, ouvrirMaitre).then(function (x) { base.codes[a] = x; })); });
       ["etat", "contenus", "signature"].forEach(function (n) { if (base[n] && base[n].ct) t.push(element(base[n], ouvrirMaitre).then(function (x) { base[n] = x; })); });
       ["journal", "remarques"].forEach(function (n) {
@@ -10284,7 +10551,7 @@ window.DEPOUILLEMENT = (function () {
       var ctx = { niveau: n, resolver: resolver, classeDe: function () { return ""; }, datesOff: function (k) { return (dates[k] || []).filter(Boolean).slice().sort(); },
         avisDe: function (code) { return avisDeListe(avis, code); }, demandesCodes: function () { return demandes.map(function (d) { return d.code; }); },
         demandesDe: function (code) { return demandes.filter(function (d) { return d.code === code; }); },
-        elevesDe: function (k) { return ((niveaux[k] || {}).eleves) || []; }, retires: retires };
+        elevesDe: function (k) { return ((niveaux[k] || {}).eleves) || []; }, retires: retires, espace: a };   // L8g-9 : l'espace, pour la mention papier
       out[n] = window.DEPOUILLEMENT && window.DEPOUILLEMENT.conclusions ? window.DEPOUILLEMENT.conclusions(res, ctx) : [];
     });
     return out;
@@ -10388,11 +10655,12 @@ window.DEPOUILLEMENT = (function () {
     return av ? av.charAt(0).toUpperCase() + av.slice(1) : "Gestionnaire";
   }
   // Recense une action dans le journal chiffré (uniquement si le mode collaboratif est actif).
-  function journal(type, desc, details) {
+  function journal(type, desc, details, reel) {
     if (!_maitre || !window.FB || !window.FB.dispo || !window.CRYPTO) return;
     // En espace de test, les manipulations de données ne sont pas journalisées : elles ne concernent personne.
+    // reel (R-2, L8g-10) : un geste sur les vraies données, même fait pendant que l'espace de test est ouvert.
     var horsDonnees = ["connexion", "deconnexion", "remarque", "reponse", "admin", "contenu"];
-    if (STATE.niveauActif === "demo" && horsDonnees.indexOf(type) === -1) return;
+    if (STATE.niveauActif === "demo" && horsDonnees.indexOf(type) === -1 && !reel) return;
     var e = { auteur: auteurCourant(), ts: Date.now(), type: type || "", desc: desc || "" };
     // Le détail exact de chaque modification (quoi, avant, après) : sans lui, l'historique ne dit rien d'utile.
     if (details && details.length) e.details = details;
@@ -10641,6 +10909,19 @@ window.DEPOUILLEMENT = (function () {
   // Une entrée par version mise en ligne, la plus récente en tête. Dates et versions relevées dans l'historique
   // des envois sur GitHub ; descriptions reconstituées. À COMPLÉTER À CHAQUE LIVRAISON (consigne 8 en tête du fichier).
   var NOUVEAUTES = [
+    { date: "11/11/2026", auteur: "Paul Meney", version: "v2026.11.11·L8g-10", points: [
+      "Les liens des élèves : le nom de l'élève, sa date de naissance et les coordonnées des parents passent après le « # » du lien. Ils ne partent plus vers le serveur qui sert la page. Les liens et les QR codes déjà distribués marchent toujours, sans rien perdre : à leur ouverture, l'adresse prend d'elle-même le nouveau format.",
+      "Supprimer un élève ou une classe efface tout ce qui est rangé sous son code sur le serveur, archive et mention papier comprises, après le téléchargement de son ZIP ; le ZIP contient aussi ses parties archivées. Une classe supprimée suit désormais le même chemin qu'un élève : ZIP d'abord, puis ses liens ne marchent plus.",
+      "« Vider l'espace de test » efface aussi les demandes, l'archive et les mentions papier de l'espace de test.",
+      "Ce qui restait sur le serveur d'élèves déjà retirés (parties archivées, mentions papier) est montré dans « élève(s) retiré(s) de la liste dont le retrait n'est pas terminé », comme un élève sorti de la liste sans que son retrait soit allé au bout. Rien ne s'efface de soi-même : « Terminer le retrait » télécharge d'abord le ZIP qui contient tout, mention papier comprise, puis efface ; si le ZIP ne peut pas être fabriqué, rien n'est effacé. L'historique dit ce qui a été effacé.",
+      "L'archive (les parties libérées, les demandes closes) ne garde plus rien en clair : la raison, la demande de refaire (avec le nom de l'élève et celui de l'entreprise) et l'auteur sont chiffrés, comme la partie elle-même. Les entrées plus anciennes sont chiffrées une fois, à l'ouverture de la console de M. Meney, avec une ligne dans l'historique. Le détail de l'élève et son ZIP les montrent comme avant."
+    ] },
+    { date: "11/11/2026", auteur: "Paul Meney", version: "v2026.11.11·L8g-9", points: [
+      "Réglages, « Élèves, liens & QR » : tous les boutons sont en haut de la liste, à côté de « 📄 QR codes des élèves cochés » : les documents de distribution (un par classe) et « 🖨 Convention papier » ; la suppression d'une classe entière sur sa ligne, en dessous. Plus rien sous la liste.",
+      "Convention papier : ouverte à toute l'équipe. Un collègue sort lui-même la convention papier d'un élève, puis la note « reçue signée » ou l'annule, depuis le détail de l'élève dans le suivi. Tous les postes le voient aussitôt, sans recharger ; l'historique dit qui l'a fait.",
+      "Sur le poste d'un collègue, rien d'autre ne change : la suppression d'une classe n'y apparaît pas, et tout le reste reste en lecture seule.",
+      "Tant que les nouvelles règles de la base ne sont pas publiées, un collègue garde son PDF, et un message lui dit que la mention n'a pas pu être enregistrée, et pourquoi. Le compte de M. Meney, lui, fonctionne comme avant."
+    ] },
     { date: "02/11/2026", auteur: "Paul Meney", version: "v2026.11.02·L8g-8", points: [
       "Réglages, « Élèves, liens & QR » : « 🖨 Convention papier ». On choisit l'élève, et sa convention sort en PDF, la même que celle de l'App, avec son nom, sa date de naissance et le collège ; tout le reste se remplit à la main.",
       "Suivi : l'élève passe à « Convention papier », puis à « Complet (papier) » quand on la note reçue signée ; « Annuler la convention papier » le ramène à son état d'avant. Sa checklist : « Ta convention est sur papier : fais-la remplir et signer par ton entreprise et par tes parents, puis rapporte-la au collège. »",
@@ -11559,8 +11840,9 @@ window.DEPOUILLEMENT = (function () {
   }
   window.__majLectureSeule = majLectureSeule;
   (function gardeEcritures() {
-    // Écritures permises à un lecteur : sa présence, une ligne d'historique, une remarque, la signature (réservée à la cheffe par les règles).
-    var LIBRES = { journalPush: 1, presenceMaj: 1, presencePartir: 1, remarquePush: 1, ecrireSignature: 1 };
+    // Écritures permises à un lecteur : sa présence, une ligne d'historique, une remarque, la signature (réservée à la cheffe par les règles),
+    // et (L8g-9) la mention « convention papier », dans son nœud à part.
+    var LIBRES = { journalPush: 1, presenceMaj: 1, presencePartir: 1, remarquePush: 1, ecrireSignature: 1, ecrirePapier: 1 };   // L8g-9 : la mention papier
     if (!window.FB) return;
     Object.keys(window.FB).forEach(function (n) {
       if (LIBRES[n] || typeof window.FB[n] !== "function") return;
@@ -12373,9 +12655,15 @@ window.DEPOUILLEMENT = (function () {
   function ecouterAnnee() {
     _unsubEcoute = window.FB.ecouter(espaceAnnee(), surSnapshot);
     if (window.FB.ecouterDemandes) _unsubDemandes = window.FB.ecouterDemandes(espaceAnnee(), surDemandes);
+    // X-2 (L8g-10) : chaque entrée lue avec sa raison, sa demande et son auteur déchiffrés ; une entrée d'avant, en clair, telle quelle.
+    var jA = 0;
     if (window.FB.ecouterArchive) _unsubArchive = window.FB.ecouterArchive(espaceAnnee(), function (val) {
-      _archive = Object.keys(val || {}).map(function (k) { return val[k]; }).filter(Boolean);
-      if (window.DEPOUILLEMENT && window.DEPOUILLEMENT.rafraichir) window.DEPOUILLEMENT.rafraichir();
+      var j = ++jA, cle = STATE.cles[espaceAnnee()];
+      Promise.all(Object.keys(val || {}).map(function (k) { return val[k]; }).filter(Boolean).map(function (r) { return ouvrirPrive(cle, r); })).then(function (l) {
+        if (j !== jA) return;
+        _archive = l;
+        if (window.DEPOUILLEMENT && window.DEPOUILLEMENT.rafraichir) window.DEPOUILLEMENT.rafraichir();
+      });
     });
   }
   function arreterEcoute() {
@@ -12442,11 +12730,13 @@ window.DEPOUILLEMENT = (function () {
     z.innerHTML = h + '</div>';
   }
   // Archive d'abord, suppression ensuite ; le message n'apparaît qu'une fois le serveur d'accord (D24, D81).
+  // X-2 (L8g-10) : la raison, la demande et l'auteur sont chiffrés avec la clé de l'année ; sans elle, rien n'est archivé ni supprimé.
   function archiverPuis(code, place, motif, demande) {
     var esp = espaceAnnee(), auteur = auteurCourant();
     return window.FB.lirePlace(esp, code, place).then(function (rec) {
       if (!rec) return null;
-      return window.FB.ecrireArchive(esp, { quoi: "partie", code: code, place: place, motif: motif, auteur: auteur, ts: Date.now(), contenu: rec, demande: demande || null })
+      return entreeArchive(STATE.cles[esp], { quoi: "partie", code: code, place: place, motif: motif, auteur: auteur, ts: Date.now(), contenu: rec, demande: demande || null })
+        .then(function (e) { return window.FB.ecrireArchive(esp, e); })
         .then(function () { return window.FB.supprimerPlace(esp, code, place); })
         .then(function () { return rec; });
     });
@@ -12470,7 +12760,9 @@ window.DEPOUILLEMENT = (function () {
   window.__refuserDemande = function (i) {
     var d = _demandes[i]; if (!d || !estAdmin()) return;
     if (!confirm("Clore cette demande sans rien supprimer ?")) return;
-    window.FB.ecrireArchive(espaceAnnee(), { quoi: "demande close", code: d.code, place: d.place, auteur: auteurCourant(), ts: Date.now(), demande: { o: d.o, ts: d.ts } })
+    // X-2 (L8g-10) : la demande close (nom de l'élève, de l'entreprise, raison) et l'auteur sont chiffrés avec la clé de l'année.
+    entreeArchive(STATE.cles[espaceAnnee()], { quoi: "demande close", code: d.code, place: d.place, auteur: auteurCourant(), ts: Date.now(), demande: { o: d.o, ts: d.ts } })
+      .then(function (e) { return window.FB.ecrireArchive(espaceAnnee(), e); })
       .then(function () { return window.FB.supprimerDemande(espaceAnnee(), d.code, d.place); })
       .then(function () { journal("suppression", "a clos sans suppression une demande de refaire (" + d.code + ")"); toast("Demande close."); })
       .catch(function () { toast("Échec : la demande n'a pas été close.", true); });
@@ -12565,7 +12857,7 @@ window.DEPOUILLEMENT = (function () {
     if (esp !== "demo") { toast("Réservé à l'espace de test.", true); return; }
     var libelle = "toutes les conventions de TEST";
     if (!confirm("Supprimer " + libelle + " ?\n\nCette action efface définitivement les nœuds Firebase correspondants et ne peut pas être annulée.")) return;
-    window.FB.viderEspace(esp).then(function () { toast("Conventions supprimées."); })
+    attendreArchive().then(function () { return window.FB.viderEspace(esp); }).then(function () { toast("Conventions supprimées."); })
       .catch(function (e) { toast("Échec : " + (e && e.message ? e.message : "réessayez"), true); });
   };
   window.__retourConsole = function () {
